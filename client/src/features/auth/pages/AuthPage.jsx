@@ -76,7 +76,7 @@ const AuthPage = () => {
               number="3"
               text={
                 <>
-                  Go to{" "}
+                  Go to
                   <span className="font-medium text-gray-900">
                     Linked Devices
                   </span>
@@ -147,8 +147,7 @@ const AuthPage = () => {
 
               {/* PHONE INPUT */}
               <div className="space-y-3">
-                {" "}
-                {/* ROW 1 — Country selector */}{" "}
+                {/* ROW 1 — Country selector */}
                 <select
                   value={country.name}
                   onChange={(e) =>
@@ -159,31 +158,27 @@ const AuthPage = () => {
                   }
                   className="w-full border rounded-lg px-4 py-3 bg-gray-100 outline-none"
                 >
-                  {" "}
                   {countries.map((c) => (
                     <option key={c.name} value={c.name}>
-                      {" "}
-                      {c.name}{" "}
+                      {c.name}
                     </option>
-                  ))}{" "}
-                </select>{" "}
-                {/* ROW 2 — Code + Phone */}{" "}
+                  ))}
+                </select>
+                {/* ROW 2 — Code + Phone */}
                 <div className="flex border rounded-lg overflow-hidden">
-                  {" "}
-                  {/* Country code */}{" "}
+                  {/* Country code */}
                   <div className="flex items-center px-4 bg-gray-50 text-gray-700 border-r">
-                    {" "}
-                    +{country.code}{" "}
-                  </div>{" "}
-                  {/* Phone number */}{" "}
+                    +{country.code}
+                  </div>
+                  {/* Phone number */}
                   <input
                     type="tel"
                     placeholder="Your phone number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="flex-1 px-4 py-3 outline-none"
-                  />{" "}
-                </div>{" "}
+                  />
+                </div>
               </div>
 
               {/* VERIFY NUMBER */}
@@ -239,7 +234,7 @@ const AuthPage = () => {
           )}
 
           <p className="mt-8 text-sm text-gray-500 text-center">
-            Don't have an account?{" "}
+            Don't have an account?
             <span className="text-blue-600 font-medium cursor-pointer hover:underline">
               Get started
             </span>
