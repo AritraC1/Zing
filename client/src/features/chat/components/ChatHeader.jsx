@@ -1,8 +1,9 @@
-import { Phone, Video, Search, Info } from "lucide-react";
+import { Phone, Video, Info } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import UserProfileDetails from "./UserProfileDetails";
+import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 
 const ChatHeader = () => {
   const { selectedChat } = useChat();
@@ -23,7 +24,10 @@ const ChatHeader = () => {
     <>
       <div className="h-16 bg-white border-b flex items-center justify-between px-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-purple-500 text-white flex items-center justify-center">
+          <div
+            className="h-10 w-10 rounded-full text-white flex items-center justify-center"
+            style={{ background: getAvatarGradient(String(selectedChat.id)) }}
+          >
             {selectedChat.name.charAt(0)}
           </div>
 
@@ -59,11 +63,6 @@ const ChatHeader = () => {
             className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 cursor-pointer transition"
           >
             <Info size={18} />
-          </div>
-
-          {/* Search */}
-          <div className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 cursor-pointer transition">
-            <Search size={18} />
           </div>
         </div>
       </div>

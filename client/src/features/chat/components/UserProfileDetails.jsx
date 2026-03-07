@@ -1,7 +1,19 @@
-import React from "react";
-import { X, Phone, Video, BellOff, Archive, Ban, Trash2 } from "lucide-react";
+import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import { useChat } from "../hooks/useChat";
+import {
+  X,
+  Phone,
+  Video,
+  BellOff,
+  Archive,
+  ArrowUpCircle,
+  Ban,
+  Trash2,
+} from "lucide-react";
 
 const UserProfileDetails = ({ chat, onClose }) => {
+  const { archiveChat, unarchiveChat, tab } = useChat();
+
   const media = [
     "https://picsum.photos/200/200?1",
     "https://picsum.photos/200/200?2",
@@ -25,7 +37,14 @@ const UserProfileDetails = ({ chat, onClose }) => {
       <div className="overflow-y-auto flex-1">
         {/* Profile */}
         <div className="flex flex-col items-center py-8">
-          <div className="w-28 h-28 rounded-full bg-linear-to-br from-purple-600 to-pink-500 flex items-center justify-center text-white text-4xl font-semibold shadow-lg">
+          <div
+            className="w-28 h-28 rounded-full flex items-center justify-center text-white text-4xl font-semibold shadow-lg"
+            style={{
+              background: getAvatarGradient(
+                String(chat?.id || chat?.name || ""),
+              ),
+            }}
+          >
             {chat?.name?.charAt(0) || "U"}
           </div>
 
@@ -64,11 +83,27 @@ const UserProfileDetails = ({ chat, onClose }) => {
               bg="bg-yellow-100"
             />
 
-            <ActionItem
-              icon={<Archive size={18} />}
-              label="Archive Chat"
-              bg="bg-orange-100"
-            />
+            {tab === "chats" ? (
+              <ActionItem
+                icon={<Archive size={18} />}
+                label="Archive Chat"
+                bg="bg-orange-100"
+                onClick={() => {
+                  archiveChat(chat.id);
+                  onClose();
+                }}
+              />
+            ) : (
+              <ActionItem
+                icon={<ArrowUpCircle size={18} />}
+                label="Unarchive Chat"
+                bg="bg-green-100"
+                onClick={() => {
+                  unarchiveChat(chat.id);
+                  onClose();
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -111,9 +146,12 @@ const UserProfileDetails = ({ chat, onClose }) => {
   );
 };
 
-const ActionItem = ({ icon, label, bg, text }) => {
+const ActionItem = ({ icon, label, bg, text, onClick }) => {
   return (
-    <div className="flex items-center gap-4 cursor-pointer group">
+    <div
+      onClick={onClick}
+      className="flex items-center gap-4 cursor-pointer group"
+    >
       <div
         className={`w-10 h-10 rounded-lg flex items-center justify-center ${bg}`}
       >

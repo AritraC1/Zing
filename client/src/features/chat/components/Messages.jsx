@@ -1,4 +1,6 @@
+import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
+
 
 const Messages = () => {
 
@@ -7,7 +9,10 @@ const Messages = () => {
   return (
     <div className="flex-1 overflow-y-auto px-10 py-6 space-y-4 bg-[#f8fafc]">
       <div className="flex gap-2">
-        <div className="h-7 w-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">
+        <div
+          className="h-7 w-7 rounded-full text-white flex items-center justify-center text-xs"
+          style={{ background: getAvatarGradient(String(selectedChat.id)) }}
+        >
           {selectedChat.name.charAt(0)}
         </div>
 

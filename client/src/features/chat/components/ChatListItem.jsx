@@ -1,3 +1,4 @@
+import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
 
 const ChatListItem = ({ chat }) => {
@@ -14,7 +15,10 @@ const ChatListItem = ({ chat }) => {
           : ""
       }`}
     >
-      <div className="h-10 w-10 rounded-full bg-blue-500 text-white flex items-center justify-center">
+      <div
+        className="h-10 w-10 rounded-full text-white flex items-center justify-center"
+        style={{ background: getAvatarGradient(String(chat.id)) }}
+      >
         {chat.name.charAt(0)}
       </div>
 

@@ -5,25 +5,30 @@ import Messages from "../components/Messages";
 import MessageInput from "../components/MessageInput";
 
 const ChatPage = () => {
-  const { selectedChat } = useChat();
+  const { selectedChat, tab } = useChat();
+
+  // render message pane for both regular and archived tabs
+  const showConversation = tab === "chats" || tab === "archive";
 
   return (
     <ChatLayout>
-      <div className="flex-1 flex flex-col">
-        {!selectedChat ? (
-          <div className="flex flex-1 items-center justify-center text-gray-400">
-            Select a chat
-          </div>
-        ) : (
-          <>
-            <ChatHeader />
-            <Messages />
-            <MessageInput />
-          </>
-        )}
-      </div>
+      {showConversation && (
+        <div className="flex-1 flex flex-col">
+          {!selectedChat ? (
+            <div className="flex flex-1 items-center justify-center text-gray-400">
+              Select a chat
+            </div>
+          ) : (
+            <>
+              <ChatHeader />
+              <Messages />
+              <MessageInput />
+            </>
+          )}
+        </div>
+      )}
     </ChatLayout>
   );
-}
+};
 
 export default ChatPage;
