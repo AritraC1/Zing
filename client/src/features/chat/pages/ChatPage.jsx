@@ -4,7 +4,7 @@ import ChatHeader from "../components/ChatHeader";
 import Messages from "../components/Messages";
 import MessageInput from "../components/MessageInput";
 
-export default function ChatPage() {
+const ChatPage = () => {
   const { selectedChat } = useChat();
 
   return (
@@ -25,3 +25,5 @@ export default function ChatPage() {
     </ChatLayout>
   );
 }
+
+export default ChatPage;

@@ -3,7 +3,7 @@ import { useChat } from "../hooks/useChat";
 import ChatListItem from "./ChatListItem";
 import { MessageSquarePlus } from "lucide-react";
 
-export default function ChatList() {
+const ChatList = () => {
   const { chats } = useChat();
   const [search, setSearch] = useState("");
 
@@ -40,3 +40,5 @@ export default function ChatList() {
     </div>
   );
 }
+
+export default ChatList

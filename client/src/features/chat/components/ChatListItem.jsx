@@ -1,6 +1,6 @@
 import { useChat } from "../hooks/useChat";
 
-export default function ChatListItem({ chat }) {
+const ChatListItem = ({ chat }) => {
   const { selectedChat, selectChat } = useChat();
 
   return (
@@ -31,3 +31,5 @@ export default function ChatListItem({ chat }) {
     </div>
   );
 }
+
+export default ChatListItem;

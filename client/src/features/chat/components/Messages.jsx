@@ -1,6 +1,6 @@
 import { useChat } from "../hooks/useChat";
 
-export default function Messages() {
+const Messages = () => {
 
   const { selectedChat } = useChat();
 
@@ -26,3 +26,5 @@ export default function Messages() {
     </div>
   );
 }
+
+export default Messages;

@@ -1,7 +1,7 @@
 import { MessageCircle, Phone, Archive, Star, Settings } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 
-export default function IconSidebar() {
+const IconSidebar = () => {
   const { tab, setTab } = useChat();
 
   const tabs = [
@@ -37,3 +37,5 @@ export default function IconSidebar() {
     </div>
   );
 }
+
+export default IconSidebar;
