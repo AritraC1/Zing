@@ -1,7 +1,7 @@
 import { Send, Plus, Mic, X } from "lucide-react";
 import { useRef, useState } from "react";
 
-export default function MessageInput() {
+const MessageInput = () => {
   const fileInputRef = useRef(null);
   const [files, setFiles] = useState([]);
 
@@ -113,4 +113,6 @@ export default function MessageInput() {
       </div>
     </div>
   );
-}
+};
+
+export default MessageInput;
