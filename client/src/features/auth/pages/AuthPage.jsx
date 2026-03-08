@@ -65,7 +65,7 @@ const AuthPage = () => {
 
     toast.success("Login successful");
 
-    navigate("/");
+    navigate("chat");
   };
 
   // RESEND OTP
