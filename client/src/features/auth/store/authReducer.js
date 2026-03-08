@@ -16,11 +16,11 @@ const initialState = {
 
   loading: {
     sendOtp: false,
-    verifyOtp: false
+    verifyOtp: false,
   },
 
-  error: null
-}
+  error: null,
+};
 
 const authSlice = createSlice({
   name: "auth",
@@ -42,12 +42,11 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.token = action.payload;
     },
-    logout: (state) => {
-      state.isAuthenticated = false;
-      state.token = null;
-      state.user = null;
-    }
-  }
+    logout: () => {
+      localStorage.removeItem("token");
+      return initialState;
+    },
+  },
 });
 
 export const {
@@ -56,7 +55,7 @@ export const {
   setOtp,
   setShowOtp,
   loginSuccess,
-  logout
+  logout,
 } = authSlice.actions;
 
 export default authSlice.reducer;
