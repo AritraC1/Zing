@@ -10,20 +10,20 @@ import LandingPage from "../../features/landing/pages/LandingPage";
 const AllRoutes = () => {
   return (
     <Routes>
-      {/* Public Route - Auth */}
+      {/* Public Route */}
       <Route element={<PublicRoutes />}>
-      <Route index element={<LandingPage />} />
+        <Route index element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
       </Route>
 
       {/* All Protected Routes */}
       <Route element={<ProtectedRoutes />}>
         {/* Chat screen */}
-        <Route path="chat" element={<ChatPage />} />
+        <Route path="/chat" element={<ChatPage />} />
 
         {/* Call screen */}
-        <Route path="call" element={<AudioCallPage />} />
-        <Route path="video-call" element={<VideoCallPage />} />
+        <Route path="/call" element={<AudioCallPage />} />
+        <Route path="/video-call" element={<VideoCallPage />} />
       </Route>
     </Routes>
   );
