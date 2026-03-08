@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import PublicRoutes from "./PublicRoutes";
 import AuthPage from "../../features/auth/pages/AuthPage";
-import ProtectedRoutes from "./protectedRoutes";
+import ProtectedRoutes from "./ProtectedRoutes";
 import ChatPage from "../../features/chat/pages/ChatPage";
 import AudioCallPage from "../../features/calls/pages/AudioCallPage";
 import VideoCallPage from "../../features/calls/pages/VideoCallPage";
