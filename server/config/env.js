@@ -5,6 +5,7 @@ class ENV {
   static DB_URL = process.env.DATABASE_URL;
   static REDIS = process.env.REDIS_URL;
   static JWT_SECRET_KEY = process.env.JWT_SECRET;
+  static JWT_REFRESH_SECRET_KEY = process.env.JWT_REFRESH_SECRET;
 }
 
 module.exports = ENV;

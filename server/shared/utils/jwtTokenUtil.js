@@ -1,22 +1,45 @@
 const jwt = require("jsonwebtoken");
 const ENV = require("../../config/env");
 
-const createAccessTokenForUser = (phone_number) => {
+// Generate Access Token
+const createAccessTokenForUser = (phoneNumber) => {
   const payload = {
-    phone_number,
+    phoneNumber,
   };
 
-  const token = jwt.sign(payload, ENV.JWT_SECRET_KEY);
+  const token = jwt.sign(payload, ENV.JWT_SECRET_KEY, {
+    expiresIn: "15m",
+  });
 
   return token;
 };
 
-const validateToken = (token) => {
-    const payload = jwt.verify(token, ENV.JWT_SECRET_KEY);
-    return payload;
-}
+// Generate Refresh Token
+const createRefreshTokenForUser = (phoneNumber) => {
+  const payload = {
+    phoneNumber,
+  };
+
+  const token = jwt.sign(payload, ENV.JWT_REFRESH_SECRET_KEY, {
+    expiresIn: "14d",
+  });
+
+  return token;
+};
+
+// Validate Access Token
+const validateAccessToken = (token) => {
+  return jwt.verify(token, ENV.JWT_SECRET_KEY);
+};
+
+// Validate Refresh Token
+const validateRefreshToken = (token) => {
+  return jwt.verify(token, ENV.JWT_REFRESH_SECRET_KEY);
+};
 
 module.exports = {
-    createAccessTokenForUser,
-    validateToken
+  createAccessTokenForUser,
+  createRefreshTokenForUser,
+  validateAccessToken,
+  validateRefreshToken,
 };
