@@ -71,10 +71,28 @@ const uploadAvatar = async (req, res) => {
       message: "Upload failed",
     });
   }
-}
+};
+
+const fetchUsersByPhone = async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  const user = await UserRepo.findByPhone(phoneNumber);
+
+  if (!user) {
+    return res.status(404).json({
+      message: "User not found",
+    });
+  }
+
+  return res.status(200).json({
+    message: "User found",
+    user,
+  });
+};
 
 module.exports = {
   fetchMyProfile,
   updateProfile,
-  uploadAvatar
+  uploadAvatar,
+  fetchUsersByPhone,
 };

@@ -22,9 +22,15 @@ const requestOtp = async (req, res) => {
       });
     }
 
-    const otp = generateOtp();
     const key = `otp:${phoneNumber}`;
-    await redis.set(key, otp, "EX", 300);
+
+    // Check existing OTP first
+    let otp = await redis.get(key);
+
+    if(!otp) {
+      otp = generateOtp();
+      await redis.set(key, otp, "EX", 300);
+    }
 
     return res.status(200).json({
       message: `OTP Sent to ${phoneNumber}`,
@@ -129,9 +135,15 @@ const resendOtp = async (req, res) => {
       });
     }
 
-    const otp = generateOtp();
     const key = `otp:${phoneNumber}`;
-    await redis.set(key, otp, "EX", 300);
+
+    // Check existing OTP first
+    let otp = await redis.get(key);
+
+    if(!otp) {
+      otp = generateOtp();
+      await redis.set(key, otp, "EX", 300);
+    }
 
     return res.status(200).json({
       message: `OTP Sent to ${phoneNumber}`,
