@@ -12,66 +12,66 @@ const {
 const hashToken = require("../../shared/utils/hash");
 
 // Request OTP
-const requestOtp = async (req, res) => {
-  try {
-    const { phoneNumber } = req.body;
+// const requestOtp = async (req, res) => {
+//   try {
+//     const { phoneNumber } = req.body;
 
-    if (!phoneNumber) {
-      return res.status(400).json({
-        error: "phone number is required",
-      });
-    }
+//     if (!phoneNumber) {
+//       return res.status(400).json({
+//         error: "phone number is required",
+//       });
+//     }
 
-    const key = `otp:${phoneNumber}`;
+//     const key = `otp:${phoneNumber}`;
 
-    // Check existing OTP first
-    let otp = await redis.get(key);
+//     // Check existing OTP first
+//     let otp = await redis.get(key);
 
-    if(!otp) {
-      otp = generateOtp();
-      await redis.set(key, otp, "EX", 300);
-    }
+//     if (!otp) {
+//       otp = generateOtp();
+//       await redis.set(key, otp, "EX", 300);
+//     }
 
-    return res.status(200).json({
-      message: `OTP Sent to ${phoneNumber}`,
-      otp,
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: "Failed to send OTP",
-    });
-  }
-};
+//     return res.status(200).json({
+//       message: `OTP Sent to ${phoneNumber}`,
+//       otp,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       error: "Failed to send OTP",
+//     });
+//   }
+// };
 
 // Verify OTP
 const verifyOtp = async (req, res) => {
   try {
-    const { phoneNumber, otp, deviceId, deviceType } = req.body;
+    const { idToken, deviceId, deviceType } = req.body;
 
-    if (!phoneNumber || !otp || !deviceId || !deviceType) {
+    if (!idToken || !deviceId || !deviceType) {
       return res.status(400).json({
-        error: "phone number, otp, deviceId, and deviceType are required",
+        error: "idToken, deviceId, and deviceType are required",
       });
     }
 
-    // Verify OTP
-    const key = `otp:${phoneNumber}`;
-    const storedOtp = await redis.get(key);
+    // Verify firebase token
+    let phoneNumber;
 
-    if (!storedOtp) {
-      return res.status(400).json({
-        error: "OTP expired or not found",
-      });
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      phoneNumber = decodedToken.phone_number;
+
+      if (!phoneNumber) {
+        return res
+          .status(400)
+          .json({ error: "Phone number not found in token" });
+      }
+    } catch (authError) {
+      console.error("Firebase Token Verification Failed:", authError);
+      return res
+        .status(401)
+        .json({ error: "Invalid or expired Firebase token" });
     }
-
-    // storedOtp comes from redis as a string
-    if (storedOtp !== otp) {
-      return res.status(400).json({
-        error: "Invalid OTP",
-      });
-    }
-
-    await redis.del(key);
 
     // Check if user exists
     let user = await UserRepo.findByPhone(phoneNumber);
@@ -125,36 +125,36 @@ const verifyOtp = async (req, res) => {
 };
 
 // Resend OTP
-const resendOtp = async (req, res) => {
-  try {
-    const { phoneNumber } = req.body;
+// const resendOtp = async (req, res) => {
+//   try {
+//     const { phoneNumber } = req.body;
 
-    if (!phoneNumber) {
-      return res.status(400).json({
-        error: "phone number is required",
-      });
-    }
+//     if (!phoneNumber) {
+//       return res.status(400).json({
+//         error: "phone number is required",
+//       });
+//     }
 
-    const key = `otp:${phoneNumber}`;
+//     const key = `otp:${phoneNumber}`;
 
-    // Check existing OTP first
-    let otp = await redis.get(key);
+//     // Check existing OTP first
+//     let otp = await redis.get(key);
 
-    if(!otp) {
-      otp = generateOtp();
-      await redis.set(key, otp, "EX", 300);
-    }
+//     if (!otp) {
+//       otp = generateOtp();
+//       await redis.set(key, otp, "EX", 300);
+//     }
 
-    return res.status(200).json({
-      message: `OTP Sent to ${phoneNumber}`,
-      otp,
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: "Failed to resend OTP",
-    });
-  }
-};
+//     return res.status(200).json({
+//       message: `OTP Sent to ${phoneNumber}`,
+//       otp,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       error: "Failed to resend OTP",
+//     });
+//   }
+// };
 
 // Refresh access token
 const refreshAccessToken = async (req, res) => {
@@ -266,9 +266,9 @@ const deleteAccount = async (req, res) => {
 };
 
 module.exports = {
-  requestOtp,
+  // requestOtp,
   verifyOtp,
-  resendOtp,
+  // resendOtp,
   refreshAccessToken,
   invalidateRefreshTokenAndLogout,
   uploadSignalProtocolKey,

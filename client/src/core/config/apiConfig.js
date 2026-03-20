@@ -1,7 +1,7 @@
-import Env from "./env";
+import ENV from "./env";
 
 const API_CONFIG = {
-  BASE_URL: Env.baseUrl,
+  BASE_URL: ENV.baseUrl,
   TIMEOUT: 10000,
 };
 

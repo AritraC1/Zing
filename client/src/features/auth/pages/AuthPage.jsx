@@ -7,7 +7,7 @@ import OtpInput from "react-otp-input";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import Step from "../components/Step";
-import Env from "../../../core/config/env";
+import ENV from "../../../core/config/env";
 import {
   setLoginMode,
   setPhone,
@@ -16,8 +16,12 @@ import {
   loginSuccess,
 } from "../store/authReducer";
 
+// --- FIREBASE IMPORTS ---
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { auth } from "../../../core/config/firebaseConfig";
+
 const AuthPage = () => {
-  const qrValue = Env.qrValue;
+  const qrValue = ENV.qrValue;
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -25,6 +29,9 @@ const AuthPage = () => {
 
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [timer, setTimer] = useState(30);
+  
+  // State to store the Firebase confirmation session
+  const [confirmationResult, setConfirmationResult] = useState(null);
 
   // OTP TIMER
   useEffect(() => {
@@ -39,41 +46,98 @@ const AuthPage = () => {
     return () => clearInterval(interval);
   }, [showOtp, timer]);
 
-  // VERIFY PHONE
-  const handleVerifyPhone = () => {
+  // RECAPTCHA INITIALIZATION
+  const setupRecaptcha = (containerId) => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+        size: "invisible",
+      });
+    }
+  };
+
+  // VERIFY PHONE (SEND SMS)
+  const handleVerifyPhone = async () => {
     if (!isValidPhoneNumber(phone)) {
       toast.error("Invalid phone number");
       return;
     }
 
-    dispatch(setShowOtp(true));
-    setTimer(30);
+    try {
+      setupRecaptcha("recaptcha-container");
+      const appVerifier = window.recaptchaVerifier;
 
-    toast.success("OTP sent successfully");
+      const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
+      setConfirmationResult(confirmation);
+      
+      dispatch(setShowOtp(true));
+      setTimer(30);
+      toast.success("OTP sent successfully");
+    } catch (error) {
+      console.error("SMS Error:", error);
+      toast.error("Failed to send SMS. Please check your connection.");
+      
+      // Reset reCAPTCHA if it fails so it can be retried
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+    }
   };
 
-  // SUBMIT OTP
-  const handleSubmitOtp = () => {
+  // SUBMIT OTP (VERIFY & BACKEND LOGIN)
+  const handleSubmitOtp = async () => {
     if (otp.length !== 6) {
       toast.error("Please enter complete OTP");
       return;
     }
 
-    const fakeToken = Env.fakeToken;
-    dispatch(loginSuccess(fakeToken));
-    localStorage.setItem("token", fakeToken);
+    if (!confirmationResult) {
+      toast.error("Session expired. Please request a new OTP.");
+      return;
+    }
 
-    toast.success("Login successful");
+    try {
+      // 1. Verify OTP with Firebase
+      const result = await confirmationResult.confirm(otp);
+      
+      // 2. Get the ID Token (JWT) from Firebase
+      const firebaseIdToken = await result.user.getIdToken();
 
-    navigate("/chat");
+      // 3. Send to YOUR Backend to create a session
+      const response = await fetch(`${ENV.apiBaseUrl}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          idToken: firebaseIdToken,
+          deviceId: "browser-client", 
+          deviceType: "web"
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        dispatch(loginSuccess(data.accessToken));
+        localStorage.setItem("token", data.accessToken);
+        toast.success("Login successful");
+        navigate("/chat");
+      } else {
+        toast.error(data.error || "Backend verification failed");
+      }
+    } catch (error) {
+      console.error("OTP Verification Error:", error);
+      toast.error("Invalid or expired OTP");
+    }
   };
 
   // RESEND OTP
   const handleResendOtp = () => {
     dispatch(setOtp(""));
-    setTimer(30);
-
-    toast.info("OTP resent");
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
+    handleVerifyPhone();
   };
 
   return (
@@ -85,46 +149,15 @@ const AuthPage = () => {
             <h1 className="text-3xl font-semibold text-gray-900">
               Log in to Zing Web
             </h1>
-
             <p className="text-gray-500 mt-2 mb-10">
               Use your phone to securely log into your account.
             </p>
-
             <div className="space-y-7">
               <Step number="1" text="Open the Zing app on your phone" />
-
-              <Step
-                number="2"
-                text={
-                  <>
-                    Tap{" "}
-                    <span className="font-medium text-gray-900">Profile</span>
-                  </>
-                }
-              />
-
-              <Step
-                number="3"
-                text={
-                  <>
-                    Go to{" "}
-                    <span className="font-medium text-gray-900">
-                      Linked Devices
-                    </span>
-                  </>
-                }
-              />
-
-              <Step
-                number="4"
-                text={
-                  loginMode === "qr"
-                    ? "Scan the QR code on this screen"
-                    : "Enter the verification code sent to your phone"
-                }
-              />
+              <Step number="2" text={<>Tap <span className="font-medium text-gray-900">Profile</span></>} />
+              <Step number="3" text={<>Go to <span className="font-medium text-gray-900">Linked Devices</span></>} />
+              <Step number="4" text={loginMode === "qr" ? "Scan the QR code on this screen" : "Enter the verification code sent to your phone"} />
             </div>
-
             <div className="mt-10 flex items-center justify-between text-sm text-gray-600">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -136,25 +169,21 @@ const AuthPage = () => {
                 Stay logged in on this browser
               </label>
             </div>
-
-            <p className="mt-6 text-xs text-gray-400">
-              Keep your phone connected to the internet while using Zing Web.
-            </p>
           </div>
 
           {/* RIGHT SIDE */}
-          <div className="w-full md:w-105 bg-gray-50 flex flex-col items-center justify-center p-10 border-l">
+          <div className="w-full md:w-105 bg-gray-50 flex flex-col items-center justify-center p-10 border-l relative">
+            
+            {/* INVISIBLE RECAPTCHA CONTAINER */}
+            <div id="recaptcha-container"></div>
+
             {/* QR LOGIN */}
             {loginMode === "qr" && (
               <>
                 <div className="bg-white p-6 rounded-2xl shadow-md border">
                   <QRCodeCanvas value={qrValue} size={240} />
                 </div>
-
-                <p className="mt-6 text-sm text-gray-500 text-center">
-                  Scan with your mobile app
-                </p>
-
+                <p className="mt-6 text-sm text-gray-500 text-center">Scan with your mobile app</p>
                 <button
                   onClick={() => {
                     dispatch(setLoginMode("phone"));
@@ -176,7 +205,6 @@ const AuthPage = () => {
                   Log in with phone number
                 </h2>
 
-                {/* PHONE INPUT */}
                 <PhoneInput
                   defaultCountry="IN"
                   international
@@ -232,7 +260,6 @@ const AuthPage = () => {
                       />
                     </div>
 
-                    {/* TIMER / RESEND */}
                     <div className="mt-4 text-center text-sm">
                       {timer > 0 ? (
                         <p className="text-gray-500">Resend OTP in {timer}s</p>

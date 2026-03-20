@@ -1,9 +1,9 @@
 const express = require("express");
 const limiter = require("../../middlewares/rateLimit");
 const {
-  requestOtp,
+  // requestOtp,
   verifyOtp,
-  resendOtp,
+  // resendOtp,
   refreshAccessToken,
   invalidateRefreshTokenAndLogout,
   uploadSignalProtocolKey,
@@ -13,9 +13,9 @@ const {
 
 const router = express.Router();
 
-router.post("/request-otp", limiter, requestOtp);
+// router.post("/request-otp", limiter, requestOtp);
 router.post("/verify-otp", verifyOtp);
-router.post("/resend-otp", limiter, resendOtp);
+// router.post("/resend-otp", limiter, resendOtp);
 router.post("/refresh", refreshAccessToken);
 router.post("/logout", invalidateRefreshTokenAndLogout);
 router.post("/keys/register", uploadSignalProtocolKey);

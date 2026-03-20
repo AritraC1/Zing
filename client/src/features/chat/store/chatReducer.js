@@ -1,34 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-const chats = [
-  {
-    id: 1,
-    name: "Arjun Kapoor",
-    message: "Sure, the meeting's at 4pm!",
-    time: "4:32 PM",
-  },
-  {
-    id: 2,
-    name: "Priya Rao",
-    message: "Can you review this PR?",
-    time: "2:14 PM",
-  },
-  {
-    id: 3,
-    name: "Siddharth M.",
-    message: "Deploy went smooth 🚀",
-    time: "11:58 AM",
-  },
-  {
-    id: 4,
-    name: "Rahul Gupta",
-    message: "Thanks for the update!",
-    time: "Yesterday",
-  },
-];
-
 const initialState = {
-  chats,
+  chats: [],
   archivedChats: [],
   selectedChat: null,
   tab: "chats",
@@ -48,6 +21,15 @@ const chatSlice = createSlice({
       state.selectedChat = action.payload;
     },
 
+    addChat: (state, action) => {
+      const newChat = action.payload;
+
+      const exists = state.chats.some((c) => c.id === newChat.id);
+      if (!exists) {
+        state.chats.push(newChat);
+      }
+    },
+
     // Archive chat
     archiveChat: (state, action) => {
       const chatId = action.payload;
@@ -56,7 +38,12 @@ const chatSlice = createSlice({
 
       if (chatIndex !== -1) {
         const chat = state.chats.splice(chatIndex, 1)[0];
-        state.archivedChats.push(chat);
+
+        // prevent duplicates
+        const exists = state.archivedChats.some((c) => c.id === chatId);
+        if (!exists) {
+          state.archivedChats.push(chat);
+        }
 
         // if the chat being archived is currently selected, clear selection
         if (state.selectedChat?.id === chatId) {
@@ -72,7 +59,12 @@ const chatSlice = createSlice({
       const idx = state.archivedChats.findIndex((c) => c.id === chatId);
       if (idx !== -1) {
         const chat = state.archivedChats.splice(idx, 1)[0];
-        state.chats.push(chat);
+
+        // prevent duplicates
+        const exists = state.chats.some((c) => c.id === chatId);
+        if (!exists) {
+          state.chats.push(chat);
+        }
 
         // if we were viewing the archive tab, switch back to chats and select the chat
         if (state.tab === "archive") {
@@ -84,6 +76,7 @@ const chatSlice = createSlice({
   },
 });
 
-export const { setTab, selectChat, archiveChat, unarchiveChat } = chatSlice.actions;
+export const { setTab, selectChat, addChat, archiveChat, unarchiveChat } =
+  chatSlice.actions;
 
 export default chatSlice.reducer;
