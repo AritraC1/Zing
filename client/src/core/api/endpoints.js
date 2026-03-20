@@ -1,11 +1,10 @@
-import ENV from "../config/env";
-
-const baseUrl = ENV.baseUrl.replace(/\/+$/, "");
-
 const ENDPOINTS = {
   AUTH: {
-    VERIFY_OTP: `${baseUrl}/auth/verify-otp`,
-    REGISTER: `${baseUrl}/auth/register`,
+    VERIFY_OTP: "/auth/verify-otp",
+    REGISTER: "/auth/register",
+  },
+  ME: {
+    CHECK_ME: "/users/me",
   },
 };
 

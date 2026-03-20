@@ -28,6 +28,8 @@ const AuthPage = () => {
 
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [timer, setTimer] = useState(30);
+  const [loadingVerify, setLoadingVerify] = useState(false);
+  const [loadingOtp, setLoadingOtp] = useState(false);
 
   // State to store the Firebase confirmation session
   const [confirmationResult, setConfirmationResult] = useState(null);
@@ -62,6 +64,8 @@ const AuthPage = () => {
     }
 
     try {
+      setLoadingVerify(true);
+
       setupRecaptcha("recaptcha-container");
       const appVerifier = window.recaptchaVerifier;
 
@@ -84,6 +88,8 @@ const AuthPage = () => {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
       }
+    } finally {
+      setLoadingVerify(false);
     }
   };
 
@@ -100,12 +106,14 @@ const AuthPage = () => {
     }
 
     try {
+      setLoadingOtp(true);
+
       const result = await confirmationResult.confirm(otp);
       const firebaseIdToken = await result.user.getIdToken();
 
       const { deviceId, deviceType } = generateDeviceDetails();
 
-      const res = await dispatch(
+      await dispatch(
         verifyOtpThunk({
           idToken: firebaseIdToken,
           deviceId,
@@ -113,17 +121,17 @@ const AuthPage = () => {
         }),
       ).unwrap();
 
-      localStorage.setItem("token", res.token);
-
       toast.success("Login successful");
       navigate("/chat");
     } catch (error) {
       console.error(error);
       toast.error("Invalid or expired OTP");
+    } finally {
+      setLoadingOtp(false);
     }
   };
 
-  // RESEND OTP
+  // Resend OTP
   const handleResendOtp = () => {
     dispatch(setOtp(""));
     if (window.recaptchaVerifier) {
@@ -132,6 +140,15 @@ const AuthPage = () => {
     }
     handleVerifyPhone();
   };
+
+  // Loading Dots
+  const LoadingDots = () => (
+    <div className="flex items-center justify-center gap-1">
+      <span className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
+      <span className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
+      <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
+    </div>
+  );
 
   return (
     <>
@@ -248,9 +265,10 @@ const AuthPage = () => {
                 {!showOtp && (
                   <button
                     onClick={handleVerifyPhone}
-                    className="mt-5 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+                    disabled={loadingVerify}
+                    className="mt-5 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-70 flex items-center justify-center"
                   >
-                    Verify number
+                    {loadingVerify ? <LoadingDots /> : "Verify number"}
                   </button>
                 )}
 
@@ -294,9 +312,10 @@ const AuthPage = () => {
 
                     <button
                       onClick={handleSubmitOtp}
-                      className="mt-5 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+                      disabled={loadingOtp}
+                      className="mt-5 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-70 flex items-center justify-center"
                     >
-                      Submit OTP
+                      {loadingOtp ? <LoadingDots /> : "Submit OTP"}
                     </button>
                   </>
                 )}
