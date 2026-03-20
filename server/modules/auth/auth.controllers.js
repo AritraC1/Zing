@@ -3,13 +3,13 @@ const redis = require("../../config/redis");
 const UserRepo = require("../users/users.repo");
 const SessionRepo = require("../sessions/sessions.repo");
 const DevicesRepo = require("../devices/devices.repo");
-const generateOtp = require("../../shared/utils/generateOTP");
 const {
   createAccessTokenForUser,
   createRefreshTokenForUser,
   validateRefreshToken,
 } = require("../../shared/utils/jwtTokenUtil");
 const hashToken = require("../../shared/utils/hash");
+const admin = require("../../config/firebase");
 
 // Request OTP
 // const requestOtp = async (req, res) => {
