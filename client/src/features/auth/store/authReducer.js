@@ -3,8 +3,6 @@ import { verifyOtpThunk } from "../api/authThunk";
 
 const initialState = {
   isAuthenticated: false,
-  token: null,
-  refreshToken: null,
   user: null,
 
   loginMode: "qr",
@@ -38,10 +36,9 @@ const authSlice = createSlice({
     setShowOtp: (state, action) => {
       state.showOtp = action.payload;
     },
-    logout: () => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
-      return initialState;
+    logout: (state) => {
+      state.isAuthenticated = false;
+      state.user = null;
     },
   },
 
@@ -54,21 +51,9 @@ const authSlice = createSlice({
       })
 
       // SUCCESS
-      .addCase(verifyOtpThunk.fulfilled, (state, action) => {
+      .addCase(verifyOtpThunk.fulfilled, (state) => {
         state.loading.verifyOtp = false;
-
-        // 🛑 GUARD CLAUSE
-        if (!action.payload || !action.payload.accessToken) {
-          state.error = "Invalid server response";
-          return;
-        }
-
         state.isAuthenticated = true;
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
-
-        localStorage.setItem("token", action.payload.accessToken);
-        localStorage.setItem("refreshToken", action.payload.refreshToken);
       })
 
       // FAILURE

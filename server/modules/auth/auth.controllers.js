@@ -1,5 +1,4 @@
 const crypto = require("crypto");
-const redis = require("../../config/redis");
 const UserRepo = require("../users/users.repo");
 const SessionRepo = require("../sessions/sessions.repo");
 const DevicesRepo = require("../devices/devices.repo");
@@ -111,10 +110,24 @@ const verifyOtp = async (req, res) => {
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
+    // Access Token Cookie
+    res.cookie("token", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
+
+    // Refresh token cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
+    });
+
     return res.status(200).json({
       message: "OTP verified",
-      accessToken,
-      refreshToken,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);
@@ -159,7 +172,7 @@ const verifyOtp = async (req, res) => {
 // Refresh access token
 const refreshAccessToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({
@@ -195,9 +208,15 @@ const refreshAccessToken = async (req, res) => {
     // update last used
     await SessionRepo.updateLastUsed(session.id);
 
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000,
+    });
+
     return res.json({
       message: "New access token generated",
-      accessToken: newAccessToken,
     });
   } catch (error) {
     return res.status(403).json({
@@ -209,7 +228,7 @@ const refreshAccessToken = async (req, res) => {
 // Logout
 const invalidateRefreshTokenAndLogout = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
       return res.status(400).json({
@@ -224,13 +243,30 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
     const session = await SessionRepo.findByRefreshTokenHash(refreshTokenHash);
 
     if (!session) {
+      // Still clear cookies
+      res.clearCookie("accessToken");
+      res.clearCookie("refreshToken");
+
       return res.status(404).json({
-        error: "Session not found",
+        message: "Session not found, but logged out on client",
       });
     }
 
     // revoke session
     await SessionRepo.revokeSession(session.id);
+
+    // clear cookies AFTER successful revoke
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    });
 
     return res.json({
       message: "Logged out successfully",

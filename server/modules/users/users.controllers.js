@@ -20,7 +20,8 @@ const fetchMyProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { phoneNumber, newDisplayName } = req.body;
+    const phoneNumber = req.user?.phoneNumber; // from JWT
+    const { newDisplayName } = req.body;
 
     if (!phoneNumber || !newDisplayName) {
       return res.status(404).json({

@@ -45,7 +45,7 @@ const AuthPage = () => {
     return () => clearInterval(interval);
   }, [showOtp, timer]);
 
-  // RECAPTCHA INITIALIZATION
+  // RECAPTCHA Init
   const setupRecaptcha = (containerId) => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
@@ -105,13 +105,15 @@ const AuthPage = () => {
 
       const { deviceId, deviceType } = generateDeviceDetails();
 
-      await dispatch(
+      const res = await dispatch(
         verifyOtpThunk({
           idToken: firebaseIdToken,
           deviceId,
           deviceType,
         }),
       ).unwrap();
+
+      localStorage.setItem("token", res.token);
 
       toast.success("Login successful");
       navigate("/chat");

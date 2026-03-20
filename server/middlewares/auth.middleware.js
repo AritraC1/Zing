@@ -16,17 +16,18 @@ const checkForJwt = (cookieName = "token") => {
     }
 
     if (!token) {
-      return next();
+      return res.status(401).json({
+        message: "Unauthorized: Token missing",
+      });
     }
 
     try {
       const userPayload = validateAccessToken(token);
       req.user = userPayload;
+      return next();
     } catch (error) {
       console.log("Invalid token");
     }
-
-    return next();
   };
 };
 
