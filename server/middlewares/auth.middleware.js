@@ -1,6 +1,6 @@
 const { validateAccessToken } = require("../shared/utils/jwtTokenUtil");
 
-const checkForJwt = (cookieName = "token") => {
+const checkForJwt = (cookieName = "accessToken") => {
   return (req, res, next) => {
     let token = null;
 
@@ -26,7 +26,9 @@ const checkForJwt = (cookieName = "token") => {
       req.user = userPayload;
       return next();
     } catch (error) {
-      console.log("Invalid token");
+      return res.status(401).json({
+        message: "Unauthorized: Invalid token",
+      });
     }
   };
 };

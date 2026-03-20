@@ -3,7 +3,7 @@ const UserRepo = require("./users.repo");
 
 const fetchMyProfile = async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { phoneNumber } = req.user;
 
     const user = await UserRepo.findByPhone(phoneNumber);
 
@@ -20,7 +20,7 @@ const fetchMyProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const phoneNumber = req.user?.phoneNumber; // from JWT
+    const { phoneNumber } = req.user;
     const { newDisplayName } = req.body;
 
     if (!phoneNumber || !newDisplayName) {

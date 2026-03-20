@@ -111,7 +111,7 @@ const verifyOtp = async (req, res) => {
     });
 
     // Access Token Cookie
-    res.cookie("token", accessToken, {
+    res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: true,
       sameSite: "Strict",
