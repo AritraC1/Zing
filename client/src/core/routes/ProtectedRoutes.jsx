@@ -8,22 +8,19 @@ const ProtectedRoutes = () => {
   const [isAuth, setIsAuth] = useState(null);
 
   useEffect(() => {
-  const timer = setTimeout(() => {
     const checkAuth = async () => {
       try {
         await axiosInstance.get(ENDPOINTS.ME.CHECK_ME);
         setIsAuth(true);
       } catch (err) {
+        // Only set false if refresh also failed (interceptor handles refresh)
         console.log("Error: ", err);
         setIsAuth(false);
       }
     };
 
     checkAuth();
-  }, 2000); // 2 second delay
-
-  return () => clearTimeout(timer);
-}, []);
+  }, []);
 
   if (isAuth === null) return <LoadingPage />;
 

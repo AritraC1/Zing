@@ -75,7 +75,13 @@ const uploadAvatar = async (req, res) => {
 };
 
 const fetchUsersByPhone = async (req, res) => {
-  const { phoneNumber } = req.body;
+  const { phoneNumber } = req.query;
+
+  if (!phoneNumber) {
+    return res.status(400).json({
+      message: "Phone number is required",
+    });
+  }
 
   const user = await UserRepo.findByPhone(phoneNumber);
 
@@ -85,9 +91,16 @@ const fetchUsersByPhone = async (req, res) => {
     });
   }
 
+  const formattedUser = {
+    id: user.id,
+    name: user.display_name,
+    phoneNumber: user.phone_number,
+    profilePic: null, // you can map avatar later
+  };
+
   return res.status(200).json({
     message: "User found",
-    user,
+    user: formattedUser,
   });
 };
 

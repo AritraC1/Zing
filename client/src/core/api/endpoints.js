@@ -1,10 +1,14 @@
 const ENDPOINTS = {
   AUTH: {
-    VERIFY_OTP: "/auth/verify-otp",
     REGISTER: "/auth/register",
+    VERIFY_OTP: "/auth/verify-otp",
+    REFRESH_TOKEN: "/auth/refresh",
   },
   ME: {
     CHECK_ME: "/users/me",
+  },
+  USERS: {
+    SEARCH_USER: "/users/search",
   },
 };
 

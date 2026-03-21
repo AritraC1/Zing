@@ -180,6 +180,9 @@ const refreshAccessToken = async (req, res) => {
       });
     }
 
+    // verify jwt
+    const payload = validateRefreshToken(refreshToken);
+
     // hash refresh token
     const refreshTokenHash = hashToken(refreshToken);
 
@@ -198,9 +201,6 @@ const refreshAccessToken = async (req, res) => {
         error: "Session expired",
       });
     }
-
-    // verify jwt
-    const payload = validateRefreshToken(refreshToken);
 
     // generate new access token
     const newAccessToken = createAccessTokenForUser(payload.phoneNumber);

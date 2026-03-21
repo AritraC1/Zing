@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useChat } from "../hooks/useChat";
 import ChatListItem from "./ChatListItem";
 import { MessageSquarePlus } from "lucide-react";
-import AddNewChatPopup from "./AddNewChatPopup";
+import AddNewChatPopup from "../../users/components/AddNewChatPopup";
 
 const ChatList = () => {
   const { chats } = useChat();

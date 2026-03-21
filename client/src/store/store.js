@@ -9,6 +9,7 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist";
+import { injectStore } from "../core/api/axiosInstance";
 
 export const store = configureStore({
   reducer: rootReducer,
@@ -25,3 +26,4 @@ export const store = configureStore({
 });
 
 export const persistor = persistStore(store);
+injectStore(store);
