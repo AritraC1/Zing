@@ -1,7 +1,8 @@
 import { MessageCircle, Phone, Archive, Star, Settings } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useState } from "react";
-import SettingsDialog from "../../auth/components/SettingsDialog";
+import SettingsDialog from "../../profile/components/SettingsDialog";
+
 
 const IconSidebar = () => {
   const { tab, setTab } = useChat();

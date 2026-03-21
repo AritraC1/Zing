@@ -1,27 +1,42 @@
 import { v4 as uuidv4 } from "uuid";
 
 const DEVICE_ID_KEY = "deviceId";
+const isBrowser = typeof window !== "undefined";
 
+// Safely get browser info
 const getBrowserInfo = () => {
-  const userAgent = navigator.userAgent;
+  if (!isBrowser) return {};
 
   return {
-    userAgent,
-    platform: navigator.platform,
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || "unknown",
     language: navigator.language,
   };
 };
 
 const generateDeviceDetails = () => {
-  // Device Id
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-
-  if (!deviceId) {
-    deviceId = uuidv4();
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+  if (!isBrowser) {
+    return {
+      deviceId: null,
+      deviceType: "web",
+      metadata: {},
+    };
   }
 
-  // DeviceType - always web
+  let deviceId;
+
+  try {
+    deviceId = localStorage.getItem(DEVICE_ID_KEY);
+
+    if (!deviceId) {
+      deviceId = uuidv4();
+      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    }
+  } catch (error) {
+    console.error("Error: ", error);
+    deviceId = uuidv4(); // fallback if localStorage fails
+  }
+
   return {
     deviceId,
     deviceType: "web",

@@ -6,6 +6,8 @@ const ENDPOINTS = {
   },
   ME: {
     CHECK_ME: "/users/me",
+    UPDATE_PROFILE: "/users/update-profile",
+    UPLOAD_PROFILE_PIC: "/users/upload-avatar",
   },
   USERS: {
     SEARCH_USER: "/users/search",

@@ -10,6 +10,7 @@ export function getAvatarGradient(seed) {
 
   // map the hash to a hue
   const h1 = Math.abs(hash * 100) % 200;
+  
   // pick a second hue
   const h2 = (h1 + 150) % 100;
 

@@ -1,7 +1,11 @@
 class ENV {
+  // Base url
   static baseUrl = import.meta.env.VITE_BASE_URL;
+
+  // QR Value
   static qrValue = import.meta.env.VITE_QRVALUE;
-  static fakeToken = import.meta.env.VITE_FAKE_TOKEN;
+
+  // Firebase
   static firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
   static firebaseAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
   static firebaseProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;

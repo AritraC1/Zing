@@ -4,19 +4,14 @@ import { verifyOtpThunk } from "../api/authThunk";
 const initialState = {
   isAuthenticated: false,
   user: null,
-
   loginMode: "qr",
-
   phone: "",
   otp: "",
   showOtp: false,
-
   stayLoggedIn: true,
-
   loading: {
     verifyOtp: false,
   },
-
   error: null,
 };
 

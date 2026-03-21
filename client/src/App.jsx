@@ -1,6 +1,6 @@
-import AllRoutes from "./core/routes/AllRoutes";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AllRoutes from "./core/routes/AllRoutes";
 
 function App() {
   return (
@@ -12,7 +12,7 @@ function App() {
         pauseOnHover
         theme="light"
       />
-      
+
       <AllRoutes />
     </>
   );
