@@ -8,7 +8,7 @@ import {
 
 const initialState = {
   isAuthenticated: false,
-  isAuthChecking: true,
+  isAuthChecking: false,
   user: null,
   loginMode: "qr",
   phone: "",
