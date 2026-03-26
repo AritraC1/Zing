@@ -7,7 +7,7 @@ const {
   uploadSignalProtocolKey,
   fetchUsersPublicKey,
   deleteAccount,
-} = require("./auth.controllers");
+} = require("./auth.controller");
 
 const router = express.Router();
 

@@ -5,7 +5,7 @@ const {
   uploadAvatar,
   fetchUsersByPhone,
   onBoardNewUser,
-} = require("./users.controllers");
+} = require("./users.controller");
 const checkForJwt = require("../../middlewares/auth.middleware");
 const upload  = require("../../middlewares/multer.middleware");
 
