@@ -2,8 +2,29 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../core/api/axiosInstance";
 import ENDPOINTS from "../../../core/api/endpoints";
 
+// Complete user onboard
+export const completeUserOnboardThunk = createAsyncThunk(
+  "user/completeOnboard",
+  async ({ displayName, deviceId, deviceType }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.post(ENDPOINTS.USERS.ONBOARD_USER, {
+        displayName,
+        deviceId,
+        deviceType,
+      });
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "unable to complete profile",
+      );
+    }
+  },
+);
+
 // Get My details
-export const getMyDetails = createAsyncThunk(
+export const getMyDetailsThunk = createAsyncThunk(
   "me/myDetails",
   async (_, thunkAPI) => {
     try {

@@ -1,28 +1,23 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useEffect, useState } from "react";
-import axiosInstance from "../api/axiosInstance";
-import ENDPOINTS from "../api/endpoints";
 import LoadingPage from "../../shared/pages/LoadingPage";
+import useAuth from "../../features/auth/hooks/useAuth";
 
 const PublicRoutes = () => {
-  const [isAuth, setIsAuth] = useState(null);
+  const { isAuthenticated, isAuthChecking, user } = useAuth();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        await axiosInstance.get(ENDPOINTS.ME.CHECK_ME);
-        setIsAuth(true);
-      } catch {
-        setIsAuth(false);
-      }
-    };
+  if (isAuthChecking) {
+    return <LoadingPage />;
+  }
 
-    checkAuth();
-  }, []);
+  if (isAuthenticated) {
+    if (user?.isNewUser || !user?.profileCompleted) {
+      return <Navigate to="/onboard" replace />;
+    }
 
-  if (isAuth === null) return <LoadingPage />;
+    return <Navigate to="/chat" replace />;
+  }
 
-  return isAuth ? <Navigate to="/chat" replace /> : <Outlet />;
+  return <Outlet />;
 };
 
 export default PublicRoutes;

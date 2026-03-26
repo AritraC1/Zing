@@ -11,10 +11,11 @@ export const verifyOtpThunk = createAsyncThunk(
         deviceId,
         deviceType,
       });
-
       return res.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || error.message);
+      return thunkAPI.rejectWithValue(
+        error.response?.data || error.message || "OTP verification failed",
+      );
     }
   },
 );

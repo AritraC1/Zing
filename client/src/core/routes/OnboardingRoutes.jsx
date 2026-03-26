@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import LoadingPage from "../../shared/pages/LoadingPage";
 import useAuth from "../../features/auth/hooks/useAuth";
 
-const ProtectedRoutes = () => {
+const OnboardingRoutes = () => {
   const { isAuthenticated, isAuthChecking, user } = useAuth();
 
   if (isAuthChecking) {
@@ -13,12 +13,13 @@ const ProtectedRoutes = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  // Incomplete users must go to onboarding
+  // Only allow users who still need onboarding
   if (user?.isNewUser || !user?.profileCompleted) {
-    return <Navigate to="/onboard" replace />;
+    return <Outlet />;
   }
 
-  return <Outlet />;
+  // If already onboarded, do not allow onboard page
+  return <Navigate to="/chat" replace />;
 };
 
-export default ProtectedRoutes;
+export default OnboardingRoutes;

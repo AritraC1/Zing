@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../auth/store/authReducer";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import ProfileSetupPage from "../pages/ProfileSetupPage";
+import ProfileSetupPage from "./ProfileSetupModal";
 
 const SettingsDialog = ({ open, onClose }) => {
   const navigate = useNavigate();

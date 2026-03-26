@@ -1,116 +1,163 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { updateProfileThunk, uploadAvatarThunk } from "../api/profileThunk";
+import { useNavigate } from "react-router-dom";
+import {
+  completeUserOnboardThunk,
+  getMyDetailsThunk,
+  uploadAvatarThunk,
+} from "../api/profileThunk";
+import { clearUserState } from "../store/profileReducer";
+import generateDeviceDetails from "../../../shared/utils/generateDeviceDetails";
 
-const ProfileSetupPage = ({ isOpen, onClose }) => {
-  const dispatch = useDispatch();
-
-  // correct slice
-  const { loading, user } = useSelector((state) => state.profile);
-
-  const [imagePreview, setImagePreview] = useState(null);
-  const [file, setFile] = useState(null);
+const ProfileSetupPage = () => {
   const [name, setName] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
-  // Pre-fill existing data
-  useEffect(() => {
-    if (user) {
-      // Only update if different
-      if (name !== (user.name || user.displayName || "")) {
-        setName(user.name || user.displayName || "");
-      }
+  const fileInputRef = useRef(null);
 
-      if (imagePreview !== (user.avatar || null)) {
-        setImagePreview(user.avatar || null);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  if (!isOpen) return null;
+  const { loading, error } = useSelector((state) => state.profile);
 
-  const handleImageChange = (e) => {
-    const selectedFile = e.target.files[0];
+  const handleFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
 
-    if (selectedFile) {
-      setFile(selectedFile);
-      setImagePreview(URL.createObjectURL(selectedFile));
-    }
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => setPreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async () => {
+  const handleDrop = (e) => {
+    e.preventDefault();
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  const isReady = name.trim().length >= 4;
+
+  const handleContinue = async () => {
+    if (!isReady || loading) return;
+
     try {
-      // Update name only if changed
-      if (name.trim() && name !== user?.name) {
-        await dispatch(updateProfileThunk({ newDisplayName: name })).unwrap();
+      const { deviceId, deviceType } = generateDeviceDetails();
+
+      // Complete onboarding
+      await dispatch(
+        completeUserOnboardThunk({
+          displayName: name.trim(),
+          deviceId,
+          deviceType,
+        }),
+      ).unwrap();
+
+      // Upload avatar only if selected (optional)
+      if (selectedFile) {
+        await dispatch(uploadAvatarThunk({ file: selectedFile })).unwrap();
       }
 
-      // Upload avatar only if selected
-      if (file) {
-        await dispatch(uploadAvatarThunk({ file })).unwrap();
-      }
+      await dispatch(getMyDetailsThunk());
 
-      onClose();
+      navigate("/chat");
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Profile setup failed:", err);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearUserState());
+    };
+  }, [dispatch]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg w-[90%] max-w-md p-6 relative">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-black text-xl"
-        >
-          ✕
-        </button>
+    <div className="min-h-screen flex items-center justify-center px-4 bg-linear-to-br from-blue-100 via-white to-emerald-100">
+      <div className="w-full max-w-sm backdrop-blur-xl bg-white/70 border border-white/40 shadow-xl rounded-3xl px-8 py-10 flex flex-col items-center gap-7 transition-all duration-300 hover:shadow-2xl">
+        {/* Heading */}
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+            Set up your profile
+          </h1>
+        </div>
 
-        <h2 className="text-xl font-semibold mb-4 text-center">
-          Setup Profile
-        </h2>
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-3 w-full">
+          <div
+            className="cursor-pointer group"
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <div className="relative w-28 h-28 rounded-full p-0.5 bg-linear-to-tr from-blue-500 via-cyan-500 to-emerald-500 transition-transform duration-300 group-hover:scale-105">
+              <div className="w-full h-full rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                {preview ? (
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-gray-400 text-xs">Upload</span>
+                )}
+              </div>
 
-        {/* Image Upload */}
-        <div className="flex flex-col items-center mb-4">
-          <label className="cursor-pointer">
-            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-              {imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt="preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-gray-500 text-sm">Upload</span>
-              )}
+              <div className="absolute inset-0 rounded-full blur-md opacity-0 group-hover:opacity-40 bg-emerald-400 transition"></div>
             </div>
 
             <input
+              ref={fileInputRef}
               type="file"
-              className="hidden"
-              onChange={handleImageChange}
               accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files[0])}
             />
-          </label>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            {preview ? "Change photo" : "Upload photo (optional)"}
+          </p>
         </div>
 
         {/* Name Input */}
-        <input
-          type="text"
-          placeholder="Enter your name"
-          className="w-full border border-gray-300 rounded-lg p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div className="w-full">
+          <input
+            type="text"
+            placeholder="Full name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={40}
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white/80 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+          />
 
-        {/* Submit */}
+          {name.length > 0 && name.trim().length < 4 && (
+            <p className="text-xs text-red-500 mt-2">
+              Display name must be at least 4 characters
+            </p>
+          )}
+
+          {error && (
+            <p className="text-xs text-red-500 mt-2">
+              {typeof error === "string"
+                ? error
+                : error?.message || "Something went wrong"}
+            </p>
+          )}
+        </div>
+
+        {/* CTA */}
         <button
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-          onClick={handleSubmit}
+          disabled={!isReady || loading}
+          onClick={handleContinue}
+          className={`w-full py-3 rounded-xl text-sm font-medium transition-all duration-300
+            ${
+              isReady && !loading
+                ? "bg-blue-600 text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
         >
-          {loading ? "Saving..." : "Save"}
+          {loading ? "Saving..." : "Continue"}
         </button>
       </div>
     </div>

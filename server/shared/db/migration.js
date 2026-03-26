@@ -1,5 +1,4 @@
 const pool = require("../../config/db");
-const tables = require("./tables");
 
 // async function migrate() {
 //   const client = await pool.connect();
@@ -30,7 +29,7 @@ async function migrate() {
 
     await client.query(`
       ALTER TABLE users
-      ALTER COLUMN display_name DROP NOT NULL;
+      ADD COLUMN profile_completed BOOLEAN DEFAULT FALSE;
     `);
 
     await client.query("COMMIT");

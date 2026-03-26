@@ -21,6 +21,19 @@ class UserRepo {
     return result.rows[0];
   }
 
+  // Complete User profile
+  static async completeProfileById(id, displayName) {
+    const query = `
+    UPDATE users
+     SET display_name = $1,
+        profile_completed = true
+      WHERE id = $2
+    RETURNING *
+    `;
+
+    await db.query(query, [displayName, id]);
+  }
+
   // Update user details
   static async updateUser(id, displayName) {
     const query = `

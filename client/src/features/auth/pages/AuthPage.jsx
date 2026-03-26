@@ -95,41 +95,49 @@ const AuthPage = () => {
 
   // Submit OTP
   const handleSubmitOtp = async () => {
-    if (otp.length !== 6) {
-      toast.error("Please enter complete OTP");
-      return;
-    }
+  if (otp.length !== 6) {
+    toast.error("Please enter complete OTP");
+    return;
+  }
 
-    if (!confirmationResult) {
-      toast.error("Session expired. Please request a new OTP.");
-      return;
-    }
+  if (!confirmationResult) {
+    toast.error("Session expired. Please request a new OTP.");
+    return;
+  }
 
-    try {
-      setLoadingOtp(true);
+  try {
+    setLoadingOtp(true);
 
-      const result = await confirmationResult.confirm(otp);
-      const firebaseIdToken = await result.user.getIdToken();
+    const result = await confirmationResult.confirm(otp);
+    const firebaseIdToken = await result.user.getIdToken();
 
-      const { deviceId, deviceType } = generateDeviceDetails();
+    const { deviceId, deviceType } = generateDeviceDetails();
 
-      await dispatch(
-        verifyOtpThunk({
-          idToken: firebaseIdToken,
-          deviceId,
-          deviceType,
-        }),
-      ).unwrap();
+    const res = await dispatch(
+      verifyOtpThunk({
+        idToken: firebaseIdToken,
+        deviceId,
+        deviceType,
+      })
+    ).unwrap();
 
-      toast.success("Login successful");
+    const { isNewUser, profileCompleted } = res;
+
+    toast.success("OTP verified");
+
+    if (isNewUser || !profileCompleted) {
+      navigate("/onboard");
+    } else {
       navigate("/chat");
-    } catch (error) {
-      console.error(error);
-      toast.error("Invalid or expired OTP");
-    } finally {
-      setLoadingOtp(false);
     }
-  };
+
+  } catch (error) {
+    console.error(error);
+    toast.error(error || "Invalid or expired OTP");
+  } finally {
+    setLoadingOtp(false);
+  }
+};
 
   // Resend OTP
   const handleResendOtp = () => {

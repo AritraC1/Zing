@@ -10,6 +10,7 @@ const ENDPOINTS = {
     UPLOAD_PROFILE_PIC: "/users/upload-avatar",
   },
   USERS: {
+    ONBOARD_USER: "/users/onboard",
     SEARCH_USER: "/users/search",
   },
 };

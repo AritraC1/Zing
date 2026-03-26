@@ -75,10 +75,29 @@ const verifyOtp = async (req, res) => {
     // Check if user exists
     let user = await UserRepo.findByPhone(phoneNumber);
 
-    // If user does not exist, create one
-    if (!user) {
+    const isNewUser = !user;
+
+    // If NEW USER → just return (NO session, NO user creation)
+    if (isNewUser) {
       user = await UserRepo.createUser(phoneNumber);
+
+      const onboardingToken = createAccessTokenForUser(phoneNumber);
+
+      res.cookie("accessToken", onboardingToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Strict",
+        maxAge: 10 * 60 * 1000,
+      });
+
+      return res.status(200).json({
+        message: "OTP verified",
+        isNewUser: true,
+        profileCompleted: false,
+      });
     }
+
+    // EXISTING USER → create session
 
     // Generate Token for the user
     const accessToken = createAccessTokenForUser(phoneNumber);
@@ -110,6 +129,8 @@ const verifyOtp = async (req, res) => {
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
+    // Cookies
+
     // Access Token Cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
@@ -128,6 +149,8 @@ const verifyOtp = async (req, res) => {
 
     return res.status(200).json({
       message: "OTP verified",
+      isNewUser: false,
+      profileCompleted: user.profile_completed,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);
@@ -302,9 +325,7 @@ const deleteAccount = async (req, res) => {
 };
 
 module.exports = {
-  // requestOtp,
   verifyOtp,
-  // resendOtp,
   refreshAccessToken,
   invalidateRefreshTokenAndLogout,
   uploadSignalProtocolKey,

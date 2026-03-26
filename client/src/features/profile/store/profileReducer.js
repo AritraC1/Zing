@@ -2,11 +2,10 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   updateProfileThunk,
   uploadAvatarThunk,
-  getMyDetails,
+  completeUserOnboardThunk,
 } from "../api/profileThunk";
 
 const initialState = {
-  user: null,
   loading: false,
   error: null,
   successMessage: null,
@@ -24,17 +23,15 @@ const profileSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-
-      // Get My Details
-      .addCase(getMyDetails.pending, (state) => {
+      // Complete Onboard
+      .addCase(completeUserOnboardThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(getMyDetails.fulfilled, (state, action) => {
+      .addCase(completeUserOnboardThunk.fulfilled, (state) => {
         state.loading = false;
-        state.user = action.payload.data;
       })
-      .addCase(getMyDetails.rejected, (state, action) => {
+      .addCase(completeUserOnboardThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -48,12 +45,6 @@ const profileSlice = createSlice({
       .addCase(updateProfileThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.successMessage = action.payload.message;
-
-        // merge instead of overwrite (safer)
-        state.user = {
-          ...state.user,
-          ...action.payload.data,
-        };
       })
       .addCase(updateProfileThunk.rejected, (state, action) => {
         state.loading = false;
@@ -69,11 +60,6 @@ const profileSlice = createSlice({
       .addCase(uploadAvatarThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.successMessage = action.payload.message;
-
-        // assume response.data = avatar URL or object
-        if (state.user) {
-          state.user.avatar = action.payload.data;
-        }
       })
       .addCase(uploadAvatarThunk.rejected, (state, action) => {
         state.loading = false;
