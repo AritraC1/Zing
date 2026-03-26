@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateProfileThunk, uploadAvatarThunk } from "../api/profileThunk";
 
-const ProfileSetupModal = ({ isOpen, onClose }) => {
+const UpdateProfileModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
 
   // correct slice
@@ -16,7 +16,7 @@ const ProfileSetupModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (user) {
       // Only update if different
-      if (name !== (user.name || user.displayName || "")) {
+      if (name !== (user.name || user.display_name || "")) {
         setName(user.name || user.displayName || "");
       }
 
@@ -68,7 +68,7 @@ const ProfileSetupModal = ({ isOpen, onClose }) => {
         </button>
 
         <h2 className="text-xl font-semibold mb-4 text-center">
-          Setup Profile
+          Update Profile
         </h2>
 
         {/* Image Upload */}
@@ -117,4 +117,4 @@ const ProfileSetupModal = ({ isOpen, onClose }) => {
   );
 };
 
-export default ProfileSetupModal;
+export default UpdateProfileModal;

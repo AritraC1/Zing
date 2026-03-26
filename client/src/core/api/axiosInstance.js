@@ -4,82 +4,64 @@ import { refreshAccessTokenThunk } from "../../features/auth/api/authThunk";
 import { logout } from "../../features/auth/store/authReducer";
 
 // Store Injection
+// We store a reference to Redux store so we can dispatch actions
+// inside Axios interceptors (since hooks can't be used here)
 let _store;
 
 export const injectStore = (store) => {
   _store = store;
 };
 
-// Axios Setup
+// Axios Instance Setup (Creating a custom axios instance with base config)
 const axiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
   withCredentials: true,
   headers: {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json", // Default content type
   },
 });
 
-// Request Interceptor - Adds token to every request
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
+// Token Refresh State Management
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+let isRefreshing = false; // Flag to prevent multiple refresh calls at the same time
+let waitingRequests = []; // Queue to hold requests while token is being refreshed
 
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-// Token Refresh Logic
-let isRefreshing = false; // Tracks whether a token refresh request is already in progress
-let waitingRequests = []; // Stores requests that failed with 401 while refresh is already happening. These requests will be retried later
-
-// Goes through all queued requests, If refresh failed → reject them, If refresh succeeded → resolve them (so they retry) then Clears the queue
+// Resolve or reject all queued requests after refresh attempt
 const resolveQueue = (error) => {
   waitingRequests.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve();
-    }
+    if (error) reject(error);
+    else resolve();
   });
   waitingRequests = [];
 };
 
-// Retry original request with updated token
+// Retry original request — no manual token needed, cookie is sent automatically
 const retryRequest = (originalRequest) => {
-  return axiosInstance({
-    ...originalRequest,
-    headers: {
-      ...originalRequest.headers,
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  });
+  return axiosInstance(originalRequest);
 };
 
-// Response Interceptor - Handles expired tokens (401 errors)
+// Response Interceptor (Handles all responses and errors globally)
 axiosInstance.interceptors.response.use(
   (response) => response,
 
+  // If error occurs, handle it here
   async (err) => {
     const originalRequest = err.config;
 
-    // Basic guards
     if (!originalRequest) return Promise.reject(err);
     if (originalRequest.url.includes("/refresh")) return Promise.reject(err);
     if (err.response?.status !== 401) return Promise.reject(err);
-    if (!_store) return Promise.reject(new err("Store not injected"));
+    if (!_store) return Promise.reject(new Error("Store not injected"));
     if (originalRequest._retry) return Promise.reject(err);
 
+    // Mark request as retried
     originalRequest._retry = true;
 
-    // If refresh already happening → queue this request
+    // If token refresh is already in progress
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
+        // Add request to queue and resolve later
         waitingRequests.push({
           resolve: () => resolve(retryRequest(originalRequest)),
           reject,
@@ -87,24 +69,27 @@ axiosInstance.interceptors.response.use(
       });
     }
 
+    // Start token refresh
     isRefreshing = true;
 
     try {
-      // Refresh token
+      // Dispatch refresh token API call
       await _store.dispatch(refreshAccessTokenThunk()).unwrap();
 
-      // Retry all queued requests
+      // Resolve all queued requests (retry them)
       resolveQueue(null);
 
-      // Retry current request
+      // Retry the original failed request
       return retryRequest(originalRequest);
     } catch (refreshError) {
-      // Fail all queued requests + logout
+      // If refresh fails, reject all queued requests
       resolveQueue(refreshError);
-      _store.dispatch(logout());
 
+      // Log the user out
+      _store.dispatch(logout());
       return Promise.reject(refreshError);
     } finally {
+      // Reset refresh flag
       isRefreshing = false;
     }
   },

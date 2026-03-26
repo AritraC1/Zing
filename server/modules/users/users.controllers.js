@@ -63,7 +63,7 @@ const onBoardNewUser = async (req, res) => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "Strict",
+      sameSite: "None",
       maxAge: 15 * 60 * 1000, // 15 min
     });
 
@@ -71,7 +71,7 @@ const onBoardNewUser = async (req, res) => {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "Strict",
+      sameSite: "None",
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 

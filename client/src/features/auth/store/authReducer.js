@@ -67,13 +67,13 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(verifyOtpThunk.fulfilled, (state, action) => {
-        const data = action.payload?.data || action.payload;
+        const payload = action.payload;
         state.loading.verifyOtp = false;
         state.isAuthenticated = true;
         state.isAuthChecking = false;
         state.user = {
-          ...data,
-          profileCompleted: data.profile_completed,
+          isNewUser: payload.isNewUser,
+          profileCompleted: payload.profileCompleted,
         };
       })
       .addCase(verifyOtpThunk.rejected, (state, action) => {

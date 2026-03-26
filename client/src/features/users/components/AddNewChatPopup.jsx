@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { User } from "lucide-react";
 import { addChat } from "../../chat/store/chatReducer";
 import { searchUserThunk } from "../api/usersThunk";
 import { clearUser } from "../store/usersReducer";
@@ -12,23 +13,22 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
 
   // Debounced search
   useEffect(() => {
-  const delay = setTimeout(() => {
-    const cleaned = "+" + search.replace(/\D/g, "");
+    const delay = setTimeout(() => {
+      if (search.trim().length >= 6) {
+        dispatch(searchUserThunk({ phoneNumber: search.trim() }));
+      } else {
+        dispatch(clearUser());
+      }
+    }, 500);
 
-    if (cleaned.length === 13) {
-      dispatch(searchUserThunk({ phoneNumber: cleaned }));
-    } else {
-      dispatch(clearUser());
-    }
-  }, 500);
-
-  return () => clearTimeout(delay);
-}, [search, dispatch]);
+    return () => clearTimeout(delay);
+  }, [search, dispatch]);
 
   const handleAddChat = (user) => {
     const newChat = {
       id: user.id || crypto.randomUUID(),
       name: user.name,
+      phoneNumber: user.phoneNumber,
       message: "Start chatting...",
       time: "Now",
     };
@@ -62,14 +62,16 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
         {/* Search Input */}
         <input
           type="text"
-          placeholder="Search by phone number..."
+          placeholder="Enter phone number (e.g. 9876543210)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full border rounded-lg px-4 py-2 mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
         {/* States */}
-        {loading && <p className="text-sm text-gray-500">Searching...</p>}
+        {loading && (
+          <p className="text-sm text-gray-500">Searching...</p>
+        )}
 
         {error && (
           <p className="text-sm text-red-500">
@@ -79,7 +81,7 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
           </p>
         )}
 
-        {!loading && search.length >= 10 && !user && (
+        {!loading && !error && search.trim().length >= 6 && !user && (
           <p className="text-sm text-gray-500">No user found</p>
         )}
 
@@ -89,12 +91,20 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
             onClick={() => handleAddChat(user)}
             className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-100 cursor-pointer transition"
           >
-            <img
-              src={user?.profilePic}
-              alt="profile"
-              className="w-12 h-12 rounded-full object-cover"
-            />
+            {/* Avatar */}
+            {user.profilePic ? (
+              <img
+                src={user.profilePic}
+                alt="profile"
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <User size={20} className="text-gray-500" />
+              </div>
+            )}
 
+            {/* Info */}
             <div>
               <p className="font-medium">{user.name}</p>
               <p className="text-sm text-gray-500">{user.phoneNumber}</p>

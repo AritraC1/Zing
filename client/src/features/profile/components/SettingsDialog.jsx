@@ -2,21 +2,17 @@ import { X, LogOut, User } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../auth/store/authReducer";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import ProfileSetupPage from "./ProfileSetupModal";
+// import { useState } from "react";
+// import UpdateProfileModal from "./UpdateProfileModal";
 
 const SettingsDialog = ({ open, onClose }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   // Get both auth + profile data
-  const authUser = useSelector((state) => state.auth.user);
-  const profileUser = useSelector((state) => state.profile.user);
+  const user = useSelector((state) => state.auth.user);
 
-  // Prefer updated profile data
-  const user = profileUser || authUser;
-
-  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  // const [profilePopupOpen, setProfilePopupOpen] = useState(false);
 
   if (!open) return null;
 
@@ -50,8 +46,8 @@ const SettingsDialog = ({ open, onClose }) => {
           {/* Profile Section */}
           <div
             onClick={() => {
-              onClose(); // ✅ close settings
-              setProfilePopupOpen(true);
+              onClose(); // close settings
+              // setProfilePopupOpen(true);
             }}
             className="flex items-center gap-3 px-4 py-4 border-b cursor-pointer hover:bg-gray-50 transition"
           >
@@ -73,10 +69,10 @@ const SettingsDialog = ({ open, onClose }) => {
             {/* User Info */}
             <div className="leading-tight">
               <p className="text-sm font-medium text-gray-800">
-                {user?.name || user?.displayName || "User"}
+                {user?.display_name || "User"}
               </p>
               <p className="text-xs text-gray-500">
-                {user?.phoneNumber || "No phone"}
+                {user?.phone_number || "No phone"}
               </p>
             </div>
           </div>
@@ -95,10 +91,10 @@ const SettingsDialog = ({ open, onClose }) => {
       </div>
 
       {/* Profile Popup */}
-      <ProfileSetupPage
+      {/* <UpdateProfileModal
         isOpen={profilePopupOpen}
         onClose={() => setProfilePopupOpen(false)}
-      />
+      /> */}
     </>
   );
 };

@@ -18,6 +18,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "../../../core/config/firebaseConfig";
 import { verifyOtpThunk } from "../api/authThunk";
 import generateDeviceDetails from "../../../shared/utils/generateDeviceDetails";
+import { getMyDetailsThunk } from "../../profile/api/profileThunk";
 
 const AuthPage = () => {
   const qrValue = ENV.qrValue;
@@ -26,7 +27,6 @@ const AuthPage = () => {
 
   const { loginMode, showOtp, phone, otp } = useSelector((state) => state.auth);
 
-  const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [timer, setTimer] = useState(30);
   const [loadingVerify, setLoadingVerify] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
@@ -95,49 +95,49 @@ const AuthPage = () => {
 
   // Submit OTP
   const handleSubmitOtp = async () => {
-  if (otp.length !== 6) {
-    toast.error("Please enter complete OTP");
-    return;
-  }
-
-  if (!confirmationResult) {
-    toast.error("Session expired. Please request a new OTP.");
-    return;
-  }
-
-  try {
-    setLoadingOtp(true);
-
-    const result = await confirmationResult.confirm(otp);
-    const firebaseIdToken = await result.user.getIdToken();
-
-    const { deviceId, deviceType } = generateDeviceDetails();
-
-    const res = await dispatch(
-      verifyOtpThunk({
-        idToken: firebaseIdToken,
-        deviceId,
-        deviceType,
-      })
-    ).unwrap();
-
-    const { isNewUser, profileCompleted } = res;
-
-    toast.success("OTP verified");
-
-    if (isNewUser || !profileCompleted) {
-      navigate("/onboard");
-    } else {
-      navigate("/chat");
+    if (otp.length !== 6) {
+      toast.error("Please enter complete OTP");
+      return;
     }
 
-  } catch (error) {
-    console.error(error);
-    toast.error(error || "Invalid or expired OTP");
-  } finally {
-    setLoadingOtp(false);
-  }
-};
+    if (!confirmationResult) {
+      toast.error("Session expired. Please request a new OTP.");
+      return;
+    }
+
+    try {
+      setLoadingOtp(true);
+
+      const result = await confirmationResult.confirm(otp);
+      const firebaseIdToken = await result.user.getIdToken();
+
+      const { deviceId, deviceType } = generateDeviceDetails();
+
+      const res = await dispatch(
+        verifyOtpThunk({
+          idToken: firebaseIdToken,
+          deviceId,
+          deviceType,
+        }),
+      ).unwrap();
+
+      const { isNewUser, profileCompleted } = res;
+
+      toast.success("OTP verified");
+
+      if (isNewUser || !profileCompleted) {
+        navigate("/onboard");
+      } else {
+        await dispatch(getMyDetailsThunk());
+        navigate("/chat");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error || "Invalid or expired OTP");
+    } finally {
+      setLoadingOtp(false);
+    }
+  };
 
   // Resend OTP
   const handleResendOtp = () => {
@@ -200,17 +200,6 @@ const AuthPage = () => {
                     : "Enter the verification code sent to your phone"
                 }
               />
-            </div>
-            <div className="mt-10 flex items-center justify-between text-sm text-gray-600">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stayLoggedIn}
-                  onChange={() => setStayLoggedIn(!stayLoggedIn)}
-                  className="accent-blue-600 w-4 h-4"
-                />
-                Stay logged in on this browser
-              </label>
             </div>
           </div>
 
@@ -341,13 +330,6 @@ const AuthPage = () => {
                 </button>
               </div>
             )}
-
-            <p className="mt-8 text-sm text-gray-500 text-center">
-              Don't have an account?{" "}
-              <span className="text-blue-600 font-medium cursor-pointer hover:underline">
-                Get started
-              </span>
-            </p>
           </div>
         </div>
       </div>
