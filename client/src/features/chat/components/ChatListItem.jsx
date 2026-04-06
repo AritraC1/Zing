@@ -4,6 +4,8 @@ import { useChat } from "../hooks/useChat";
 const ChatListItem = ({ chat }) => {
   const { selectedChat, selectChat } = useChat();
 
+  const name = chat.name || chat.phoneNumber || "Chat";
+
   return (
     <div
       onClick={() => selectChat(chat)}
@@ -19,21 +21,21 @@ const ChatListItem = ({ chat }) => {
         className="h-10 w-10 rounded-full text-white flex items-center justify-center"
         style={{ background: getAvatarGradient(String(chat.id)) }}
       >
-        {chat.name.charAt(0)}
+        {name.charAt(0)}
       </div>
 
       <div className="flex-1">
         <div className="flex justify-between text-sm">
-          <span className="font-medium">{chat.name}</span>
-          <span className="text-xs text-gray-400">{chat.time}</span>
+          <span className="font-medium">{name}</span>
+          <span className="text-xs text-gray-400">{chat.time || ""}</span>
         </div>
 
         <div className="text-xs text-gray-500 truncate">
-          {chat.message}
+          {chat.message || ""}
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default ChatListItem;

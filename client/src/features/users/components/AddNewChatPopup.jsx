@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { User } from "lucide-react";
-import { addChat } from "../../chat/store/chatReducer";
+import { addChat, selectChat } from "../../chat/store/chatReducer";
+import { createOrFindChat } from "../../chat/api/chatThunk";
 import { searchUserThunk } from "../api/usersThunk";
 import { clearUser } from "../store/usersReducer";
 
@@ -24,17 +25,31 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
     return () => clearTimeout(delay);
   }, [search, dispatch]);
 
-  const handleAddChat = (user) => {
-    const newChat = {
-      id: user.id || crypto.randomUUID(),
-      name: user.name,
-      phoneNumber: user.phoneNumber,
-      message: "Start chatting...",
-      time: "Now",
-    };
+  const handleAddChat = async (user) => {
+    try {
+      const resultAction = await dispatch(createOrFindChat(user.id));
 
-    dispatch(addChat(newChat));
-    handleClose();
+      if (createOrFindChat.fulfilled.match(resultAction)) {
+        const { conversationId } = resultAction.payload;
+        const name = user.name || user.displayName || user.phoneNumber || "Chat";
+
+        const newChat = {
+          id: conversationId,
+          name,
+          phoneNumber: user.phoneNumber,
+          message: "Start chatting...",
+          time: "Now",
+        };
+
+        dispatch(addChat(newChat));
+        dispatch(selectChat(newChat));
+        handleClose();
+      } else {
+        throw resultAction.payload || "Unable to create chat";
+      }
+    } catch (err) {
+      console.error("Add chat failed", err);
+    }
   };
 
   const handleClose = () => {

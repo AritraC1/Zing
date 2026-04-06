@@ -33,7 +33,7 @@ const chatSlice = createSlice({
       }
     },
 
-    // 🔥 SOCKET: new message
+    // SOCKET: new message
     addMessage: (state, action) => {
       const message = action.payload;
       const convId = message.conversation_id;
@@ -52,7 +52,7 @@ const chatSlice = createSlice({
       }
     },
 
-    // 🔥 SOCKET: read receipt
+    // SOCKET: read receipt
     markMessagesRead: (state, action) => {
       const { conversationId } = action.payload;
 
@@ -64,6 +64,17 @@ const chatSlice = createSlice({
           is_read: true,
         }));
       }
+    },
+
+    // SOCKET: set messages for a conversation (from message_history event)
+    setMessages: (state, action) => {
+      const { conversationId, messages } = action.payload;
+      
+      if (!state.messages[conversationId]) {
+        state.messages[conversationId] = [];
+      }
+      
+      state.messages[conversationId] = messages;
     },
 
     archiveChat: (state, action) => {
@@ -124,14 +135,8 @@ const chatSlice = createSlice({
       })
 
       // CREATE / FIND CHAT
-      .addCase(createOrFindChat.fulfilled, (state, action) => {
-        const { conversationId } = action.payload;
-
-        const exists = state.chats.some((c) => c.id === conversationId);
-
-        if (!exists) {
-          state.chats.unshift({ id: conversationId });
-        }
+      .addCase(createOrFindChat.fulfilled, () => {
+        // do nothing
       })
 
       // FETCH MESSAGES
@@ -172,6 +177,7 @@ export const {
   markMessagesRead,
   archiveChat,
   unarchiveChat,
+  setMessages,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

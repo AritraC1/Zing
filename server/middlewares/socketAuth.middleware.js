@@ -1,7 +1,7 @@
 const cookie = require("cookie");
 const { validateAccessToken } = require("../shared/utils/jwtTokenUtil");
 
-const checkSocketForJwt = (cookieName = "token") => {
+const checkSocketForJwt = (cookieName = "accessToken") => {
   return (socket, next) => {
     let token = null;
 
@@ -31,6 +31,11 @@ const checkSocketForJwt = (cookieName = "token") => {
 
     try {
       const userPayload = validateAccessToken(token);
+
+      if (!userPayload?.id) {
+        return next(new Error("Authentication error: Invalid token payload"));
+      }
+
       socket.user = userPayload;
     } catch (error) {
       console.log("Invalid token");

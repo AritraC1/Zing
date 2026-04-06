@@ -32,7 +32,7 @@ const PORT_NUMBER = ENV.PORT || 3000;
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-io.use(checkSocketForJwt());
+io.use(checkSocketForJwt("accessToken"));
 app.use(cookieParser());
 
 // Routes

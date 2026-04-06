@@ -35,6 +35,20 @@ module.exports = (io) => {
       if (!conversationId || !content?.trim()) return;
 
       try {
+        const participants = await ChatRepo.getParticipants(conversationId);
+
+        if (!participants.length) {
+          throw new Error("Conversation not found");
+        }
+
+        const isParticipant = participants.some(
+          ({ user_id }) => user_id === userId,
+        );
+
+        if (!isParticipant) {
+          throw new Error("You are not a participant in this conversation");
+        }
+
         const message = await MessageRepo.saveMessage(
           conversationId,
           userId,
@@ -42,7 +56,6 @@ module.exports = (io) => {
         );
         await ChatRepo.updateLastMessage(conversationId);
 
-        const participants = await ChatRepo.getParticipants(conversationId);
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
             const recipientSocketId = onlineUsers.get(user_id);
@@ -55,7 +68,7 @@ module.exports = (io) => {
         socket.emit("message_sent", message);
       } catch (err) {
         console.error("send_message error:", err);
-        socket.emit("error", { message: "Failed to send message" });
+        socket.emit("error", { message: err.message || "Failed to send message" });
       }
     });
 

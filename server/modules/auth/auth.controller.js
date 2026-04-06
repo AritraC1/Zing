@@ -81,12 +81,15 @@ const verifyOtp = async (req, res) => {
     if (isNewUser) {
       user = await UserRepo.createUser(phoneNumber);
 
-      const onboardingToken = createAccessTokenForUser(phoneNumber);
+      const onboardingToken = createAccessTokenForUser({
+        id: user.id,
+        phoneNumber,
+      });
 
       res.cookie("accessToken", onboardingToken, {
         httpOnly: true,
-        secure: true,
-        sameSite: "Strict",
+        secure: false,
+        sameSite: "Lax",
         maxAge: 10 * 60 * 1000,
       });
 
@@ -100,8 +103,14 @@ const verifyOtp = async (req, res) => {
     // EXISTING USER → create session
 
     // Generate Token for the user
-    const accessToken = createAccessTokenForUser(phoneNumber);
-    const refreshToken = createRefreshTokenForUser(phoneNumber);
+    const accessToken = createAccessTokenForUser({
+      id: user.id,
+      phoneNumber,
+    });
+    const refreshToken = createRefreshTokenForUser({
+      id: user.id,
+      phoneNumber,
+    });
 
     // hash refresh token
     const refreshTokenHash = hashToken(refreshToken);
@@ -134,16 +143,16 @@ const verifyOtp = async (req, res) => {
     // Access Token Cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      secure: false,
+      sameSite: "Lax",
       maxAge: 15 * 60 * 1000, // 15 min
     });
 
     // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      secure: false,
+      sameSite: "Lax",
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 
@@ -226,15 +235,18 @@ const refreshAccessToken = async (req, res) => {
     }
 
     // generate new access token
-    const newAccessToken = createAccessTokenForUser(payload.phoneNumber);
+    const newAccessToken = createAccessTokenForUser({
+      id: payload.id,
+      phoneNumber: payload.phoneNumber,
+    });
 
     // update last used
     await SessionRepo.updateLastUsed(session.id);
 
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
+      secure: false,
+      sameSite: "Lax",
       maxAge: 15 * 60 * 1000,
     });
 
@@ -281,14 +293,14 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
     // clear cookies AFTER successful revoke
     res.clearCookie("accessToken", {
       httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
+      secure: false,
+      sameSite: "Lax",
     });
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
+      secure: false,
+      sameSite: "Lax",
     });
 
     return res.json({

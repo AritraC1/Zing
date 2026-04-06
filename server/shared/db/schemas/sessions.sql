@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS sessions (
     refresh_token_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ,
     revoked BOOLEAN DEFAULT FALSE,
+    last_used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

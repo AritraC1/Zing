@@ -1,14 +1,21 @@
 import { Send, Plus, Mic, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { useChat } from "../hooks/useChat";
 
 const MessageInput = () => {
-  const fileInputRef = useRef(null);
+  const { sendMessage } = useChat();
+
+  const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
 
+  const fileInputRef = useRef(null);
+
+  // Open file picker
   const handleMediaClick = () => {
     fileInputRef.current.click();
   };
 
+  // Handle file selection
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
 
@@ -20,6 +27,7 @@ const MessageInput = () => {
     setFiles((prev) => [...prev, ...previewFiles]);
   };
 
+  // Remove file
   const removeFile = (index) => {
     const updated = [...files];
     URL.revokeObjectURL(updated[index].preview);
@@ -27,45 +35,59 @@ const MessageInput = () => {
     setFiles(updated);
   };
 
-  const handleUpload = async () => {
-    if (!files.length) return;
+  // Upload files (placeholder for future implementation)
+  // const uploadFiles = async () => {
+  //   if (!files.length) return null;
+  //   const formData = new FormData();
+  //   files.forEach((item) => {
+  //     formData.append("files", item.file);
+  //   });
+  //   try {
+  //     const res = await fetch("/api/upload", {
+  //       method: "POST",
+  //       body: formData,
+  //     });
+  //     const data = await res.json();
+  //     return data; // return uploaded file URLs
+  //   } catch (err) {
+  //     console.error("Upload failed", err);
+  //     return null;
+  //   }
+  // };
 
-    const formData = new FormData();
+  // Send message (text only for now)
+  const handleSend = () => {
+    if (!message.trim()) return;
 
-    files.forEach((item) => {
-      formData.append("files", item.file);
-    });
+    // Send message
+    sendMessage(message);
 
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+    // Reset
+    setMessage("");
+  };
 
-      const data = await res.json();
-      console.log("Uploaded:", data);
-
-      setFiles([]);
-    } catch (err) {
-      console.error("Upload failed", err);
+  // Enter to send
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
   return (
-    <div className="border-t bg-white p-5">
-      {/* Preview Section */}
+    <div className="border-t bg-white p-4">
+      {/* Preview */}
       {files.length > 0 && (
-        <div className="flex gap-3 mb-3 overflow-x-auto">
+        <div className="flex gap-2 mb-2 overflow-x-auto">
           {files.map((item, index) => (
-            <div className="relative w-20 h-20">
+            <div key={index} className="relative">
               <img
                 src={item.preview}
-                className="w-full h-full object-cover rounded-lg"
+                className="w-16 h-16 object-cover rounded"
               />
-
               <button
                 onClick={() => removeFile(index)}
-                className="absolute top-1 right-1 bg-black text-white rounded-full p-1"
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
               >
                 <X size={12} />
               </button>
@@ -74,43 +96,43 @@ const MessageInput = () => {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        {/* Hidden File Input */}
-        <input
-          type="file"
-          multiple
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
-        {/* Media Button */}
-        <button
-          onClick={handleMediaClick}
-          className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
-        >
+      <div className="flex items-center gap-2">
+        {/* File button */}
+        <button onClick={handleMediaClick}>
           <Plus size={20} />
         </button>
 
-        {/* Message Input */}
+        {/* Input */}
         <input
-          placeholder="Type a message"
-          className="flex-1 border rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyPress}
+          placeholder="Type a message..."
+          className="flex-1 border rounded-full px-4 py-2"
         />
 
-        {/* Mic */}
-        <button className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
-          <Mic size={20} />
-        </button>
-
         {/* Send */}
-        <button
-          onClick={handleUpload}
-          className="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600"
+        <button 
+          onClick={handleSend}
+          disabled={!message.trim()}
+          className={`p-2 rounded-full ${
+            message.trim() 
+              ? 'bg-blue-500 text-white hover:bg-blue-600' 
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
-          <Send size={16} />
+          <Send size={20} />
         </button>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+      />
     </div>
   );
 };

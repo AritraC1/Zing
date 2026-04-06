@@ -28,8 +28,14 @@ const onBoardNewUser = async (req, res) => {
     // Create and register sessions and devices for new user
 
     // Generate Token for the user
-    const accessToken = createAccessTokenForUser(phoneNumber);
-    const refreshToken = createRefreshTokenForUser(phoneNumber);
+    const accessToken = createAccessTokenForUser({
+      id: user.id,
+      phoneNumber,
+    });
+    const refreshToken = createRefreshTokenForUser({
+      id: user.id,
+      phoneNumber,
+    });
 
     // hash refresh token
     const refreshTokenHash = hashToken(refreshToken);
@@ -57,21 +63,20 @@ const onBoardNewUser = async (req, res) => {
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
-    // Cookies
+    const isProduction = process.env.NODE_ENV === "production";
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "None" : "Lax",
+      maxAge: 15 * 60 * 1000, // 15 min
+    };
 
     // Access Token Cookie
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      maxAge: 15 * 60 * 1000, // 15 min
-    });
+    res.cookie("accessToken", accessToken, cookieOptions);
 
     // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      ...cookieOptions,
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 

@@ -8,8 +8,16 @@ class MessageRepo {
       VALUES ($1, $2, $3)
       RETURNING *;
     `;
-    const result = await db.query(query, [conversationId, senderId, content]);
-    return result.rows[0];
+
+    try {
+      const result = await db.query(query, [conversationId, senderId, content]);
+      return result.rows[0];
+    } catch (err) {
+      if (err.code === "23503" && err.constraint === "messages_conversation_id_fkey") {
+        throw new Error("Cannot save message: conversation does not exist");
+      }
+      throw err;
+    }
   }
 
   static async getMessagesByConversation(

@@ -23,6 +23,13 @@ const checkForJwt = (cookieName = "accessToken") => {
 
     try {
       const userPayload = validateAccessToken(token);
+
+      if (!userPayload?.id) {
+        return res.status(401).json({
+          message: "Unauthorized: Invalid token payload",
+        });
+      }
+
       req.user = userPayload;
       return next();
     } catch (error) {

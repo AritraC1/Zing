@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { verifyOtpThunk } from "../api/authThunk";
+import { verifyOtpThunk, refreshAccessTokenThunk } from "../api/authThunk";
 import {
   getMyDetailsThunk,
   updateProfileThunk,
@@ -141,6 +141,20 @@ const authSlice = createSlice({
       .addCase(uploadAvatarThunk.rejected, (state, action) => {
         state.loading.uploadAvatar = false;
         state.error = action.payload;
+      })
+
+      // REFRESH ACCESS TOKEN
+      .addCase(refreshAccessTokenThunk.fulfilled, (state) => {
+        // Token refreshed successfully, maintain authentication state
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(refreshAccessTokenThunk.rejected, (state, action) => {
+        // Refresh failed, logout user
+        state.isAuthenticated = false;
+        state.isAuthChecking = false;
+        state.user = null;
+        state.error = action.payload || "Session expired";
       });
   },
 });

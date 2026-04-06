@@ -2,6 +2,9 @@ class ENV {
   // Base url
   static baseUrl = import.meta.env.VITE_BASE_URL;
 
+  // Socket url
+  static socketUrl = import.meta.env.VITE_SOCKET_URL;
+
   // QR Value
   static qrValue = import.meta.env.VITE_QRVALUE;
 

@@ -7,7 +7,15 @@ async function migrate() {
   try {
     await client.query("BEGIN");
 
+    await client.query(tables.users);
+    await client.query(tables.conversations);
+    await client.query(tables.conversation_participants);
+    await client.query(tables.media);
+    await client.query(tables.devices);
+    await client.query(tables.device_prekeys);
+    await client.query(tables.sessions);
     await client.query(tables.messages);
+    await client.query(tables.fk);
 
     await client.query("COMMIT");
 

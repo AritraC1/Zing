@@ -2,8 +2,9 @@ const jwt = require("jsonwebtoken");
 const ENV = require("../../config/env");
 
 // Generate Access Token
-const createAccessTokenForUser = (phoneNumber) => {
+const createAccessTokenForUser = ({ id, phoneNumber }) => {
   const payload = {
+    id,
     phoneNumber,
   };
 
@@ -15,8 +16,9 @@ const createAccessTokenForUser = (phoneNumber) => {
 };
 
 // Generate Refresh Token
-const createRefreshTokenForUser = (phoneNumber) => {
+const createRefreshTokenForUser = ({ id, phoneNumber }) => {
   const payload = {
+    id,
     phoneNumber,
   };
 

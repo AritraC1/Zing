@@ -10,7 +10,7 @@ const ChatList = () => {
   const [open, setOpen] = useState(false);
 
   const filteredChats = chats.filter((chat) =>
-    chat.name.toLowerCase().includes(search.toLowerCase()),
+    (chat.name || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
