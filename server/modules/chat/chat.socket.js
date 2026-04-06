@@ -14,7 +14,6 @@ module.exports = (io) => {
   io.on("connection", (socket) => {
     const userId = socket.user.id; // already attached by checkSocketForJwt middleware
     onlineUsers.set(userId, socket.id);
-    console.log(`User connected: ${userId}`);
 
     // Fetch message history
     socket.on("fetch_messages", async ({ conversationId, offset = 0 }) => {
@@ -33,7 +32,6 @@ module.exports = (io) => {
     // Send Message
     socket.on("send_message", async ({ conversationId, content }) => {
       if (!conversationId || !content?.trim()) {
-        console.error('❌ Invalid send_message:', { conversationId, content });
         return;
       }
 
@@ -57,7 +55,6 @@ module.exports = (io) => {
           userId,
           content,
         );
-        console.log('✅ Message saved to DB:', { messageId: message.id, conversationId });
         
         await ChatRepo.updateLastMessage(conversationId);
 
@@ -66,19 +63,16 @@ module.exports = (io) => {
           if (user_id !== userId) {
             const recipientSocketId = onlineUsers.get(user_id);
             if (recipientSocketId) {
-              console.log('🔴 Sending new_message to recipient:', { recipientSocketId, messageId: message.id });
               io.to(recipientSocketId).emit("new_message", message);
             } else {
-              console.log('⚠️ Recipient not online:', { userId: user_id });
+              console.log('Recipient not online:', { userId: user_id });
             }
           }
         });
 
         // Send confirmation back to sender
-        console.log('✅ Sending message_sent to sender:', { messageId: message.id });
         socket.emit("message_sent", message);
       } catch (err) {
-        console.error("❌ send_message error:", err.message);
         socket.emit("error", { message: err.message || "Failed to send message" });
       }
     });
@@ -107,7 +101,6 @@ module.exports = (io) => {
     // Disconnect
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
-      console.log(`User disconnected: ${userId}`);
     });
   });
 };
