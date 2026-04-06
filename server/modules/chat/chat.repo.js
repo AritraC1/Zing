@@ -32,10 +32,22 @@ class ChatRepo {
 
   static async getUserConversations(userId) {
     const query = `
-    SELECT c.id, c.chat_type, c.created_at, c.last_message_at
+    SELECT 
+      c.id, 
+      c.chat_type, 
+      c.created_at, 
+      c.last_message_at,
+      u.display_name as name,
+      u.phone_number as phoneNumber,
+      u.id as otherUserId
     FROM conversations c
     JOIN conversation_participants cp
       ON c.id = cp.conversation_id
+    JOIN conversation_participants cp_other
+      ON c.id = cp_other.conversation_id
+      AND cp_other.user_id != cp.user_id
+    JOIN users u
+      ON cp_other.user_id = u.id
     WHERE cp.user_id = $1
     ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC;
   `;

@@ -22,6 +22,18 @@ const axiosInstance = axios.create({
   },
 });
 
+axiosInstance.interceptors.request.use((config) => {
+  if (!_store) return config;
+
+  const token = _store.getState()?.auth?.accessToken;
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
 // Token Refresh State Management
 
 let isRefreshing = false; // Flag to prevent multiple refresh calls at the same time

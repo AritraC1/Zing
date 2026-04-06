@@ -5,6 +5,7 @@ const useAuth = () => {
 
   return {
     user: auth.user,
+    accessToken: auth.accessToken,
     isAuthenticated: auth.isAuthenticated,
     isAuthChecking: auth.isAuthChecking,
     loading: auth.loading,

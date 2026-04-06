@@ -10,6 +10,13 @@ const {
 const hashToken = require("../../shared/utils/hash");
 const admin = require("../../config/firebase");
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "None",
+  path: "/",
+};
+
 // Request OTP
 // const requestOtp = async (req, res) => {
 //   try {
@@ -43,6 +50,7 @@ const admin = require("../../config/firebase");
 // };
 
 // Verify OTP
+
 const verifyOtp = async (req, res) => {
   try {
     const { idToken, deviceId, deviceType } = req.body;
@@ -87,9 +95,7 @@ const verifyOtp = async (req, res) => {
       });
 
       res.cookie("accessToken", onboardingToken, {
-        httpOnly: true,
-        secure: false,
-        sameSite: "Lax",
+        ...cookieOptions,
         maxAge: 10 * 60 * 1000,
       });
 
@@ -97,6 +103,7 @@ const verifyOtp = async (req, res) => {
         message: "OTP verified",
         isNewUser: true,
         profileCompleted: false,
+        accessToken: onboardingToken,
       });
     }
 
@@ -142,17 +149,13 @@ const verifyOtp = async (req, res) => {
 
     // Access Token Cookie
     res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000, // 15 min
     });
 
     // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
+      ...cookieOptions,
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 
@@ -160,6 +163,7 @@ const verifyOtp = async (req, res) => {
       message: "OTP verified",
       isNewUser: false,
       profileCompleted: user.profile_completed,
+      accessToken,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);
@@ -202,6 +206,7 @@ const verifyOtp = async (req, res) => {
 // };
 
 // Refresh access token
+
 const refreshAccessToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -244,14 +249,13 @@ const refreshAccessToken = async (req, res) => {
     await SessionRepo.updateLastUsed(session.id);
 
     res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000,
     });
 
     return res.json({
       message: "New access token generated",
+      accessToken: newAccessToken,
     });
   } catch (error) {
     return res.status(403).json({
@@ -292,15 +296,11 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
 
     // clear cookies AFTER successful revoke
     res.clearCookie("accessToken", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
+      ...cookieOptions,
     });
 
     res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
+      ...cookieOptions,
     });
 
     return res.json({

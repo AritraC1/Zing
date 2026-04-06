@@ -24,8 +24,11 @@ const checkSocketForJwt = (cookieName = "accessToken") => {
       token = cookies[cookieName];
     }
 
-    // IF there is no toke, reject connection
+    // IF there is no token, reject connection
     if (!token) {
+      console.log(
+        "Socket authentication failed: no token found in auth payload, authorization header, or cookies",
+      );
       return next(new Error("Authentication error: Token missing"));
     }
 

@@ -4,9 +4,14 @@ const db = require("../../config/db");
 class MessageRepo {
   static async saveMessage(conversationId, senderId, content) {
     const query = `
-      INSERT INTO messages (conversation_id, sender_id, content)
-      VALUES ($1, $2, $3)
-      RETURNING *;
+      WITH inserted AS (
+        INSERT INTO messages (conversation_id, sender_id, content)
+        VALUES ($1, $2, $3)
+        RETURNING *
+      )
+      SELECT inserted.*, u.display_name AS sender_name
+      FROM inserted
+      JOIN users u ON inserted.sender_id = u.id;
     `;
 
     try {
@@ -26,7 +31,7 @@ class MessageRepo {
     offset = 0,
   ) {
     const query = `
-      SELECT m.*, u.username AS sender_username
+      SELECT m.*, u.display_name AS sender_name
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       WHERE m.conversation_id = $1

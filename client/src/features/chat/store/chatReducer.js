@@ -36,13 +36,22 @@ const chatSlice = createSlice({
     // SOCKET: new message
     addMessage: (state, action) => {
       const message = action.payload;
+      if (!message || !message.id || !message.conversation_id) {
+        console.warn('Invalid message received:', message);
+        return;
+      }
+      
       const convId = message.conversation_id;
 
       if (!state.messages[convId]) {
         state.messages[convId] = [];
       }
 
-      state.messages[convId].push(message);
+      // Avoid duplicate messages
+      const isDuplicate = state.messages[convId].some(m => m.id === message.id);
+      if (!isDuplicate) {
+        state.messages[convId].push(message);
+      }
 
       // move chat to top
       const chatIndex = state.chats.findIndex((c) => c.id === convId);
@@ -70,11 +79,16 @@ const chatSlice = createSlice({
     setMessages: (state, action) => {
       const { conversationId, messages } = action.payload;
       
+      if (!conversationId || !Array.isArray(messages)) {
+        console.warn('Invalid setMessages payload:', action.payload);
+        return;
+      }
+      
       if (!state.messages[conversationId]) {
         state.messages[conversationId] = [];
       }
       
-      state.messages[conversationId] = messages;
+      state.messages[conversationId] = messages.filter(m => m && m.id);
     },
 
     archiveChat: (state, action) => {
@@ -122,16 +136,26 @@ const chatSlice = createSlice({
       // FETCH CONVERSATIONS
       .addCase(fetchMyChats.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchMyChats.fulfilled, (state, action) => {
         state.loading = false;
 
-        // replace chats (you can merge if needed)
-        state.chats = action.payload;
+        // Handle both response formats
+        let chatList = [];
+        if (action.payload?.conversations && Array.isArray(action.payload.conversations)) {
+          chatList = action.payload.conversations;
+        } else if (Array.isArray(action.payload)) {
+          chatList = action.payload;
+        }
+        
+        console.log('Chats loaded:', chatList);
+        state.chats = chatList;
       })
       .addCase(fetchMyChats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        console.error('Failed to fetch chats:', action.payload);
       })
 
       // CREATE / FIND CHAT

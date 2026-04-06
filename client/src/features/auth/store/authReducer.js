@@ -10,6 +10,7 @@ const initialState = {
   isAuthenticated: false,
   isAuthChecking: false,
   user: null,
+  accessToken: null,
   loginMode: "qr",
   phone: "",
   otp: "",
@@ -44,6 +45,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isAuthChecking = false;
       state.user = null;
+      state.accessToken = null;
       state.error = null;
       state.phone = "";
       state.otp = "";
@@ -75,6 +77,7 @@ const authSlice = createSlice({
           isNewUser: payload.isNewUser,
           profileCompleted: payload.profileCompleted,
         };
+        state.accessToken = payload.accessToken || state.accessToken;
       })
       .addCase(verifyOtpThunk.rejected, (state, action) => {
         state.loading.verifyOtp = false;
@@ -144,16 +147,18 @@ const authSlice = createSlice({
       })
 
       // REFRESH ACCESS TOKEN
-      .addCase(refreshAccessTokenThunk.fulfilled, (state) => {
+      .addCase(refreshAccessTokenThunk.fulfilled, (state, action) => {
         // Token refreshed successfully, maintain authentication state
         state.isAuthenticated = true;
         state.error = null;
+        state.accessToken = action.payload?.accessToken || state.accessToken;
       })
       .addCase(refreshAccessTokenThunk.rejected, (state, action) => {
         // Refresh failed, logout user
         state.isAuthenticated = false;
         state.isAuthChecking = false;
         state.user = null;
+        state.accessToken = null;
         state.error = action.payload || "Session expired";
       });
   },

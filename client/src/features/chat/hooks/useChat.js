@@ -7,7 +7,9 @@ import {
   addMessage,
   setMessages,
 } from "../store/chatReducer";
+import { fetchMyChats } from "../api/chatThunk";
 import { useSocket } from "../../../shared/hooks/useSocket";
+import useAuth from "../../auth/hooks/useAuth";
 import { useEffect } from "react";
 
 export const useChat = () => {
@@ -15,43 +17,80 @@ export const useChat = () => {
   const { chats, archivedChats, selectedChat, tab, messages: allMessages } = useSelector(
     (state) => state.chat,
   );
-  const { socket, emit, on, off } = useSocket();
+  const { socket, emit, on, off, isConnected } = useSocket();
+  const { isAuthenticated } = useAuth();
 
   // Listen for new messages
   useEffect(() => {
-    if (socket) {
-      const handleNewMessage = (message) => {
+    if (!socket) return;
+
+    const handleNewMessage = (message) => {
+      if (message && message.id) {
+        console.log('🔴 New message received (from other user):', message);
         dispatch(addMessage(message));
-      };
+      }
+    };
 
-      const handleMessageHistory = (data) => {
-        dispatch(setMessages({ conversationId: data.conversationId, messages: data.messages }));
-      };
+    const handleMessageSent = (message) => {
+      if (message && message.id) {
+        console.log('✅ Message sent (confirmation):', message);
+        dispatch(addMessage(message));
+      }
+    };
 
-      on("new_message", handleNewMessage);
-      on("message_history", handleMessageHistory);
+    const handleMessageHistory = (data) => {
+      if (data && data.conversationId) {
+        console.log('📜 Message history loaded:', data.messages?.length, 'messages');
+        const messages = Array.isArray(data.messages) ? data.messages : [];
+        dispatch(setMessages({ conversationId: data.conversationId, messages }));
+      }
+    };
 
-      return () => {
-        off("new_message", handleNewMessage);
-        off("message_history", handleMessageHistory);
-      };
-    }
-  }, [socket, dispatch, on, off]);
+    socket.on("new_message", handleNewMessage);
+    socket.on("message_sent", handleMessageSent);
+    socket.on("message_history", handleMessageHistory);
 
-  // Fetch messages when chat is selected
+    return () => {
+      socket.off("new_message", handleNewMessage);
+      socket.off("message_sent", handleMessageSent);
+      socket.off("message_history", handleMessageHistory);
+    };
+  }, [socket, dispatch]);
+
+  // Fetch messages when chat is selected or socket becomes connected
   useEffect(() => {
-    if (selectedChat && socket) {
-      emit("fetch_messages", { conversationId: selectedChat.id });
+    if (!selectedChat || !socket || !isConnected) return;
+
+    console.log('📡 Fetching messages for selected chat:', selectedChat.id);
+    emit("fetch_messages", { conversationId: selectedChat.id });
+  }, [selectedChat, socket, isConnected, emit]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchMyChats());
     }
-  }, [selectedChat, socket, emit]);
+  }, [dispatch, isAuthenticated]);
 
   const sendMessage = (content) => {
-    if (selectedChat && content.trim()) {
-      emit("send_message", {
-        conversationId: selectedChat.id,
-        content: content.trim(),
-      });
+    if (!selectedChat) {
+      console.error('❌ Cannot send - no chat selected');
+      return;
     }
+    if (!content || !content.trim()) {
+      console.error('❌ Cannot send - empty content');
+      return;
+    }
+    
+    console.log('📤 Sending message:', {
+      conversationId: selectedChat.id,
+      content: content.trim(),
+      hasSocket: !!socket,
+    });
+    
+    emit("send_message", {
+      conversationId: selectedChat.id,
+      content: content.trim(),
+    });
   };
 
   const markAsRead = () => {

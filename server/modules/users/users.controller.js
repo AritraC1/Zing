@@ -67,7 +67,8 @@ const onBoardNewUser = async (req, res) => {
     const cookieOptions = {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "None" : "Lax",
+      sameSite: "None",
+      path: "/",
       maxAge: 15 * 60 * 1000, // 15 min
     };
 

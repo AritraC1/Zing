@@ -4,7 +4,14 @@ import { useChat } from "../hooks/useChat";
 const ChatListItem = ({ chat }) => {
   const { selectedChat, selectChat } = useChat();
 
-  const name = chat.name || chat.phoneNumber || "Chat";
+  if (!chat || !chat.id) {
+    console.warn('Invalid chat object:', chat);
+    return null;
+  }
+
+  const name = chat.name || chat.displayName || chat.phoneNumber || "Chat";
+  
+  console.log('Rendering chat:', { id: chat.id, name, hasName: !!chat.name });
 
   return (
     <div
@@ -18,15 +25,15 @@ const ChatListItem = ({ chat }) => {
       }`}
     >
       <div
-        className="h-10 w-10 rounded-full text-white flex items-center justify-center"
+        className="h-10 w-10 rounded-full text-white flex items-center justify-center font-bold"
         style={{ background: getAvatarGradient(String(chat.id)) }}
       >
-        {name.charAt(0)}
+        {String(name).charAt(0).toUpperCase()}
       </div>
 
       <div className="flex-1">
         <div className="flex justify-between text-sm">
-          <span className="font-medium">{name}</span>
+          <span className="font-medium truncate">{name}</span>
           <span className="text-xs text-gray-400">{chat.time || ""}</span>
         </div>
 

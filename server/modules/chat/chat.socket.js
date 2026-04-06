@@ -32,7 +32,10 @@ module.exports = (io) => {
 
     // Send Message
     socket.on("send_message", async ({ conversationId, content }) => {
-      if (!conversationId || !content?.trim()) return;
+      if (!conversationId || !content?.trim()) {
+        console.error('❌ Invalid send_message:', { conversationId, content });
+        return;
+      }
 
       try {
         const participants = await ChatRepo.getParticipants(conversationId);
@@ -54,20 +57,28 @@ module.exports = (io) => {
           userId,
           content,
         );
+        console.log('✅ Message saved to DB:', { messageId: message.id, conversationId });
+        
         await ChatRepo.updateLastMessage(conversationId);
 
+        // Emit to other participants
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
             const recipientSocketId = onlineUsers.get(user_id);
             if (recipientSocketId) {
+              console.log('🔴 Sending new_message to recipient:', { recipientSocketId, messageId: message.id });
               io.to(recipientSocketId).emit("new_message", message);
+            } else {
+              console.log('⚠️ Recipient not online:', { userId: user_id });
             }
           }
         });
 
+        // Send confirmation back to sender
+        console.log('✅ Sending message_sent to sender:', { messageId: message.id });
         socket.emit("message_sent", message);
       } catch (err) {
-        console.error("send_message error:", err);
+        console.error("❌ send_message error:", err.message);
         socket.emit("error", { message: err.message || "Failed to send message" });
       }
     });
