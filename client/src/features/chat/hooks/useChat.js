@@ -17,7 +17,7 @@ export const useChat = () => {
   const { chats, archivedChats, selectedChat, tab, messages: allMessages } = useSelector(
     (state) => state.chat,
   );
-  const { socket, emit, on, off, isConnected } = useSocket();
+  const { socket, emit,isConnected } = useSocket();
   const { isAuthenticated } = useAuth();
 
   // Listen for new messages
@@ -26,14 +26,12 @@ export const useChat = () => {
 
     const handleNewMessage = (message) => {
       if (message && message.id) {
-        console.log('🔴 New message received (from other user):', message);
         dispatch(addMessage(message));
       }
     };
 
     const handleMessageSent = (message) => {
       if (message && message.id) {
-        console.log('✅ Message sent (confirmation):', message);
         dispatch(addMessage(message));
       }
     };
@@ -61,7 +59,6 @@ export const useChat = () => {
   useEffect(() => {
     if (!selectedChat || !socket || !isConnected) return;
 
-    console.log('📡 Fetching messages for selected chat:', selectedChat.id);
     emit("fetch_messages", { conversationId: selectedChat.id });
   }, [selectedChat, socket, isConnected, emit]);
 
@@ -73,19 +70,11 @@ export const useChat = () => {
 
   const sendMessage = (content) => {
     if (!selectedChat) {
-      console.error('❌ Cannot send - no chat selected');
       return;
     }
     if (!content || !content.trim()) {
-      console.error('❌ Cannot send - empty content');
       return;
     }
-    
-    console.log('📤 Sending message:', {
-      conversationId: selectedChat.id,
-      content: content.trim(),
-      hasSocket: !!socket,
-    });
     
     emit("send_message", {
       conversationId: selectedChat.id,
