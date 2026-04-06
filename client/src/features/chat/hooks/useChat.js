@@ -17,7 +17,7 @@ export const useChat = () => {
   const { chats, archivedChats, selectedChat, tab, messages: allMessages } = useSelector(
     (state) => state.chat,
   );
-  const { socket, emit,isConnected } = useSocket();
+  const { socket, emit, isConnected } = useSocket();
   const { isAuthenticated } = useAuth();
 
   // Listen for new messages
