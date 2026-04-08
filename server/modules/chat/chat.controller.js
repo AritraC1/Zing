@@ -2,9 +2,12 @@ const ChatRepo = require("./chat.repo");
 const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo");
 const MessageRepo = require("../messages/messagesRepo");
 
+// Fetch all conversations for current user
 const fetchAllMyConversations = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Get all conversations where this user is a participant
     const conversations = await ChatRepo.getUserConversations(userId);
 
     return res.status(200).json({
@@ -18,10 +21,11 @@ const fetchAllMyConversations = async (req, res) => {
   }
 };
 
+// Create or find direct conversation
 const createOrFindConversations = async (req, res) => {
   try {
     const { userId } = req.body; // the other user
-    const currentUserId = req.user.id;
+    const currentUserId = req.user.id; // logged-in user
 
     if (!userId || !currentUserId) {
       return res.status(400).json({ message: "userId is required" });
@@ -63,11 +67,13 @@ const createOrFindConversations = async (req, res) => {
   }
 };
 
+// Fetch messages for a conversation with pagination
 const fetchMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const offset = parseInt(req.query.offset) || 0;
+    const offset = parseInt(req.query.offset) || 0; // pagination offset
 
+    // Get messages (limit = 50 per request)
     const messages = await MessageRepo.getMessagesByConversation(
       conversationId,
       50,

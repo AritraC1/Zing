@@ -1,6 +1,7 @@
 const db = require("../../config/db");
 
 class ChatRepo {
+  // Create a conversation
   static async createConversation(chatType) {
     const query = `
             INSERT INTO conversations (id, chat_type, created_at)
@@ -12,6 +13,7 @@ class ChatRepo {
     return result.rows[0];
   }
 
+  // Find existing direct conversation between 2 users
   static async findDirectConversation(user1, user2) {
     const query = `
         SELECT cp1.conversation_id
@@ -30,6 +32,7 @@ class ChatRepo {
     return result.rows[0];
   }
 
+  // Get all conversations for a user
   static async getUserConversations(userId) {
     const query = `
     SELECT 
@@ -56,6 +59,7 @@ class ChatRepo {
     return result.rows;
   }
 
+  // Update last mesage time stamp
   static async updateLastMessage(conversationId) {
     const query = `
     UPDATE conversations
@@ -65,6 +69,7 @@ class ChatRepo {
     await db.query(query, [conversationId]);
   }
 
+  // Get all participants in a conversation
   static async getParticipants(conversationId) {
     const query = `
     SELECT user_id FROM conversation_participants
