@@ -7,15 +7,23 @@ import { useChat } from "../hooks/useChat";
 const ChatLayout = ({ children }) => {
   const { tab } = useChat();
 
+  if (tab === "calls") {
+    return (
+      <div className="flex h-screen bg-gray-100">
+        <IconSidebar />
+        <div className="flex-1 overflow-hidden">
+          <CallsList />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-linear-to-br from-slate-100 via-blue-50 to-indigo-100">
+    <div className="flex h-screen bg-gray-100">
       <IconSidebar />
 
       {tab === "chats" && <ChatList />}
-
       {tab === "archive" && <ArchivedChats />}
-
-      {tab === "calls" && <CallsList />}
 
       {children}
     </div>

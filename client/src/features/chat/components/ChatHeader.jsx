@@ -1,4 +1,4 @@
-import { Phone, Video, Info } from "lucide-react";
+import { Phone, Video, MoreVertical } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -12,66 +12,68 @@ const ChatHeader = () => {
 
   if (!selectedChat) return null;
 
-  const startCall = () => {
-    navigate("/call", { state: { chat: selectedChat } });
-  };
+  const startCall = () => navigate("/call", { state: { chat: selectedChat } });
 
-  const startVideoCall = () => {
+  const startVideoCall = () =>
     navigate("/video-call", { state: { chat: selectedChat } });
-  };
 
   return (
     <>
-      <div className="h-16 bg-white border-b flex items-center justify-between px-6">
+      <div className="h-16 bg-white border-b-2 border-gray-100 flex items-center justify-between px-6">
+        {/* Left Section */}
         <div className="flex items-center gap-3">
+          {/* Avatar */}
           <div
-            className="h-10 w-10 rounded-full text-white flex items-center justify-center"
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200"
             style={{ background: getAvatarGradient(String(selectedChat.id)) }}
           >
             {selectedChat.name.charAt(0)}
           </div>
 
+          {/* Name + Status */}
           <div>
-            <div className="font-semibold text-sm">{selectedChat.name}</div>
-            <div className="flex items-center gap-2 text-xs text-green-500">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Online
+            <div className="font-bold text-m text-gray-900 leading-tight">
+              {selectedChat.name}
+            </div>
+
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span className="text-[10px] font-bold text-emerald-500 tracking-wider">
+                ACTIVE NOW
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-3">
-          {/* Phone */}
-          <div
-            onClick={startCall}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-green-100 hover:text-green-600 cursor-pointer transition"
-          >
-            <Phone size={18} />
-          </div>
-
-          {/* Video */}
-          <div
+        {/* Right Section */}
+        <div className="flex items-center gap-1">
+          <button
             onClick={startVideoCall}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 cursor-pointer transition"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            <Video size={18} />
-          </div>
+            <Video size={20} />
+          </button>
 
-          {/* Info */}
-          <div
-            onClick={() => setShowProfile(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 cursor-pointer transition"
+          <button
+            onClick={startCall}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            <Info size={18} />
-          </div>
+            <Phone size={20} />
+          </button>
+
+          <button
+            onClick={() => setShowProfile(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <MoreVertical size={20} />
+          </button>
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* Profile Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-screen transition-transform duration-300 z-50 ${
-          showProfile ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-screen z-50 transform transition-transform duration-300
+          ${showProfile ? "translate-x-0" : "translate-x-full"}`}
       >
         <UserProfileDetails
           chat={selectedChat}
