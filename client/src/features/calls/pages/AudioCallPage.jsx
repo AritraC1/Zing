@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  Mic,
-  MicOff,
-  PhoneOff,
-  Volume2,
-  Video,
-  VideoOff
-} from "lucide-react";
+import { Mic, MicOff, PhoneOff, Volume2, Video, VideoOff } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const AudioCallPage = () => {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const location = useLocation();
   const chat = location.state?.chat;
 
@@ -43,12 +36,9 @@ const AudioCallPage = () => {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
-
       <div className="text-center">
-
         {/* Avatar with ripple */}
         <div className="relative flex justify-center mb-8">
-
           {status === "calling" && (
             <>
               <span className="absolute w-40 h-40 rounded-full bg-blue-400/20 animate-ping"></span>
@@ -62,13 +52,10 @@ const AudioCallPage = () => {
         </div>
 
         {/* Name */}
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {chat.name}
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-800">{chat.name}</h1>
 
         {/* Status */}
         <div className="mt-3 text-teal-600 tracking-wider text-sm font-medium">
-
           {status === "calling" && "CALLING..."}
 
           {status === "connected" && (
@@ -87,7 +74,6 @@ const AudioCallPage = () => {
 
         {/* Controls */}
         <div className="flex justify-center gap-10 mt-12">
-
           {/* Mute */}
           <div className="flex flex-col items-center gap-2">
             <button
