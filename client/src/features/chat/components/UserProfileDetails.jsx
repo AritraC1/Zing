@@ -24,70 +24,94 @@ const UserProfileDetails = ({ chat, onClose }) => {
   ];
 
   return (
-    <div className="h-screen bg-white border-l shadow-xl flex flex-col">
+    <div
+      className="h-screen flex flex-col"
+      style={{
+        width: 300,
+        background: "#f0f2f5",
+        borderLeft: "1px solid #e5e7eb",
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 h-16 border-b">
-        <h2 className="text-lg font-semibold text-gray-800">Contact Info</h2>
-
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-          <X size={22} />
+      <div
+        className="flex items-center justify-between px-5 h-16 shrink-0"
+        style={{ background: "#ffffff", borderBottom: "1px solid #f0f0f0" }}
+      >
+        <h2 className="font-bold text-gray-900" style={{ fontSize: 15 }}>
+          Contact Info
+        </h2>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+        >
+          <X size={18} />
         </button>
       </div>
 
-      <div className="overflow-y-auto flex-1">
-        {/* Profile */}
-        <div className="flex flex-col items-center py-8">
+      <div className="overflow-y-auto flex-1 flex flex-col gap-3 p-3">
+        {/* Profile Card */}
+        <div className="bg-white rounded-2xl px-5 py-6 flex flex-col items-center shadow-sm">
           <div
-            className="w-28 h-28 rounded-full flex items-center justify-center text-white text-4xl font-semibold shadow-lg"
+            className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold shadow"
             style={{
               background: getAvatarGradient(
                 String(chat?.id || chat?.name || ""),
               ),
+              fontSize: 36,
             }}
           >
             {chat?.name?.charAt(0) || "U"}
           </div>
 
-          <h3 className="mt-4 text-xl font-semibold text-gray-800">
-            {chat?.name || "Priya Rao"}
+          <h3 className="mt-4 font-bold text-gray-900" style={{ fontSize: 17 }}>
+            {chat?.name || "Unknown"}
           </h3>
 
-          <p className="text-gray-500 mt-1">+91 87654 32109</p>
+          <p className="text-gray-400 text-sm mt-1">+91 87654 32109</p>
 
-          <div className="flex items-center gap-2 mt-2 text-teal-600 text-sm">
-            <span className="w-2 h-2 rounded-full bg-teal-500"></span>
-            Online
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "#00c896" }}
+            >
+              ACTIVE NOW
+            </span>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="border-t px-6 py-5">
-          <p className="text-xs tracking-widest text-gray-400 mb-4">ACTIONS</p>
+        {/* Actions Card */}
+        <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
+            ACTIONS
+          </p>
 
-          <div className="space-y-4">
+          <div className="space-y-1">
             <ActionItem
-              icon={<Phone size={18} />}
+              icon={<Phone size={16} />}
               label="Voice Call"
-              bg="bg-green-100"
+              iconBg="bg-green-100"
+              iconColor="text-green-600"
             />
-
             <ActionItem
-              icon={<Video size={18} />}
+              icon={<Video size={16} />}
               label="Video Call"
-              bg="bg-blue-100"
+              iconBg="bg-blue-100"
+              iconColor="text-blue-600"
             />
-
             <ActionItem
-              icon={<BellOff size={18} />}
+              icon={<BellOff size={16} />}
               label="Mute Notifications"
-              bg="bg-yellow-100"
+              iconBg="bg-yellow-100"
+              iconColor="text-yellow-600"
             />
 
             {tab === "chats" ? (
               <ActionItem
-                icon={<Archive size={18} />}
+                icon={<Archive size={16} />}
                 label="Archive Chat"
-                bg="bg-orange-100"
+                iconBg="bg-orange-100"
+                iconColor="text-orange-500"
                 onClick={() => {
                   archiveChat(chat.id);
                   onClose();
@@ -95,9 +119,10 @@ const UserProfileDetails = ({ chat, onClose }) => {
               />
             ) : (
               <ActionItem
-                icon={<ArrowUpCircle size={18} />}
+                icon={<ArrowUpCircle size={16} />}
                 label="Unarchive Chat"
-                bg="bg-green-100"
+                iconBg="bg-teal-100"
+                iconColor="text-teal-600"
                 onClick={() => {
                   unarchiveChat(chat.id);
                   onClose();
@@ -107,60 +132,73 @@ const UserProfileDetails = ({ chat, onClose }) => {
           </div>
         </div>
 
-        {/* Shared Media */}
-        <div className="border-t px-6 py-5">
-          <p className="text-xs tracking-widest text-gray-400 mb-4">
+        {/* Shared Media Card */}
+        <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
             SHARED MEDIA
           </p>
-
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {media.map((img, i) => (
               <img
                 key={i}
                 src={img}
                 alt="media"
-                className="rounded-lg object-cover w-full h-24"
+                className="rounded-xl object-cover w-full h-20"
               />
             ))}
           </div>
         </div>
 
-        {/* Danger Actions */}
-        <div className="border-t px-6 py-5 space-y-4">
-          <ActionItem
-            icon={<Ban size={18} />}
-            label="Block Contact"
-            bg="bg-red-100"
-            text="text-red-600"
-          />
-
-          <ActionItem
-            icon={<Trash2 size={18} />}
-            label="Delete Chat"
-            bg="bg-red-100"
-            text="text-red-600"
-          />
+        {/* Danger Card */}
+        <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
+            DANGER ZONE
+          </p>
+          <div className="space-y-1">
+            <ActionItem
+              icon={<Ban size={16} />}
+              label="Block Contact"
+              iconBg="bg-red-100"
+              iconColor="text-red-500"
+              labelColor="text-red-500"
+            />
+            <ActionItem
+              icon={<Trash2 size={16} />}
+              label="Delete Chat"
+              iconBg="bg-red-100"
+              iconColor="text-red-500"
+              labelColor="text-red-500"
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-const ActionItem = ({ icon, label, bg, text, onClick }) => {
-  return (
+const ActionItem = ({
+  icon,
+  label,
+  iconBg,
+  iconColor,
+  labelColor,
+  onClick,
+}) => (
+  <div
+    onClick={onClick}
+    className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer hover:bg-gray-50 transition group"
+  >
     <div
-      onClick={onClick}
-      className="flex items-center gap-4 cursor-pointer group"
+      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}
     >
-      <div
-        className={`w-10 h-10 rounded-lg flex items-center justify-center ${bg}`}
-      >
-        {icon}
-      </div>
-
-      <p className={`text-gray-700 group-hover:text-black ${text}`}>{label}</p>
+      {icon}
     </div>
-  );
-};
+    <span
+      className={`text-sm font-medium ${labelColor || "text-gray-700"} group-hover:text-gray-900`}
+    >
+      {label}
+    </span>
+  </div>
+);
 
 export default UserProfileDetails;
