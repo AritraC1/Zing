@@ -42,6 +42,7 @@ export const fetchMessages = createAsyncThunk(
       return {
         conversationId,
         messages: res.data.messages,
+        statuses: res.data.statuses,
         offset,
       };
     } catch (err) {

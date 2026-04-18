@@ -13,10 +13,60 @@ const getSenderInitial = (message) => {
   return senderName ? String(senderName).charAt(0).toUpperCase() : "U";
 };
 
+const MessageStatusIcon = ({ status }) => {
+  if (!status) return null;
+
+  const isRead = status === "seen";
+  const isDelivered = status === "delivered" || isRead;
+  const isSent = status === "sent" || isDelivered;
+
+  if (!isSent) return null;
+
+  return (
+    <svg
+      className="inline-block ml-1"
+      width="16"
+      height="10"
+      viewBox="0 0 18 11"
+      fill="none"
+    >
+      {/* Single tick for sent */}
+      {isSent && (
+        <path
+          d="M1 5.5L5 9.5L13 1.5"
+          stroke={isRead ? "#2563eb" : "rgba(255,255,255,0.85)"}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {/* Second tick for delivered/read */}
+      {isDelivered && (
+        <path
+          d="M6 5.5L10 9.5L18 1.5"
+          stroke={isRead ? "#2563eb" : "rgba(255,255,255,0.85)"}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+};
+
 const Messages = () => {
-  const { selectedChat, messages } = useChat();
+  const { selectedChat, messages, statuses } = useChat();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
+
+  const getMessageStatus = (message) => {
+    if (!statuses || !selectedChat) return null;
+    const statusEntry = statuses.find(
+      (s) =>
+        s.message_id === message.id && s.user_id === selectedChat.otherUserId,
+    );
+    return statusEntry ? statusEntry.msg_status : null;
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -43,8 +93,7 @@ const Messages = () => {
           {messages.map((message) => {
             if (!message || !message.id) return null;
 
-            const isOwnMessage =
-              user?.id && message.sender_id === user.id;
+            const isOwnMessage = user?.id && message.sender_id === user.id;
 
             const senderInitial = getSenderInitial(message);
             const messageContent = message.content || "";
@@ -65,7 +114,7 @@ const Messages = () => {
                     className="h-7 w-7 min-w-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
                     style={{
                       background: getAvatarGradient(
-                        String(message.sender_id || "unknown")
+                        String(message.sender_id || "unknown"),
                       ),
                     }}
                   >
@@ -97,28 +146,7 @@ const Messages = () => {
                     })}
 
                     {isOwnMessage && (
-                      <svg
-                        className="inline-block ml-1"
-                        width="16"
-                        height="10"
-                        viewBox="0 0 18 11"
-                        fill="none"
-                      >
-                        <path
-                          d="M1 5.5L5 9.5L13 1.5"
-                          stroke="rgba(255,255,255,0.85)"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M6 5.5L10 9.5L18 1.5"
-                          stroke="rgba(255,255,255,0.85)"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                      <MessageStatusIcon status={getMessageStatus(message)} />
                     )}
                   </div>
                 </div>

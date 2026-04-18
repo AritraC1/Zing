@@ -10,17 +10,13 @@ export const useSocket = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
-      console.log('Socket not initializing - auth not ready', { isAuthenticated, userId: user?.id });
       return;
     }
 
     // prevent multiple sockets
     if (socketRef.current?.connected) {
-      console.log('Socket already connected, skipping');
       return;
     }
-
-    console.log('Initializing socket with auth:', { hasToken: !!accessToken, userId: user?.id });
 
     const authConfig = accessToken ? { token: accessToken } : undefined;
 
@@ -31,12 +27,10 @@ export const useSocket = () => {
     });
 
     socketRef.current.on("connect", () => {
-      console.log("Connected to socket server");
       setIsConnected(true);
     });
 
     socketRef.current.on("disconnect", () => {
-      console.log("Disconnected from socket server");
       setIsConnected(false);
     });
 
@@ -54,10 +48,10 @@ export const useSocket = () => {
 
   const emit = useCallback((event, data) => {
     if (socketRef.current && socketRef.current.connected) {
-      console.log('🟢 Socket emit:', event, data);
+      console.log("🟢 Socket emit:", event, data);
       socketRef.current.emit(event, data);
     } else {
-      console.error('🔴 Cannot emit - socket not ready', {
+      console.error("🔴 Cannot emit - socket not ready", {
         hasSocket: !!socketRef.current,
         connected: socketRef.current?.connected,
         event,
@@ -77,16 +71,13 @@ export const useSocket = () => {
     }
   }, []);
 
-  const socket = socketRef.current;
-
   return useMemo(
     () => ({
-      socket,
       isConnected,
       emit,
       on,
       off,
     }),
-    [socket, isConnected, emit, on, off],
+    [isConnected, emit, on, off],
   );
 };

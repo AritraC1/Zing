@@ -6,6 +6,7 @@ import {
   unarchiveChat,
   addMessage,
   setMessages,
+  updateMessageStatus,
 } from "../store/chatReducer";
 import { fetchMyChats } from "../api/chatThunk";
 import { useSocket } from "../../../shared/hooks/useSocket";
@@ -14,19 +15,27 @@ import { useEffect } from "react";
 
 export const useChat = () => {
   const dispatch = useDispatch();
-  const { chats, archivedChats, selectedChat, tab, messages: allMessages } = useSelector(
-    (state) => state.chat,
-  );
-  const { socket, emit, isConnected } = useSocket();
+  const {
+    chats,
+    archivedChats,
+    selectedChat,
+    tab,
+    messages: allMessages,
+    statuses: allStatuses,
+  } = useSelector((state) => state.chat);
+  const { emit, isConnected, on, off } = useSocket();
   const { isAuthenticated } = useAuth();
 
   // Listen for new messages
   useEffect(() => {
-    if (!socket) return;
-
     const handleNewMessage = (message) => {
       if (message && message.id) {
         dispatch(addMessage(message));
+        // Emit delivered since we received it
+        emit("message_delivered", {
+          messageId: message.id,
+          conversationId: message.conversation_id,
+        });
       }
     };
 
@@ -38,29 +47,63 @@ export const useChat = () => {
 
     const handleMessageHistory = (data) => {
       if (data && data.conversationId) {
-        console.log('📜 Message history loaded:', data.messages?.length, 'messages');
         const messages = Array.isArray(data.messages) ? data.messages : [];
-        dispatch(setMessages({ conversationId: data.conversationId, messages }));
+        const statuses = Array.isArray(data.statuses) ? data.statuses : [];
+        dispatch(
+          setMessages({
+            conversationId: data.conversationId,
+            messages,
+            statuses,
+          }),
+        );
       }
     };
 
-    socket.on("new_message", handleNewMessage);
-    socket.on("message_sent", handleMessageSent);
-    socket.on("message_history", handleMessageHistory);
+    const handleMessageDelivered = (data) => {
+      const { messageId, deliveredTo } = data;
+      dispatch(
+        updateMessageStatus({
+          messageId,
+          userId: deliveredTo,
+          status: "delivered",
+        }),
+      );
+    };
+
+    const handleMessagesRead = (data) => {
+      const { messageIds } = data;
+      messageIds.forEach((messageId) => {
+        dispatch(
+          updateMessageStatus({
+            messageId,
+            userId: selectedChat?.otherUserId,
+            status: "seen",
+          }),
+        );
+      });
+    };
+
+    on("new_message", handleNewMessage);
+    on("message_sent", handleMessageSent);
+    on("message_history", handleMessageHistory);
+    on("message_delivered", handleMessageDelivered);
+    on("messages_read", handleMessagesRead);
 
     return () => {
-      socket.off("new_message", handleNewMessage);
-      socket.off("message_sent", handleMessageSent);
-      socket.off("message_history", handleMessageHistory);
+      off("new_message", handleNewMessage);
+      off("message_sent", handleMessageSent);
+      off("message_history", handleMessageHistory);
+      off("message_delivered", handleMessageDelivered);
+      off("messages_read", handleMessagesRead);
     };
-  }, [socket, dispatch]);
+  }, [dispatch, emit, selectedChat?.otherUserId, on, off]);
 
   // Fetch messages when chat is selected or socket becomes connected
   useEffect(() => {
-    if (!selectedChat || !socket || !isConnected) return;
+    if (!selectedChat || !isConnected) return;
 
     emit("fetch_messages", { conversationId: selectedChat.id });
-  }, [selectedChat, socket, isConnected, emit]);
+  }, [selectedChat, isConnected, emit]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -75,7 +118,7 @@ export const useChat = () => {
     if (!content || !content.trim()) {
       return;
     }
-    
+
     emit("send_message", {
       conversationId: selectedChat.id,
       content: content.trim(),
@@ -88,7 +131,12 @@ export const useChat = () => {
     }
   };
 
-  const currentChatMessages = selectedChat ? allMessages[selectedChat.id] || [] : [];
+  const currentChatMessages = selectedChat
+    ? allMessages[selectedChat.id] || []
+    : [];
+  const currentChatStatuses = selectedChat
+    ? allStatuses[selectedChat.id] || []
+    : [];
 
   return {
     chats,
@@ -96,6 +144,7 @@ export const useChat = () => {
     selectedChat,
     tab,
     messages: currentChatMessages,
+    statuses: currentChatStatuses,
 
     setTab: (t) => dispatch(setTab(t)),
     selectChat: (chat) => dispatch(selectChat(chat)),

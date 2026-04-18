@@ -7,6 +7,7 @@ const initialState = {
   selectedChat: null,
   tab: "chats",
   messages: {},
+  statuses: {},
   loading: false,
   error: null,
 };
@@ -53,6 +54,23 @@ const chatSlice = createSlice({
         state.messages[convId].push(message);
       }
 
+      // If this is our own message, add initial 'sent' status for the recipient
+      if (message.sender_id === state.user?.id && state.selectedChat?.otherUserId) {
+        if (!state.statuses[convId]) {
+          state.statuses[convId] = [];
+        }
+        const existingStatus = state.statuses[convId].find(
+          s => s.message_id === message.id && s.user_id === state.selectedChat.otherUserId
+        );
+        if (!existingStatus) {
+          state.statuses[convId].push({
+            message_id: message.id,
+            user_id: state.selectedChat.otherUserId,
+            msg_status: 'sent',
+          });
+        }
+      }
+
       // move chat to top
       const chatIndex = state.chats.findIndex((c) => c.id === convId);
       if (chatIndex !== -1) {
@@ -77,7 +95,7 @@ const chatSlice = createSlice({
 
     // SOCKET: set messages for a conversation (from message_history event)
     setMessages: (state, action) => {
-      const { conversationId, messages } = action.payload;
+      const { conversationId, messages, statuses } = action.payload;
       
       if (!conversationId || !Array.isArray(messages)) {
         console.warn('Invalid setMessages payload:', action.payload);
@@ -89,6 +107,13 @@ const chatSlice = createSlice({
       }
       
       state.messages[conversationId] = messages.filter(m => m && m.id);
+
+      if (statuses) {
+        if (!state.statuses[conversationId]) {
+          state.statuses[conversationId] = [];
+        }
+        state.statuses[conversationId] = statuses;
+      }
     },
 
     archiveChat: (state, action) => {
@@ -149,7 +174,6 @@ const chatSlice = createSlice({
           chatList = action.payload;
         }
         
-        console.log('Chats loaded:', chatList);
         state.chats = chatList;
       })
       .addCase(fetchMyChats.rejected, (state, action) => {
@@ -170,20 +194,27 @@ const chatSlice = createSlice({
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.loading = false;
 
-        const { conversationId, messages, offset } = action.payload;
+        const { conversationId, messages, statuses, offset } = action.payload;
 
         if (!state.messages[conversationId]) {
           state.messages[conversationId] = [];
         }
 
+        if (!state.statuses[conversationId]) {
+          state.statuses[conversationId] = [];
+        }
+
         if (offset === 0) {
           state.messages[conversationId] = messages;
+          state.statuses[conversationId] = statuses;
         } else {
           // pagination (older messages on top)
           state.messages[conversationId] = [
             ...messages,
             ...state.messages[conversationId],
           ];
+          // For statuses, we might need to merge, but for simplicity, replace for now
+          state.statuses[conversationId] = statuses;
         }
       })
       .addCase(fetchMessages.rejected, (state, action) => {
@@ -198,6 +229,7 @@ export const {
   selectChat,
   addChat,
   addMessage,
+  updateMessageStatus,
   markMessagesRead,
   archiveChat,
   unarchiveChat,
