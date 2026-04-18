@@ -25,6 +25,12 @@ const messages = fs.readFileSync(
   "utf-8",
 );
 
+// Message Status
+const message_status = fs.readFileSync(
+  path.join(__dirname, "schemas/message_status.sql"),
+  "utf-8",
+);
+
 // media
 const media = fs.readFileSync(
   path.join(__dirname, "schemas/media.sql"),
@@ -60,6 +66,7 @@ module.exports = {
   conversations,
   conversation_participants,
   messages,
+  message_status,
   media,
   devices,
   device_prekeys,

@@ -5,6 +5,7 @@
 // Sending/receiving messages instantly
 // Fetching chat history
 // Marking messages as read
+// Tracking message delivery and seen status
 
 const MessageRepo = require("../messages/messagesRepo");
 const ChatRepo = require("./chat.repo");
@@ -13,92 +14,146 @@ const ChatRepo = require("./chat.repo");
 const onlineUsers = new Map();
 
 module.exports = (io) => {
-  // Connect
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const userId = socket.user.id; // already attached by checkSocketForJwt middleware
     onlineUsers.set(userId, socket.id); // Store the user's socket ID so we can send messages to them later
 
-    // Fetch message history
+    try {
+      const deliveredRows = await MessageRepo.markAllPendingAsDelivered(userId);
+
+      deliveredRows.forEach(({ message_id, sender_id }) => {
+        const recipientSocketId = onlineUsers.get(sender_id);
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("message_delivered", {
+            messageId: message_id,
+            deliveredTo: userId,
+          });
+        }
+      });
+    } catch (err) {
+      console.error("Error updating pending deliveries on connection:", err);
+    }
+
     socket.on("fetch_messages", async ({ conversationId, offset = 0 }) => {
       try {
         const messages = await MessageRepo.getMessagesByConversation(
           conversationId,
-          50, // pagination (limit = 50)
+          50,
           offset,
         );
 
-        // Send messages back to the requesting client
-        socket.emit("message_history", { conversationId, messages });
+        const statuses = await MessageRepo.getMessageStatusesForConversation(
+          conversationId,
+        );
+
+        socket.emit("message_history", { conversationId, messages, statuses });
       } catch (err) {
-        // Notify client if something goes wrong
         socket.emit("error", { message: "Failed to fetch messages" });
       }
     });
 
-    // Send Message
-    socket.on("send_message", async ({ conversationId, content }) => {
-      if (!conversationId || !content?.trim()) {
-        return;
-      }
+    socket.on(
+      "send_message",
+      async ({
+        conversationId,
+        content,
+        clientMsgId,
+        msgType,
+        mediaId,
+        forwardedFromId,
+      }) => {
+        if (!conversationId || !content?.trim()) {
+          return;
+        }
 
+        try {
+          const participants = await ChatRepo.getParticipants(conversationId);
+
+          if (!participants.length) {
+            throw new Error("Conversation not found");
+          }
+
+          const isParticipant = participants.some(
+            ({ user_id }) => user_id === userId,
+          );
+
+          if (!isParticipant) {
+            throw new Error("You are not a participant in this conversation");
+          }
+
+          const message = await MessageRepo.saveMessage({
+            conversationId,
+            senderId: userId,
+            content,
+            clientMsgId,
+            msgType,
+            mediaId,
+            forwardedFromId,
+          });
+
+          const recipientIds = participants
+            .filter(({ user_id }) => user_id !== userId)
+            .map(({ user_id }) => user_id);
+
+          await MessageRepo.initializeMessageStatuses(message.id, recipientIds);
+          await ChatRepo.updateLastMessage(conversationId);
+
+          participants.forEach(({ user_id }) => {
+            if (user_id !== userId) {
+              const recipientSocketId = onlineUsers.get(user_id);
+              if (recipientSocketId) {
+                io.to(recipientSocketId).emit("new_message", message);
+              } else {
+                console.log("Recipient not online:", { userId: user_id });
+              }
+            }
+          });
+
+          socket.emit("message_sent", message);
+        } catch (err) {
+          socket.emit("error", {
+            message: err.message || "Failed to send message",
+          });
+        }
+      },
+    );
+
+    socket.on("message_delivered", async ({ messageId, conversationId }) => {
       try {
-        // Get all users in this conversation
-        const participants = await ChatRepo.getParticipants(conversationId);
-
-        if (!participants.length) {
-          throw new Error("Conversation not found");
-        }
-
-        // Check if current user is part of this conversation
-        const isParticipant = participants.some(
-          ({ user_id }) => user_id === userId,
-        );
-
-        if (!isParticipant) {
-          throw new Error("You are not a participant in this conversation");
-        }
-
-        // Save the message in DB
-        const message = await MessageRepo.saveMessage(
-          conversationId,
+        const updated = await MessageRepo.updateMessageStatus(
+          messageId,
           userId,
-          content,
+          "delivered",
         );
 
-        // Update conversation's last message metadata
-        await ChatRepo.updateLastMessage(conversationId);
+        if (!updated.length) {
+          return;
+        }
 
-        // Emit to other participants
+        const participants = await ChatRepo.getParticipants(conversationId);
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
-            // Check if recipient is online
             const recipientSocketId = onlineUsers.get(user_id);
             if (recipientSocketId) {
-              // Send message in real-time to the recipient
-              io.to(recipientSocketId).emit("new_message", message);
-            } else {
-              // Recipient is offline (could trigger push notification here)
-              console.log("Recipient not online:", { userId: user_id });
+              io.to(recipientSocketId).emit("message_delivered", {
+                messageId,
+                deliveredTo: userId,
+              });
             }
           }
         });
-
-        // Send confirmation back to sender
-        socket.emit("message_sent", message);
       } catch (err) {
-        socket.emit("error", {
-          message: err.message || "Failed to send message",
-        });
+        console.error("message_delivered error:", err);
       }
     });
 
-    // Mark Message
     socket.on("mark_read", async ({ conversationId }) => {
       try {
-        // Mark all messages in this conversation as read for this user
-        await MessageRepo.markAsRead(conversationId, userId);
+        const updatedRows = await MessageRepo.markConversationAsSeen(
+          conversationId,
+          userId,
+        );
 
-        // Notify other participants that messages were read
         const participants = await ChatRepo.getParticipants(conversationId);
 
         participants.forEach(({ user_id }) => {
@@ -107,6 +162,7 @@ module.exports = (io) => {
             if (recipientSocketId) {
               io.to(recipientSocketId).emit("messages_read", {
                 conversationId,
+                messageIds: updatedRows.map((row) => row.message_id),
               });
             }
           }
@@ -116,9 +172,7 @@ module.exports = (io) => {
       }
     });
 
-    // Disconnect
     socket.on("disconnect", () => {
-      // Remove user from online users map when they disconnect
       onlineUsers.delete(userId);
     });
   });

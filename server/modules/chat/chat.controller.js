@@ -73,14 +73,13 @@ const fetchMessages = async (req, res) => {
     const { conversationId } = req.params;
     const offset = parseInt(req.query.offset) || 0; // pagination offset
 
-    // Get messages (limit = 50 per request)
-    const messages = await MessageRepo.getMessagesByConversation(
-      conversationId,
-      50,
-      offset,
-    );
+    // Get messages (limit = 50 per request) and their delivery statuses
+    const [messages, statuses] = await Promise.all([
+      MessageRepo.getMessagesByConversation(conversationId, 50, offset),
+      MessageRepo.getMessageStatusesForConversation(conversationId),
+    ]);
 
-    return res.status(200).json({ messages });
+    return res.status(200).json({ messages, statuses });
   } catch (error) {
     console.log("Error: ", error);
     res.status(500).json({ message: "Unable to fetch messages" });
