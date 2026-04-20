@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   selectChat,
@@ -8,10 +9,9 @@ import {
   setMessages,
   updateMessageStatus,
 } from "../store/chatReducer";
+import useAuth from "../../auth/hooks/useAuth";
 import { fetchMyChats } from "../api/chatThunk";
 import { useSocket } from "../../../shared/hooks/useSocket";
-import useAuth from "../../auth/hooks/useAuth";
-import { useEffect } from "react";
 
 export const useChat = () => {
   const dispatch = useDispatch();
