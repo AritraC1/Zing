@@ -2,6 +2,8 @@
 
 **Zing** is a real-time communication application with a React/Vite frontend and an Express backend.
 
+![Landing page](client/src/assets/images/landing.png)
+
 The repository is split into two apps:
 - `client/` — React frontend with Redux, Socket.IO client, and UI for auth, chat, calls, profile, and users.
 - `server/` — Express API server with PostgreSQL, Redis, JWT authentication, Swagger docs, and Socket.IO server logic.
