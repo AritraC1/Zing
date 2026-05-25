@@ -8,6 +8,7 @@ import {
   addMessage,
   setMessages,
   updateMessageStatus,
+  updateChatLastMessage,
 } from "../store/chatReducer";
 import useAuth from "../../auth/hooks/useAuth";
 import { fetchMyChats } from "../api/chatThunk";
@@ -28,16 +29,40 @@ export const useChat = () => {
 
   // Listen for new messages
   useEffect(() => {
+    // const handleNewMessage = (message) => {
+    //   if (message && message.id) {
+    //     dispatch(addMessage(message));
+    //     // Emit delivered since we received it
+    //     emit("message_delivered", {
+    //       messageId: message.id,
+    //       conversationId: message.conversation_id,
+    //     });
+    //   }
+    // };
+
     const handleNewMessage = (message) => {
-      if (message && message.id) {
-        dispatch(addMessage(message));
-        // Emit delivered since we received it
-        emit("message_delivered", {
-          messageId: message.id,
-          conversationId: message.conversation_id,
-        });
-      }
-    };
+  if (message && message.id) {
+    dispatch(addMessage(message));
+    
+    // Update the chat list with latest message + move to top
+    dispatch(updateChatLastMessage({
+      conversationId: message.conversation_id,
+      lastMessage: message.content,
+      lastMessageAt: message.created_at,
+    }));
+
+    // If conversation doesn't exist in list → fetch it
+    const chatExists = chats.some(c => c.id === message.conversation_id);
+    if (!chatExists) {
+      dispatch(fetchMyChats()); // re-fetch to get the new conversation
+    }
+
+    emit("message_delivered", {
+      messageId: message.id,
+      conversationId: message.conversation_id,
+    });
+  }
+};
 
     const handleMessageSent = (message) => {
       if (message && message.id) {
@@ -96,7 +121,7 @@ export const useChat = () => {
       off("message_delivered", handleMessageDelivered);
       off("messages_read", handleMessagesRead);
     };
-  }, [dispatch, emit, selectedChat?.otherUserId, on, off]);
+  }, [dispatch, emit, selectedChat?.otherUserId, on, off, chats]);
 
   // Fetch messages when chat is selected or socket becomes connected
   useEffect(() => {
