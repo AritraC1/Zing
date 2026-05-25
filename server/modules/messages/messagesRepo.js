@@ -1,6 +1,33 @@
-// message.repo.js
 const db = require("../../config/db");
+const ENV = require("../../config/env");
 const { v4: uuidv4 } = require("uuid");
+
+const getResourceType = (mimeType) => {
+  if (!mimeType) return "raw";
+
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+
+  return "raw";
+};
+
+const enrichMediaMessage = (row) => {
+  if (!row) return row;
+
+  const secureUrl =
+    row.secure_url ||
+    (row.storage_key && ENV.CLOUDINARY_CLOUD_NAME
+      ? `https://res.cloudinary.com/${ENV.CLOUDINARY_CLOUD_NAME}/${getResourceType(
+          row.mime_type,
+        )}/upload/${row.storage_key}`
+      : null);
+
+  return {
+    ...row,
+    secure_url: secureUrl,
+  };
+};
 
 class MessageRepo {
   static async saveMessage({
@@ -36,9 +63,20 @@ class MessageRepo {
         )
         RETURNING *
       )
-      SELECT inserted.*, u.display_name AS sender_name
+      SELECT
+        inserted.*,
+        u.display_name AS sender_name,
+
+        med.storage_key,
+        med.mime_type,
+        med.size_byte,
+        med.checksum_sha256,
+        med.duration_ms,
+        med.created_at AS media_created_at
+
       FROM inserted
-      JOIN users u ON inserted.sender_id = u.id;
+      JOIN users u ON inserted.sender_id = u.id
+      LEFT JOIN media med ON inserted.media_id = med.id;
     `;
 
     try {
@@ -51,9 +89,12 @@ class MessageRepo {
         forwardedFromId,
         content,
       ]);
-      return result.rows[0];
+      return enrichMediaMessage(result.rows[0]);
     } catch (err) {
-      if (err.code === "23503" && err.constraint === "messages_conversation_id_fkey") {
+      if (
+        err.code === "23503" &&
+        err.constraint === "messages_conversation_id_fkey"
+      ) {
         throw new Error("Cannot save message: conversation does not exist");
       }
       throw err;
@@ -62,15 +103,33 @@ class MessageRepo {
 
   static async getMessageByClientId(senderId, clientMsgId) {
     const query = `
-      SELECT m.*, u.display_name AS sender_name
+      SELECT
+        m.*,
+        u.display_name AS sender_name,
+
+        med.storage_key,
+        med.mime_type,
+        med.size_byte,
+        med.checksum_sha256,
+        med.duration_ms,
+        med.created_at AS media_created_at
+
       FROM messages m
-      JOIN users u ON m.sender_id = u.id
+
+      JOIN users u
+        ON m.sender_id = u.id
+
+      LEFT JOIN media med
+        ON m.media_id = med.id
+
       WHERE m.sender_id = $1
         AND m.client_msg_id = $2
+
       LIMIT 1;
     `;
+
     const result = await db.query(query, [senderId, clientMsgId]);
-    return result.rows[0];
+    return enrichMediaMessage(result.rows[0]);
   }
 
   static async getMessagesByConversation(
@@ -79,16 +138,35 @@ class MessageRepo {
     offset = 0,
   ) {
     const query = `
-      SELECT m.*, u.display_name AS sender_name
+      SELECT
+        m.*,
+        u.display_name AS sender_name,
+
+        med.storage_key,
+        med.mime_type,
+        med.size_byte,
+        med.checksum_sha256,
+        med.duration_ms,
+        med.created_at AS media_created_at
+
       FROM messages m
-      JOIN users u ON m.sender_id = u.id
+
+      JOIN users u
+        ON m.sender_id = u.id
+
+      LEFT JOIN media med
+        ON m.media_id = med.id
+
       WHERE m.conversation_id = $1
+
       ORDER BY m.sequence_no ASC
+
       LIMIT $2
       OFFSET $3;
     `;
+
     const result = await db.query(query, [conversationId, limit, offset]);
-    return result.rows;
+    return result.rows.map(enrichMediaMessage);
   }
 
   static async getMessageStatusesForConversation(conversationId) {
@@ -103,9 +181,7 @@ class MessageRepo {
   }
 
   static async initializeMessageStatuses(messageId, recipientIds) {
-    if (!recipientIds?.length) {
-      return;
-    }
+    if (!recipientIds?.length) return;
 
     const values = recipientIds
       .map((_, index) => `($1, $${index + 2}, 'sent')`)

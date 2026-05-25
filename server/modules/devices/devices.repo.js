@@ -4,7 +4,6 @@ const db = require("../../config/db");
 class DevicesRepo {
   // Find device by device id
   static async findById(id) {
-
     // Validate id
     if (!uuidValidate(id)) {
       return null;

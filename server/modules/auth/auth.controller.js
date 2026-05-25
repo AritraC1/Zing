@@ -13,7 +13,7 @@ const admin = require("../../config/firebase");
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "None",
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
   path: "/",
 };
 
@@ -313,12 +313,6 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
   }
 };
 
-// Upload signal key - public
-const uploadSignalProtocolKey = (req, res) => {};
-
-// get user's public key
-const fetchUsersPublicKey = (req, res) => {};
-
 // Delete Account
 const deleteAccount = async (req, res) => {
   try {
@@ -340,7 +334,5 @@ module.exports = {
   verifyOtp,
   refreshAccessToken,
   invalidateRefreshTokenAndLogout,
-  uploadSignalProtocolKey,
-  fetchUsersPublicKey,
   deleteAccount,
 };

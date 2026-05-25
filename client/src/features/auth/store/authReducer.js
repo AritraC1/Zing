@@ -8,7 +8,7 @@ import {
 
 const initialState = {
   isAuthenticated: false,
-  isAuthChecking: false,
+  isAuthChecking: true,
   user: null,
   accessToken: null,
   loginMode: "qr",
@@ -105,8 +105,15 @@ const authSlice = createSlice({
       .addCase(getMyDetailsThunk.rejected, (state, action) => {
         state.loading.getMyDetails = false;
         state.isAuthChecking = false;
-        state.isAuthenticated = false;
-        state.user = null;
+        // Only fully logout if refresh also failed (interceptor will have retried)
+        if (
+          action.payload?.status === 403 ||
+          action.payload === "Session expired"
+        ) {
+          state.isAuthenticated = false;
+          state.user = null;
+          state.accessToken = null;
+        }
         state.error = action.payload || "Session expired";
       })
 

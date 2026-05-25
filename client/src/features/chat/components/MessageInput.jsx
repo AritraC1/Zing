@@ -1,8 +1,13 @@
 import { Send, Plus, X, Smile } from "lucide-react";
 import { useRef, useState } from "react";
+import { useDispatch } from "react-redux";
+
 import { useChat } from "../hooks/useChat";
+import { uploadMedia } from "../api/chatThunk";
 
 const MessageInput = () => {
+  const dispatch = useDispatch();
+
   const { sendMessage } = useChat();
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
@@ -26,10 +31,31 @@ const MessageInput = () => {
     setFiles(updated);
   };
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-    sendMessage(message);
-    setMessage("");
+
+  const handleSend = async () => {
+    if (!message.trim() && files.length === 0) return;
+
+    try {
+      const uploadedMedia = [];
+
+      for (const item of files) {
+        const media = await dispatch(uploadMedia(item.file)).unwrap();
+        uploadedMedia.push(media);
+      }
+
+      // Allow sending file-only messages (no text required)
+      sendMessage({
+        content: message,
+        mediaId: uploadedMedia[0]?.id || null,
+        msgType: uploadedMedia.length > 0 ? "media" : "text",
+      });
+
+      setMessage("");
+      files.forEach((f) => URL.revokeObjectURL(f.preview));
+      setFiles([]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -39,7 +65,8 @@ const MessageInput = () => {
     }
   };
 
-  const canSend = message.trim();
+  // Enable send if there is text or files
+  const canSend = message.trim() || files.length > 0;
 
   return (
     <div className="bg-white px-4 py-3">
@@ -48,11 +75,17 @@ const MessageInput = () => {
         <div className="flex gap-2 mb-2 overflow-x-auto">
           {files.map((item, index) => (
             <div key={index} className="relative">
-              <img
-                src={item.preview}
-                className="w-14 h-14 object-cover rounded-lg"
-                alt="preview"
-              />
+              {item.file.type.startsWith("image/") ? (
+                <img
+                  src={item.preview}
+                  className="w-14 h-14 object-cover rounded-lg"
+                  alt="preview"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center text-[10px] text-gray-600">
+                  FILE
+                </div>
+              )}
 
               <button
                 onClick={() => removeFile(index)}

@@ -55,21 +55,21 @@ const chatSlice = createSlice({
       }
 
       // If this is our own message, add initial 'sent' status for the recipient
-      if (message.sender_id === state.user?.id && state.selectedChat?.otherUserId) {
-        if (!state.statuses[convId]) {
-          state.statuses[convId] = [];
-        }
-        const existingStatus = state.statuses[convId].find(
-          s => s.message_id === message.id && s.user_id === state.selectedChat.otherUserId
-        );
-        if (!existingStatus) {
-          state.statuses[convId].push({
-            message_id: message.id,
-            user_id: state.selectedChat.otherUserId,
-            msg_status: 'sent',
-          });
-        }
-      }
+      // if (message.sender_id === state.user?.id && state.selectedChat?.otherUserId) {
+      //   if (!state.statuses[convId]) {
+      //     state.statuses[convId] = [];
+      //   }
+      //   const existingStatus = state.statuses[convId].find(
+      //     s => s.message_id === message.id && s.user_id === state.selectedChat.otherUserId
+      //   );
+      //   if (!existingStatus) {
+      //     state.statuses[convId].push({
+      //       message_id: message.id,
+      //       user_id: state.selectedChat.otherUserId,
+      //       msg_status: 'sent',
+      //     });
+      //   }
+      // }
 
       // move chat to top
       const chatIndex = state.chats.findIndex((c) => c.id === convId);

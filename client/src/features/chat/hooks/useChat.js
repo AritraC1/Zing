@@ -111,17 +111,20 @@ export const useChat = () => {
     }
   }, [dispatch, isAuthenticated]);
 
-  const sendMessage = (content) => {
-    if (!selectedChat) {
-      return;
-    }
-    if (!content || !content.trim()) {
-      return;
-    }
+  const sendMessage = (payload) => {
+    if (!selectedChat) return;
+
+    const content = typeof payload === "string" ? payload : payload?.content;
+    const mediaId = typeof payload === "object" ? payload?.mediaId : null;
+
+    // Allow sending if there is either content or mediaId
+    if ((!content || !content.trim()) && !mediaId) return;
 
     emit("send_message", {
       conversationId: selectedChat.id,
-      content: content.trim(),
+      content: content?.trim() || "",
+      mediaId,
+      msgType: payload?.msgType,
     });
   };
 

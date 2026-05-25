@@ -50,3 +50,24 @@ export const fetchMessages = createAsyncThunk(
     }
   },
 );
+
+// Upload media
+export const uploadMedia = createAsyncThunk(
+  "media/upload",
+  async (file, thunkAPI) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axiosInstance.post(ENDPOINTS.MEDIA.UPLOAD_MEDIA, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return res.data.data;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);

@@ -62,7 +62,8 @@ module.exports = (io) => {
         mediaId,
         forwardedFromId,
       }) => {
-        if (!conversationId || !content?.trim()) {
+        // Allow sending if either content or mediaId is present
+        if (!conversationId || (!content?.trim() && !mediaId)) {
           return;
         }
 
