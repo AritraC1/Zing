@@ -1,0 +1,77 @@
+name: zing
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: zing-db
+    restart: unless-stopped
+    env_file:
+      - server/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - zing-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: zing-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - zing-network
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: zing-backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    env_file:
+      - server/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - zing-network
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: zing-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - zing-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  zing-network:
+    driver: bridge
