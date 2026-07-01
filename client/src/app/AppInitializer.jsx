@@ -9,7 +9,7 @@ const AppInitializer = ({ children }) => {
   useEffect(() => {
     const init = async () => {
       try {
-        // First try to refresh : always, on every app load
+        // First try to refresh - always, on every app load
         await dispatch(refreshAccessTokenThunk()).unwrap();
       } catch {
         // Refresh failed — user needs to log in
