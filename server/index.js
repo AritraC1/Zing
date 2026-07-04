@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 const swaggerUI = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 const allRoutes = require("./routes/allRoutes");
+const errorHandler = require("./middlewares/error.middleware");
 
 const corsOptions = {
   origin: "http://localhost:5173",
@@ -38,6 +39,7 @@ app.use(cookieParser());
 // Routes
 app.use("/api", allRoutes);
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
+app.use(errorHandler);
 
 // Socket Setup
 socketHandler(io);

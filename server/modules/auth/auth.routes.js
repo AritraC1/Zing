@@ -8,12 +8,13 @@ const {
 } = require("./auth.controller");
 
 const checkForJwt = require("../../middlewares/auth.middleware");
+const authLimiter = require("../../middlewares/rateLimit");
 
 const router = express.Router();
 
-router.post("/verify-otp", verifyOtp);
-router.post("/refresh", refreshAccessToken);
-router.post("/logout", invalidateRefreshTokenAndLogout);
-router.delete("/delete-account", deleteAccount);
+router.post("/verify-otp", authLimiter, verifyOtp);
+router.post("/refresh", authLimiter, refreshAccessToken);
+router.post("/logout", authLimiter, invalidateRefreshTokenAndLogout);
+router.delete("/delete-account", checkForJwt(), deleteAccount);
 
 module.exports = router;

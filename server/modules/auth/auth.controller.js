@@ -9,13 +9,8 @@ const {
 } = require("../../shared/utils/jwtTokenUtil");
 const hashToken = require("../../shared/utils/hash");
 const admin = require("../../config/firebase");
-
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-  path: "/",
-};
+const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
+const asyncHandler = require("../../shared/utils/asyncHandler");
 
 // Request OTP
 // const requestOtp = async (req, res) => {
@@ -95,7 +90,7 @@ const verifyOtp = async (req, res) => {
       });
 
       res.cookie("accessToken", onboardingToken, {
-        ...cookieOptions,
+        ...baseCookieOptions,
         maxAge: 10 * 60 * 1000,
       });
 
@@ -149,13 +144,13 @@ const verifyOtp = async (req, res) => {
 
     // Access Token Cookie
     res.cookie("accessToken", accessToken, {
-      ...cookieOptions,
+      ...baseCookieOptions,
       maxAge: 15 * 60 * 1000, // 15 min
     });
 
     // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
-      ...cookieOptions,
+      ...baseCookieOptions,
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 
@@ -249,7 +244,7 @@ const refreshAccessToken = async (req, res) => {
     await SessionRepo.updateLastUsed(session.id);
 
     res.cookie("accessToken", newAccessToken, {
-      ...cookieOptions,
+      ...baseCookieOptions,
       maxAge: 15 * 60 * 1000,
     });
 
@@ -283,8 +278,8 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
 
     if (!session) {
       // Still clear cookies
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
+      res.clearCookie("accessToken", baseCookieOptions);
+      res.clearCookie("refreshToken", baseCookieOptions);
 
       return res.status(404).json({
         message: "Session not found, but logged out on client",
@@ -296,11 +291,11 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
 
     // clear cookies AFTER successful revoke
     res.clearCookie("accessToken", {
-      ...cookieOptions,
+      ...baseCookieOptions,
     });
 
     res.clearCookie("refreshToken", {
-      ...cookieOptions,
+      ...baseCookieOptions,
     });
 
     return res.json({
@@ -314,21 +309,17 @@ const invalidateRefreshTokenAndLogout = async (req, res) => {
 };
 
 // Delete Account
-const deleteAccount = async (req, res) => {
-  try {
-    const { phoneNumber } = req.body;
+const deleteAccount = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
 
-    await UserRepo.deleteUserByPhoneNumber(phoneNumber);
+  await SessionRepo.revokeAllUserSessions(userId);
+  await UserRepo.deleteUserById(userId);
 
-    return res.status(200).json({
-      message: "user deleted successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: "Unable to delete account! Please try again after some times",
-    });
-  }
-};
+  res.clearCookie("accessToken", baseCookieOptions);
+  res.clearCookie("refreshToken", baseCookieOptions);
+
+  return res.status(200).json({ message: "user deleted successfully" });
+});
 
 module.exports = {
   verifyOtp,

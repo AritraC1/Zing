@@ -8,6 +8,7 @@ const {
 const DevicesRepo = require("../devices/devices.repo");
 const SessionRepo = require("../sessions/sessions.repo");
 const UserRepo = require("./users.repo");
+const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
 
 const onBoardNewUser = async (req, res) => {
   try {
@@ -63,21 +64,15 @@ const onBoardNewUser = async (req, res) => {
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
-    const isProduction = process.env.NODE_ENV === "production";
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "None",
-      path: "/",
-      maxAge: 15 * 60 * 1000, // 15 min
-    };
-
     // Access Token Cookie
-    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("accessToken", accessToken, {
+      ...baseCookieOptions,
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
 
     // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
-      ...cookieOptions,
+      ...baseCookieOptions,
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
     });
 

@@ -45,6 +45,14 @@ class UserRepo {
     await db.query(query, [displayName, id]);
   }
 
+  // Delete a user by id
+  static async deleteUserById(id) {
+    const query = `DELETE FROM users WHERE id = $1`;
+
+    const result = await db.query(query, [id]);
+    return result.rowCount;
+  }
+
   // Delete a user by phone number
   static async deleteUserByPhoneNumber(phone_number) {
     const query = `DELETE FROM users where phone_number = $1`;

@@ -55,6 +55,19 @@ class SessionRepo {
     await db.query(query, [deviceId]);
   }
 
+  // revoke all sessions for a user
+  static async revokeAllUserSessions(userId) {
+    const query = `
+      UPDATE sessions
+      SET revoked = TRUE
+      WHERE device_id IN (
+        SELECT id FROM devices WHERE user_id = $1
+      )
+    `;
+
+    await db.query(query, [userId]);
+  }
+
   // Update last used
   static async updateLastUsed(sessionId) {
     const query = `
