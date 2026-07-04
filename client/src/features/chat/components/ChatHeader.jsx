@@ -12,6 +12,8 @@ const ChatHeader = () => {
 
   if (!selectedChat) return null;
 
+  const avatarUrl = selectedChat.profilePic || selectedChat.avatarUrl;
+
   const startCall = () => navigate("/call", { state: { chat: selectedChat } });
 
   const startVideoCall = () =>
@@ -24,10 +26,22 @@ const ChatHeader = () => {
         <div className="flex items-center gap-3">
           {/* Avatar */}
           <div
-            className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200"
-            style={{ background: getAvatarGradient(String(selectedChat.id)) }}
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200 overflow-hidden"
+            style={
+              avatarUrl
+                ? undefined
+                : { background: getAvatarGradient(String(selectedChat.id)) }
+            }
           >
-            {selectedChat.name.charAt(0)}
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={selectedChat.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              selectedChat.name.charAt(0)
+            )}
           </div>
 
           {/* Name + Status */}

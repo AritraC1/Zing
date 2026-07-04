@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../core/api/axiosInstance";
 import ENDPOINTS from "../../../core/api/endpoints";
+import { toConversation } from "../../../shared/api/mappers/conversation";
 
 // Fetch all my chats
 export const fetchMyChats = createAsyncThunk(
@@ -8,8 +9,9 @@ export const fetchMyChats = createAsyncThunk(
   async (_, thunkAPI) => {
     try {
       const res = await axiosInstance.get(ENDPOINTS.CHAT.MY_CHATS);
+      const list = res.data.conversations ?? [];
 
-      return res.data;
+      return { conversations: list.map(toConversation) };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);
     }
@@ -38,6 +40,7 @@ export const fetchMessages = createAsyncThunk(
     try {
       const res = await axiosInstance.get(
         ENDPOINTS.CHAT.GET_MESSAGES.replace(":conversationId", conversationId),
+        { params: { offset } },
       );
       return {
         conversationId,

@@ -4,6 +4,21 @@ import {
   fetchMessages,
   fetchMyChats,
 } from "../api/chatThunk";
+import { formatChatTime } from "../../../shared/utils/formatChatTime";
+
+function bumpChatPreview(state, conversationId, lastMessage, lastMessageAt) {
+  const chatIndex = state.chats.findIndex((c) => c.id === conversationId);
+  if (chatIndex === -1) return;
+
+  const chat = state.chats.splice(chatIndex, 1)[0];
+  chat.lastMessage = lastMessage;
+  chat.last_message = lastMessage;
+  chat.message = lastMessage;
+  chat.lastMessageAt = lastMessageAt;
+  chat.last_message_at = lastMessageAt;
+  chat.time = formatChatTime(lastMessageAt);
+  state.chats.unshift(chat);
+}
 
 const initialState = {
   chats: [],
@@ -60,26 +75,13 @@ const chatSlice = createSlice({
         state.messages[convId].push(message);
       }
 
-      // Move chat to top and update last message preview
-      const chatIndex = state.chats.findIndex((c) => c.id === convId);
-      if (chatIndex !== -1) {
-        const chat = state.chats.splice(chatIndex, 1)[0];
-        chat.last_message = message.content;
-        chat.last_message_at = message.created_at;
-        state.chats.unshift(chat);
-      }
+      bumpChatPreview(state, convId, message.content, message.created_at);
     },
 
     // SOCKET: update last message on chat list item (without a full message object)
     updateChatLastMessage: (state, action) => {
       const { conversationId, lastMessage, lastMessageAt } = action.payload;
-      const chatIndex = state.chats.findIndex((c) => c.id === conversationId);
-      if (chatIndex !== -1) {
-        const chat = state.chats.splice(chatIndex, 1)[0];
-        chat.last_message = lastMessage;
-        chat.last_message_at = lastMessageAt;
-        state.chats.unshift(chat);
-      }
+      bumpChatPreview(state, conversationId, lastMessage, lastMessageAt);
     },
 
     // SOCKET: update message delivery/seen status

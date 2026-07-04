@@ -18,10 +18,9 @@ const uploadOnCloudinary = async (localFilePath) => {
     });
 
     // File has been uploaded successfully
-    console.log(
-      "File has been uploaded successfully on cloudinary: ",
-      response,
-    );
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Cloudinary upload ok:", response.public_id);
+    }
 
     return response;
   } catch (error) {

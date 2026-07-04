@@ -9,6 +9,32 @@ class UserRepo {
     return result.rows[0];
   }
 
+  // Find a user by phone number with avatar storage key
+  static async findByPhoneWithAvatar(phone_number) {
+    const query = `
+      SELECT u.*, m.storage_key AS avatar_storage_key
+      FROM users u
+      LEFT JOIN media m ON u.avatar_media_id = m.id
+      WHERE u.phone_number = $1
+    `;
+
+    const result = await db.query(query, [phone_number]);
+    return result.rows[0];
+  }
+
+  // Find a user by id with avatar storage key
+  static async findByIdWithAvatar(id) {
+    const query = `
+      SELECT u.*, m.storage_key AS avatar_storage_key
+      FROM users u
+      LEFT JOIN media m ON u.avatar_media_id = m.id
+      WHERE u.id = $1
+    `;
+
+    const result = await db.query(query, [id]);
+    return result.rows[0];
+  }
+
   // Create a new user
   static async createUser(phone_number) {
     const query = `
@@ -38,12 +64,28 @@ class UserRepo {
   // Update user details
   static async updateUser(id, displayName) {
     const query = `
-    UPDATE users 
-    SET display_name = $1
+    UPDATE users
+    SET display_name = $1,
+        updated_at = NOW()
     WHERE id = $2
+    RETURNING *
   `;
 
-    await db.query(query, [displayName, id]);
+    const result = await db.query(query, [displayName, id]);
+    return result.rows[0];
+  }
+
+  // Set avatar media id on user
+  static async setAvatarMediaId(userId, mediaId) {
+    const query = `
+      UPDATE users
+      SET avatar_media_id = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    const result = await db.query(query, [mediaId, userId]);
+    return result.rows[0];
   }
 
   // Delete a user by id

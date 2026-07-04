@@ -61,6 +61,11 @@ const fk = fs.readFileSync(
   "utf8",
 );
 
+const indexes = fs.readFileSync(
+  path.join(__dirname, "schemas/indexes.sql"),
+  "utf8",
+);
+
 module.exports = {
   users,
   conversations,
@@ -72,4 +77,5 @@ module.exports = {
   device_prekeys,
   sessions,
   fk,
+  indexes,
 };

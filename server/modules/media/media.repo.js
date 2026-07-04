@@ -10,13 +10,14 @@ class MediaRepo {
   }) {
     const query = `
         INSERT INTO media (
+            id,
             uploader_id,
             storage_key,
             mime_type,
             size_byte,
             checksum_sha256
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
         RETURNING
             id,
             uploader_id,

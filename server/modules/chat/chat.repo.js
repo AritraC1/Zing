@@ -35,14 +35,17 @@ class ChatRepo {
   // Get all conversations for a user
   static async getUserConversations(userId) {
     const query = `
-    SELECT 
-      c.id, 
-      c.chat_type, 
-      c.created_at, 
-      c.last_message_at,
-      u.display_name as name,
-      u.phone_number as phoneNumber,
-      u.id as otherUserId
+    SELECT
+      c.id,
+      c.chat_type AS "chatType",
+      c.created_at AS "createdAt",
+      c.last_message_at AS "lastMessageAt",
+      u.id AS "otherUserId",
+      u.display_name AS "otherUserName",
+      u.phone_number AS "otherUserPhone",
+      om.storage_key AS "otherUserAvatarKey",
+      lm.content AS "lastMessageContent",
+      lm.created_at AS "lastMessageCreatedAt"
     FROM conversations c
     JOIN conversation_participants cp
       ON c.id = cp.conversation_id
@@ -51,8 +54,17 @@ class ChatRepo {
       AND cp_other.user_id != cp.user_id
     JOIN users u
       ON cp_other.user_id = u.id
+    LEFT JOIN media om
+      ON u.avatar_media_id = om.id
+    LEFT JOIN LATERAL (
+      SELECT m.content, m.created_at
+      FROM messages m
+      WHERE m.conversation_id = c.id
+      ORDER BY m.sequence_no DESC
+      LIMIT 1
+    ) lm ON true
     WHERE cp.user_id = $1
-    ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC;
+    ORDER BY COALESCE(lm.created_at, c.last_message_at, c.created_at) DESC;
   `;
 
     const result = await db.query(query, [userId]);

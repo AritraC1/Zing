@@ -1,27 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { updateProfileThunk, uploadAvatarThunk } from "../api/profileThunk";
+import {
+  getMyDetailsThunk,
+  updateProfileThunk,
+  uploadAvatarThunk,
+} from "../api/profileThunk";
 
 const UpdateProfileModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
 
-  // correct slice
-  const { loading, user } = useSelector((state) => state.profile);
+  const user = useSelector((state) => state.auth.user);
+  const loading = useSelector((state) => state.profile.loading);
 
   const [imagePreview, setImagePreview] = useState(null);
   const [file, setFile] = useState(null);
   const [name, setName] = useState("");
 
-  // Pre-fill existing data
   useEffect(() => {
     if (user) {
-      // Only update if different
-      if (name !== (user.displayName || user.name || "")) {
-        setName(user.displayName || user.name || "");
+      if (name !== (user.displayName || "")) {
+        setName(user.displayName || "");
       }
 
-      if (imagePreview !== (user.avatar || null)) {
-        setImagePreview(user.avatar || null);
+      if (imagePreview !== (user.avatarUrl || null)) {
+        setImagePreview(user.avatarUrl || null);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -40,16 +42,15 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
 
   const handleSubmit = async () => {
     try {
-      // Update name only if changed
-      if (name.trim() && name !== user?.name) {
+      if (name.trim() && name !== user?.displayName) {
         await dispatch(updateProfileThunk({ newDisplayName: name })).unwrap();
       }
 
-      // Upload avatar only if selected
       if (file) {
         await dispatch(uploadAvatarThunk({ file })).unwrap();
       }
 
+      await dispatch(getMyDetailsThunk());
       onClose();
     } catch (err) {
       console.error("Error:", err);
@@ -59,7 +60,6 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-lg w-[90%] max-w-md p-6 relative">
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-black text-xl"
@@ -71,7 +71,6 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
           Update Profile
         </h2>
 
-        {/* Image Upload */}
         <div className="flex flex-col items-center mb-4">
           <label className="cursor-pointer">
             <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -95,7 +94,6 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
           </label>
         </div>
 
-        {/* Name Input */}
         <input
           type="text"
           placeholder="Enter your name"
@@ -104,7 +102,6 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
           onChange={(e) => setName(e.target.value)}
         />
 
-        {/* Submit */}
         <button
           disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"

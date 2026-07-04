@@ -1,6 +1,7 @@
 const crypto = require("crypto");
-const uploadOnCloudinary = require("../../shared/utils/cloudinary");
 const hashToken = require("../../shared/utils/hash");
+const uploadFileToCloudinary = require("../../shared/utils/uploadToCloudinary");
+const { buildMediaUrl } = require("../../shared/utils/mediaUrl");
 const {
   createAccessTokenForUser,
   createRefreshTokenForUser,
@@ -9,6 +10,17 @@ const DevicesRepo = require("../devices/devices.repo");
 const SessionRepo = require("../sessions/sessions.repo");
 const UserRepo = require("./users.repo");
 const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
+
+function formatUserResponse(user) {
+  if (!user) return null;
+
+  return {
+    ...user,
+    avatar_url: user.avatar_storage_key
+      ? buildMediaUrl(user.avatar_storage_key)
+      : null,
+  };
+}
 
 const onBoardNewUser = async (req, res) => {
   try {
@@ -23,12 +35,8 @@ const onBoardNewUser = async (req, res) => {
 
     const user = await UserRepo.findByPhone(phoneNumber);
 
-    // complete profile
     const updatedUser = await UserRepo.completeProfileById(user.id, displayName);
 
-    // Create and register sessions and devices for new user
-
-    // Generate Token for the user
     const accessToken = createAccessTokenForUser({
       id: user.id,
       phoneNumber,
@@ -38,10 +46,8 @@ const onBoardNewUser = async (req, res) => {
       phoneNumber,
     });
 
-    // hash refresh token
     const refreshTokenHash = hashToken(refreshToken);
 
-    // Check if device exists
     let device = await DevicesRepo.findById(deviceId);
 
     if (!device) {
@@ -53,10 +59,8 @@ const onBoardNewUser = async (req, res) => {
       });
     }
 
-    // revoke previous session for this device
     await SessionRepo.revokeDeviceSessions(deviceId);
 
-    // Create new session entry
     await SessionRepo.createSession({
       id: crypto.randomUUID(),
       deviceId: deviceId,
@@ -64,16 +68,14 @@ const onBoardNewUser = async (req, res) => {
       expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
-    // Access Token Cookie
     res.cookie("accessToken", accessToken, {
       ...baseCookieOptions,
-      maxAge: 15 * 60 * 1000, // 15 min
+      maxAge: 15 * 60 * 1000,
     });
 
-    // Refresh token cookie
     res.cookie("refreshToken", refreshToken, {
       ...baseCookieOptions,
-      maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days
+      maxAge: 14 * 24 * 60 * 60 * 1000,
     });
 
     return res.json({
@@ -88,16 +90,15 @@ const onBoardNewUser = async (req, res) => {
   }
 };
 
-// get my profile
 const fetchMyProfile = async (req, res) => {
   try {
     const { phoneNumber } = req.user;
 
-    const user = await UserRepo.findByPhone(phoneNumber);
+    const user = await UserRepo.findByPhoneWithAvatar(phoneNumber);
 
     return res.status(200).json({
       message: "Successfully fetched user profile",
-      data: user,
+      data: formatUserResponse(user),
     });
   } catch (error) {
     res.status(500).json({
@@ -106,7 +107,6 @@ const fetchMyProfile = async (req, res) => {
   }
 };
 
-// Update display name
 const updateProfile = async (req, res) => {
   try {
     const { phoneNumber } = req.user;
@@ -126,11 +126,12 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    const updatedUser = await UserRepo.updateUser(user.id, newDisplayName);
+    await UserRepo.updateUser(user.id, newDisplayName);
+    const updatedUser = await UserRepo.findByIdWithAvatar(user.id);
 
     return res.status(200).json({
       message: "User details updated successfully",
-      data: updatedUser,
+      data: formatUserResponse(updatedUser),
     });
   } catch (error) {
     console.error("Error", error);
@@ -140,7 +141,6 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// update profile picture
 const uploadAvatar = async (req, res) => {
   try {
     const localFilePath = req.file?.path;
@@ -151,20 +151,32 @@ const uploadAvatar = async (req, res) => {
       });
     }
 
-    const cloudinaryResponse = await uploadOnCloudinary(localFilePath);
+    const { media, cloudinaryResponse } = await uploadFileToCloudinary({
+      localFilePath,
+      uploaderId: req.user.id,
+      mimeType: req.file.mimetype,
+      sizeBytes: req.file.size,
+    });
+
+    await UserRepo.setAvatarMediaId(req.user.id, media.id);
+    const updatedUser = await UserRepo.findByIdWithAvatar(req.user.id);
 
     res.status(200).json({
       message: "File uploaded successfully",
-      data: cloudinaryResponse,
+      data: {
+        avatarUrl: cloudinaryResponse.secure_url,
+        avatarMediaId: media.id,
+        user: formatUserResponse(updatedUser),
+      },
     });
   } catch (error) {
+    console.error("uploadAvatar error:", error);
     res.status(500).json({
       message: "Upload failed",
     });
   }
 };
 
-// Get all users by phone number
 const fetchUsersByPhone = async (req, res) => {
   const { phoneNumber } = req.query;
 
@@ -174,7 +186,7 @@ const fetchUsersByPhone = async (req, res) => {
     });
   }
 
-  const user = await UserRepo.findByPhone(phoneNumber);
+  const user = await UserRepo.findByPhoneWithAvatar(phoneNumber);
 
   if (!user) {
     return res.status(404).json({
@@ -186,7 +198,9 @@ const fetchUsersByPhone = async (req, res) => {
     id: user.id,
     name: user.display_name,
     phoneNumber: user.phone_number,
-    profilePic: null, // you can map avatar later
+    profilePic: user.avatar_storage_key
+      ? buildMediaUrl(user.avatar_storage_key)
+      : null,
   };
 
   return res.status(200).json({

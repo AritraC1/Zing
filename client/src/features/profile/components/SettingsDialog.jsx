@@ -4,9 +4,9 @@ import { logout } from "../../auth/store/authReducer";
 import { logoutThunk } from "../../auth/api/authThunk";
 import { resetChat } from "../../chat/store/chatReducer";
 import { persistor } from "../../../store/store";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-// import { useState } from "react";
-// import UpdateProfileModal from "./UpdateProfileModal";
+import UpdateProfileModal from "./UpdateProfileModal";
 
 const SettingsDialog = ({ open, onClose }) => {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ const SettingsDialog = ({ open, onClose }) => {
   // Get both auth + profile data
   const user = useSelector((state) => state.auth.user);
 
-  // const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
 
   if (!open) return null;
 
@@ -71,8 +71,8 @@ const SettingsDialog = ({ open, onClose }) => {
           {/* Profile Section */}
           <div
             onClick={() => {
-              onClose(); // close settings
-              // setProfilePopupOpen(true);
+              onClose();
+              setProfilePopupOpen(true);
             }}
             className="flex items-center gap-3 px-4 py-3 cursor-pointer transition"
             style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
@@ -84,9 +84,9 @@ const SettingsDialog = ({ open, onClose }) => {
               className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shrink-0"
               style={{ background: "#374151" }}
             >
-              {user?.avatar ? (
+              {user?.avatarUrl ? (
                 <img
-                  src={user.avatar}
+                  src={user.avatarUrl}
                   alt="avatar"
                   className="w-full h-full object-cover"
                 />
@@ -124,11 +124,10 @@ const SettingsDialog = ({ open, onClose }) => {
         </div>
       </div>
 
-      {/* Profile Popup */}
-      {/* <UpdateProfileModal
+      <UpdateProfileModal
         isOpen={profilePopupOpen}
         onClose={() => setProfilePopupOpen(false)}
-      /> */}
+      />
     </>
   );
 };

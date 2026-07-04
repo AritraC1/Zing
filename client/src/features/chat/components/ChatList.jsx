@@ -5,7 +5,7 @@ import { MessageSquarePlus, Search } from "lucide-react";
 import AddNewChatPopup from "../../users/components/AddNewChatPopup";
 
 const ChatList = () => {
-  const { chats } = useChat();
+  const { chats, selectedChat, selectChat } = useChat();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -50,7 +50,12 @@ const ChatList = () => {
       <div className="flex-1 overflow-y-auto flex flex-col gap-0.5 pb-2">
         {filteredChats.length > 0 ? (
           filteredChats.map((chat) => (
-            <ChatListItem key={chat.id} chat={chat} />
+            <ChatListItem
+              key={chat.id}
+              chat={chat}
+              isSelected={selectedChat?.id === chat.id}
+              onSelect={selectChat}
+            />
           ))
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 text-gray-400 px-6 text-center">

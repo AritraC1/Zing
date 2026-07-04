@@ -9,6 +9,7 @@
 
 const MessageRepo = require("../messages/messagesRepo");
 const ChatRepo = require("./chat.repo");
+const { assertConversationParticipant } = require("./chat.access");
 
 // Map to track online users: userId -> socketId
 const onlineUsers = new Map();
@@ -36,6 +37,8 @@ module.exports = (io) => {
 
     socket.on("fetch_messages", async ({ conversationId, offset = 0 }) => {
       try {
+        await assertConversationParticipant(conversationId, userId);
+
         const messages = await MessageRepo.getMessagesByConversation(
           conversationId,
           50,
@@ -68,19 +71,8 @@ module.exports = (io) => {
         }
 
         try {
+          await assertConversationParticipant(conversationId, userId);
           const participants = await ChatRepo.getParticipants(conversationId);
-
-          if (!participants.length) {
-            throw new Error("Conversation not found");
-          }
-
-          const isParticipant = participants.some(
-            ({ user_id }) => user_id === userId,
-          );
-
-          if (!isParticipant) {
-            throw new Error("You are not a participant in this conversation");
-          }
 
           const message = await MessageRepo.saveMessage({
             conversationId,

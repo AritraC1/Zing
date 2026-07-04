@@ -20,8 +20,6 @@ const initialState = {
   loading: {
     verifyOtp: false,
     getMyDetails: false,
-    updateProfile: false,
-    uploadAvatar: false,
   },
   error: null,
 };
@@ -56,8 +54,6 @@ const authSlice = createSlice({
       state.loading = {
         verifyOtp: false,
         getMyDetails: false,
-        updateProfile: false,
-        uploadAvatar: false,
       };
     },
   },
@@ -114,37 +110,30 @@ const authSlice = createSlice({
         state.error = action.payload || "Session expired";
       })
 
-      // UPDATE PROFILE
-      .addCase(updateProfileThunk.pending, (state) => {
-        state.loading.updateProfile = true;
-        state.error = null;
-      })
+      // UPDATE PROFILE — user data only; loading lives in profile slice
       .addCase(updateProfileThunk.fulfilled, (state, action) => {
-        state.loading.updateProfile = false;
         state.user = {
           ...state.user,
           ...toUser(action.payload.data),
         };
       })
-      .addCase(updateProfileThunk.rejected, (state, action) => {
-        state.loading.updateProfile = false;
-        state.error = action.payload;
-      })
 
-      // UPLOAD AVATAR
-      .addCase(uploadAvatarThunk.pending, (state) => {
-        state.loading.uploadAvatar = true;
-        state.error = null;
-      })
+      // UPLOAD AVATAR — user data only; loading lives in profile slice
       .addCase(uploadAvatarThunk.fulfilled, (state, action) => {
-        state.loading.uploadAvatar = false;
         if (state.user) {
-          state.user.avatar = action.payload.data;
+          const payload = action.payload.data;
+          const mappedUser = payload?.user;
+          state.user = {
+            ...state.user,
+            ...(mappedUser || {}),
+            avatarUrl:
+              payload?.avatarUrl ?? mappedUser?.avatarUrl ?? state.user.avatarUrl,
+            avatarMediaId:
+              payload?.avatarMediaId ??
+              mappedUser?.avatarMediaId ??
+              state.user.avatarMediaId,
+          };
         }
-      })
-      .addCase(uploadAvatarThunk.rejected, (state, action) => {
-        state.loading.uploadAvatar = false;
-        state.error = action.payload;
       })
 
       // REFRESH ACCESS TOKEN

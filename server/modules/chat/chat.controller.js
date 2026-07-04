@@ -3,12 +3,20 @@ const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo"
 const MessageRepo = require("../messages/messagesRepo");
 const AppError = require("../../shared/errors/AppError");
 const asyncHandler = require("../../shared/utils/asyncHandler");
+const { assertConversationParticipant } = require("./chat.access");
+const { buildMediaUrl } = require("../../shared/utils/mediaUrl");
 
 // Fetch all conversations for current user
 const fetchAllMyConversations = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
-  const conversations = await ChatRepo.getUserConversations(userId);
+  const rows = await ChatRepo.getUserConversations(userId);
+  const conversations = rows.map((row) => ({
+    ...row,
+    otherUserAvatarUrl: row.otherUserAvatarKey
+      ? buildMediaUrl(row.otherUserAvatarKey)
+      : null,
+  }));
 
   return res.status(200).json({
     conversations,
@@ -60,17 +68,7 @@ const fetchMessages = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const offset = parseInt(req.query.offset) || 0;
 
-  const participants = await ChatRepo.getParticipants(conversationId);
-  if (!participants.length) {
-    throw new AppError("Conversation not found", 404);
-  }
-
-  const isParticipant = participants.some(
-    ({ user_id }) => String(user_id) === String(userId),
-  );
-  if (!isParticipant) {
-    throw new AppError("Forbidden: not a participant", 403);
-  }
+  await assertConversationParticipant(conversationId, userId);
 
   const [messages, statuses] = await Promise.all([
     MessageRepo.getMessagesByConversation(conversationId, 50, offset),

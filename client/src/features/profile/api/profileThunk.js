@@ -71,7 +71,14 @@ export const uploadAvatarThunk = createAsyncThunk(
         ENDPOINTS.ME.UPLOAD_PROFILE_PIC,
         formData,
       );
-      return res.data;
+      return {
+        message: res.data.message,
+        data: {
+          avatarUrl: res.data.data?.avatarUrl,
+          avatarMediaId: res.data.data?.avatarMediaId,
+          user: toUser(res.data.data?.user),
+        },
+      };
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data || error.message || "Upload failed",

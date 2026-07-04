@@ -17,6 +17,7 @@ async function migrate() {
     // await client.query(tables.messages);
     // await client.query(tables.fk);
     await client.query(tables.message_status);
+    await client.query(tables.indexes);
 
     await client.query("COMMIT");
 
