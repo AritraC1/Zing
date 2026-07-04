@@ -16,8 +16,8 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (user) {
       // Only update if different
-      if (name !== (user.name || user.display_name || "")) {
-        setName(user.name || user.displayName || "");
+      if (name !== (user.displayName || user.name || "")) {
+        setName(user.displayName || user.name || "");
       }
 
       if (imagePreview !== (user.avatar || null)) {

@@ -2,6 +2,8 @@ import axios from "axios";
 import API_CONFIG from "../config/apiConfig";
 import { refreshAccessTokenThunk } from "../../features/auth/api/authThunk";
 import { logout } from "../../features/auth/store/authReducer";
+import { resetChat } from "../../features/chat/store/chatReducer";
+import { persistor } from "../../store/store";
 
 // Store Injection
 // We store a reference to Redux store so we can dispatch actions
@@ -99,6 +101,8 @@ axiosInstance.interceptors.response.use(
 
       // Log the user out
       _store.dispatch(logout());
+      _store.dispatch(resetChat());
+      await persistor.purge();
       return Promise.reject(refreshError);
     } finally {
       // Reset refresh flag

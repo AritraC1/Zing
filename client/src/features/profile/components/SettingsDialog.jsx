@@ -1,6 +1,9 @@
 import { X, LogOut, User } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../auth/store/authReducer";
+import { logoutThunk } from "../../auth/api/authThunk";
+import { resetChat } from "../../chat/store/chatReducer";
+import { persistor } from "../../../store/store";
 import { useNavigate } from "react-router-dom";
 // import { useState } from "react";
 // import UpdateProfileModal from "./UpdateProfileModal";
@@ -16,9 +19,17 @@ const SettingsDialog = ({ open, onClose }) => {
 
   if (!open) return null;
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutThunk()).unwrap();
+    } catch {
+      // proceed with local cleanup even if server logout fails
+    } finally {
+      dispatch(logout());
+      dispatch(resetChat());
+      await persistor.purge();
+      navigate("/");
+    }
   };
 
   return (
@@ -89,10 +100,10 @@ const SettingsDialog = ({ open, onClose }) => {
             {/* User Info */}
             <div className="leading-tight min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: "#f9fafb" }}>
-                {user?.display_name || "User"}
+                {user?.displayName || "User"}
               </p>
               <p className="text-xs truncate" style={{ color: "#6b7280" }}>
-                {user?.phone_number || "No phone"}
+                {user?.phoneNumber || "No phone"}
               </p>
             </div>
           </div>

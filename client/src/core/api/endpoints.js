@@ -3,6 +3,7 @@ const ENDPOINTS = {
     REGISTER: "/auth/register",
     VERIFY_OTP: "/auth/verify-otp",
     REFRESH_TOKEN: "/auth/refresh",
+    LOGOUT: "/auth/logout",
   },
   ME: {
     CHECK_ME: "/users/me",

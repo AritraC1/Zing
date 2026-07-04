@@ -24,7 +24,7 @@ const onBoardNewUser = async (req, res) => {
     const user = await UserRepo.findByPhone(phoneNumber);
 
     // complete profile
-    await UserRepo.completeProfileById(user.id, displayName);
+    const updatedUser = await UserRepo.completeProfileById(user.id, displayName);
 
     // Create and register sessions and devices for new user
 
@@ -78,6 +78,7 @@ const onBoardNewUser = async (req, res) => {
 
     return res.json({
       message: "Onboarding complete",
+      data: updatedUser,
     });
   } catch (error) {
     console.log("Error: ", error);

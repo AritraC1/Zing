@@ -5,6 +5,7 @@ import {
   updateProfileThunk,
   uploadAvatarThunk,
 } from "../../profile/api/profileThunk";
+import { toUser } from "../../../shared/api/mappers/user";
 
 const initialState = {
   isAuthenticated: false,
@@ -93,14 +94,10 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(getMyDetailsThunk.fulfilled, (state, action) => {
-        const data = action.payload.data;
         state.loading.getMyDetails = false;
         state.isAuthChecking = false;
         state.isAuthenticated = true;
-        state.user = {
-          ...data,
-          profileCompleted: data.profile_completed, // ← map snake_case
-        };
+        state.user = action.payload.data;
       })
       .addCase(getMyDetailsThunk.rejected, (state, action) => {
         state.loading.getMyDetails = false;
@@ -126,10 +123,7 @@ const authSlice = createSlice({
         state.loading.updateProfile = false;
         state.user = {
           ...state.user,
-          ...action.payload.data,
-          profileCompleted:
-            action.payload.data?.profile_completed ?? // ← map snake_case
-            state.user?.profileCompleted,
+          ...toUser(action.payload.data),
         };
       })
       .addCase(updateProfileThunk.rejected, (state, action) => {

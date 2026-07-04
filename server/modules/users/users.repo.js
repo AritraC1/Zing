@@ -31,7 +31,8 @@ class UserRepo {
     RETURNING *
     `;
 
-    await db.query(query, [displayName, id]);
+    const result = await db.query(query, [displayName, id]);
+    return result.rows[0];
   }
 
   // Update user details

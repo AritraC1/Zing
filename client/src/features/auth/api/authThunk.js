@@ -33,3 +33,17 @@ export const refreshAccessTokenThunk = createAsyncThunk(
     }
   },
 );
+
+export const logoutThunk = createAsyncThunk(
+  "auth/logout",
+  async (_, thunkAPI) => {
+    try {
+      const res = await axiosInstance.post(ENDPOINTS.AUTH.LOGOUT);
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data || error.message || "Logout failed",
+      );
+    }
+  },
+);

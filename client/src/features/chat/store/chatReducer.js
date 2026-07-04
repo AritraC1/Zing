@@ -20,6 +20,8 @@ const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
+    resetChat: () => initialState,
+
     setTab: (state, action) => {
       state.tab = action.payload;
       state.selectedChat = null;
@@ -221,6 +223,7 @@ const chatSlice = createSlice({
 });
 
 export const {
+  resetChat,
   setTab,
   selectChat,
   addChat,

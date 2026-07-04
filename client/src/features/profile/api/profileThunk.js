@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../core/api/axiosInstance";
 import ENDPOINTS from "../../../core/api/endpoints";
+import { toUser } from "../../../shared/api/mappers/user";
 
 // Complete user onboard
 export const completeUserOnboardThunk = createAsyncThunk(
@@ -30,7 +31,7 @@ export const getMyDetailsThunk = createAsyncThunk(
     try {
       const res = await axiosInstance.get(ENDPOINTS.ME.CHECK_ME);
 
-      return res.data;
+      return { ...res.data, data: toUser(res.data.data) };
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data?.message ||
@@ -49,7 +50,7 @@ export const updateProfileThunk = createAsyncThunk(
       const res = await axiosInstance.patch(ENDPOINTS.ME.UPDATE_PROFILE, {
         newDisplayName,
       });
-      return res.data;
+      return { ...res.data, data: toUser(res.data.data) };
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data || error.message || "Update Failed",
