@@ -9,17 +9,27 @@
 
 const MessageRepo = require("../messages/messagesRepo");
 const ChatRepo = require("./chat.repo");
+const UserRepo = require("../users/users.repo");
 const { assertConversationParticipant } = require("./chat.access");
+
+const PAGE_SIZE = 50;
 
 // Map to track online users: userId -> socketId
 const onlineUsers = new Map();
 
+function broadcastPresence(io, userId, online, lastSeenAt = null) {
+  io.emit("presence_update", { userId, online, lastSeenAt });
+}
+
 module.exports = (io) => {
   io.on("connection", async (socket) => {
-    const userId = socket.user.id; // already attached by checkSocketForJwt middleware
-    onlineUsers.set(userId, socket.id); // Store the user's socket ID so we can send messages to them later
+    const userId = socket.user.id;
+    onlineUsers.set(userId, socket.id);
 
     try {
+      await UserRepo.updateLastSeen(userId);
+      broadcastPresence(io, userId, true);
+
       const deliveredRows = await MessageRepo.markAllPendingAsDelivered(userId);
 
       deliveredRows.forEach(({ message_id, sender_id }) => {
@@ -41,7 +51,7 @@ module.exports = (io) => {
 
         const messages = await MessageRepo.getMessagesByConversation(
           conversationId,
-          50,
+          PAGE_SIZE,
           offset,
         );
 
@@ -49,7 +59,13 @@ module.exports = (io) => {
           conversationId,
         );
 
-        socket.emit("message_history", { conversationId, messages, statuses });
+        socket.emit("message_history", {
+          conversationId,
+          messages,
+          statuses,
+          offset,
+          hasMore: messages.length === PAGE_SIZE,
+        });
       } catch (err) {
         socket.emit("error", { message: "Failed to fetch messages" });
       }
@@ -131,6 +147,7 @@ module.exports = (io) => {
               io.to(recipientSocketId).emit("message_delivered", {
                 messageId,
                 deliveredTo: userId,
+                conversationId,
               });
             }
           }
@@ -155,6 +172,7 @@ module.exports = (io) => {
             if (recipientSocketId) {
               io.to(recipientSocketId).emit("messages_read", {
                 conversationId,
+                readBy: userId,
                 messageIds: updatedRows.map((row) => row.message_id),
               });
             }
@@ -165,8 +183,15 @@ module.exports = (io) => {
       }
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       onlineUsers.delete(userId);
+      try {
+        const lastSeenAt = await UserRepo.updateLastSeen(userId);
+        broadcastPresence(io, userId, false, lastSeenAt);
+      } catch (err) {
+        console.error("Error updating last seen on disconnect:", err);
+        broadcastPresence(io, userId, false);
+      }
     });
   });
 };

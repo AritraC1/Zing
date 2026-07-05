@@ -9,14 +9,15 @@ import { store, persistor } from "./store/store.js";
 import AppInitializer from "./app/AppInitializer.jsx";
 
 createRoot(document.getElementById("root")).render(
-  // <StrictMode></StrictMode>,
-  <Provider store={store}>
-    <PersistGate loading={null} persistor={persistor}>
-      <AppInitializer>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </AppInitializer>
-    </PersistGate>
-  </Provider>,
+  <StrictMode>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <AppInitializer>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </AppInitializer>
+      </PersistGate>
+    </Provider>
+  </StrictMode>,
 );

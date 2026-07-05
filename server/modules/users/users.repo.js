@@ -103,6 +103,31 @@ class UserRepo {
     const result = await db.query(query, [phone_number]);
     return result.rowCount;
   }
+
+  static async updateLastSeen(userId, client = db) {
+    const query = `
+      UPDATE users
+      SET last_seen_at = NOW(), updated_at = NOW()
+      WHERE id = $1
+      RETURNING last_seen_at
+    `;
+
+    const result = await client.query(query, [userId]);
+    return result.rows[0]?.last_seen_at;
+  }
+
+  static async completeProfileByIdWithClient(id, displayName, client = db) {
+    const query = `
+    UPDATE users
+     SET display_name = $1,
+        profile_completed = true
+      WHERE id = $2
+    RETURNING *
+    `;
+
+    const result = await client.query(query, [displayName, id]);
+    return result.rows[0];
+  }
 }
 
 module.exports = UserRepo;

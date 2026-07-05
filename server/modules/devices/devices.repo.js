@@ -32,7 +32,7 @@ class DevicesRepo {
   }
 
   // Create a new device
-  static async createDevice({ id, userId, deviceType, identityPublicKey }) {
+  static async createDevice({ id, userId, deviceType, identityPublicKey }, client = db) {
     const query = `
     INSERT INTO devices (
         id, 
@@ -45,7 +45,7 @@ class DevicesRepo {
     `;
 
     const values = [id, userId, deviceType, identityPublicKey];
-    const result = await db.query(query, values);
+    const result = await client.query(query, values);
 
     return result.rows[0];
   }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   selectChat,
@@ -7,62 +7,67 @@ import {
   unarchiveChat,
   addMessage,
   setMessages,
+  setLoadingOlderMessages,
   updateMessageStatus,
-  updateChatLastMessage,
+  markMessagesRead,
+  setPresence,
+  clearCalls,
 } from "../store/chatReducer";
+import {
+  selectSortedChats,
+  selectMessagesForChat,
+  selectStatusesForChat,
+  selectMessagePagination,
+  selectPresenceForUser,
+} from "../store/chatSelectors";
+import { getMessageStatus } from "../store/statusUtils";
 import useAuth from "../../auth/hooks/useAuth";
 import { fetchMyChats } from "../api/chatThunk";
 import { useSocket } from "../../../shared/hooks/useSocket";
 
+const PAGE_SIZE = 50;
+
 export const useChat = () => {
   const dispatch = useDispatch();
   const {
-    chats,
     archivedChats,
     selectedChat,
     tab,
-    messages: allMessages,
-    statuses: allStatuses,
+    calls,
   } = useSelector((state) => state.chat);
+  const chats = useSelector(selectSortedChats);
+  const conversationId = selectedChat?.id;
+  const messages = useSelector((state) =>
+    selectMessagesForChat(state, conversationId),
+  );
+  const statuses = useSelector((state) =>
+    selectStatusesForChat(state, conversationId),
+  );
+  const messagePagination = useSelector((state) =>
+    selectMessagePagination(state, conversationId),
+  );
+  const otherUserPresence = useSelector((state) =>
+    selectPresenceForUser(state, selectedChat?.otherUserId),
+  );
   const { emit, isConnected, on, off } = useSocket();
   const { isAuthenticated } = useAuth();
 
-  // Listen for new messages
   useEffect(() => {
-    // const handleNewMessage = (message) => {
-    //   if (message && message.id) {
-    //     dispatch(addMessage(message));
-    //     // Emit delivered since we received it
-    //     emit("message_delivered", {
-    //       messageId: message.id,
-    //       conversationId: message.conversation_id,
-    //     });
-    //   }
-    // };
-
     const handleNewMessage = (message) => {
-  if (message && message.id) {
-    dispatch(addMessage(message));
-    
-    // Update the chat list with latest message + move to top
-    dispatch(updateChatLastMessage({
-      conversationId: message.conversation_id,
-      lastMessage: message.content,
-      lastMessageAt: message.created_at,
-    }));
+      if (message && message.id) {
+        dispatch(addMessage(message));
 
-    // If conversation doesn't exist in list → fetch it
-    const chatExists = chats.some(c => c.id === message.conversation_id);
-    if (!chatExists) {
-      dispatch(fetchMyChats()); // re-fetch to get the new conversation
-    }
+        const chatExists = chats.some((c) => c.id === message.conversation_id);
+        if (!chatExists) {
+          dispatch(fetchMyChats());
+        }
 
-    emit("message_delivered", {
-      messageId: message.id,
-      conversationId: message.conversation_id,
-    });
-  }
-};
+        emit("message_delivered", {
+          messageId: message.id,
+          conversationId: message.conversation_id,
+        });
+      }
+    };
 
     const handleMessageSent = (message) => {
       if (message && message.id) {
@@ -72,40 +77,51 @@ export const useChat = () => {
 
     const handleMessageHistory = (data) => {
       if (data && data.conversationId) {
-        const messages = Array.isArray(data.messages) ? data.messages : [];
-        const statuses = Array.isArray(data.statuses) ? data.statuses : [];
+        const historyMessages = Array.isArray(data.messages) ? data.messages : [];
+        const historyStatuses = Array.isArray(data.statuses) ? data.statuses : [];
         dispatch(
           setMessages({
             conversationId: data.conversationId,
-            messages,
-            statuses,
+            messages: historyMessages,
+            statuses: historyStatuses,
+            offset: data.offset || 0,
+            hasMore: data.hasMore ?? historyMessages.length === PAGE_SIZE,
           }),
         );
       }
     };
 
     const handleMessageDelivered = (data) => {
-      const { messageId, deliveredTo } = data;
+      const { messageId, deliveredTo, conversationId: convId } = data;
       dispatch(
         updateMessageStatus({
           messageId,
           userId: deliveredTo,
           status: "delivered",
+          conversationId: convId,
         }),
       );
     };
 
     const handleMessagesRead = (data) => {
-      const { messageIds } = data;
+      const { conversationId: convId, messageIds, readBy } = data;
+      if (!readBy || !Array.isArray(messageIds)) return;
+
       messageIds.forEach((messageId) => {
         dispatch(
           updateMessageStatus({
             messageId,
-            userId: selectedChat?.otherUserId,
+            userId: readBy,
             status: "seen",
+            conversationId: convId,
           }),
         );
       });
+    };
+
+    const handlePresenceUpdate = (data) => {
+      const { userId, online, lastSeenAt } = data;
+      dispatch(setPresence({ userId, online, lastSeenAt }));
     };
 
     on("new_message", handleNewMessage);
@@ -113,6 +129,7 @@ export const useChat = () => {
     on("message_history", handleMessageHistory);
     on("message_delivered", handleMessageDelivered);
     on("messages_read", handleMessagesRead);
+    on("presence_update", handlePresenceUpdate);
 
     return () => {
       off("new_message", handleNewMessage);
@@ -120,15 +137,22 @@ export const useChat = () => {
       off("message_history", handleMessageHistory);
       off("message_delivered", handleMessageDelivered);
       off("messages_read", handleMessagesRead);
+      off("presence_update", handlePresenceUpdate);
     };
-  }, [dispatch, emit, selectedChat?.otherUserId, on, off, chats]);
+  }, [dispatch, emit, on, off, chats]);
 
-  // Fetch messages when chat is selected or socket becomes connected
   useEffect(() => {
     if (!selectedChat || !isConnected) return;
 
-    emit("fetch_messages", { conversationId: selectedChat.id });
-  }, [selectedChat, isConnected, emit]);
+    emit("fetch_messages", { conversationId: selectedChat.id, offset: 0 });
+  }, [selectedChat?.id, isConnected, emit]);
+
+  useEffect(() => {
+    if (!selectedChat || !isConnected) return;
+
+    emit("mark_read", { conversationId: selectedChat.id });
+    dispatch(markMessagesRead({ conversationId: selectedChat.id }));
+  }, [selectedChat?.id, isConnected, emit, dispatch]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -136,43 +160,78 @@ export const useChat = () => {
     }
   }, [dispatch, isAuthenticated]);
 
-  const sendMessage = (payload) => {
-    if (!selectedChat) return;
+  const sendMessage = useCallback(
+    (payload) => {
+      if (!selectedChat) return;
 
-    const content = typeof payload === "string" ? payload : payload?.content;
-    const mediaId = typeof payload === "object" ? payload?.mediaId : null;
+      const content = typeof payload === "string" ? payload : payload?.content;
+      const mediaId = typeof payload === "object" ? payload?.mediaId : null;
 
-    // Allow sending if there is either content or mediaId
-    if ((!content || !content.trim()) && !mediaId) return;
+      if ((!content || !content.trim()) && !mediaId) return;
 
-    emit("send_message", {
-      conversationId: selectedChat.id,
-      content: content?.trim() || "",
-      mediaId,
-      msgType: payload?.msgType,
-    });
-  };
+      emit("send_message", {
+        conversationId: selectedChat.id,
+        content: content?.trim() || "",
+        mediaId,
+        msgType: payload?.msgType,
+      });
+    },
+    [selectedChat, emit],
+  );
 
-  const markAsRead = () => {
+  const markAsRead = useCallback(() => {
     if (selectedChat) {
       emit("mark_read", { conversationId: selectedChat.id });
+      dispatch(markMessagesRead({ conversationId: selectedChat.id }));
     }
-  };
+  }, [selectedChat, emit, dispatch]);
 
-  const currentChatMessages = selectedChat
-    ? allMessages[selectedChat.id] || []
-    : [];
-  const currentChatStatuses = selectedChat
-    ? allStatuses[selectedChat.id] || []
-    : [];
+  const loadOlderMessages = useCallback(() => {
+    if (!selectedChat || !isConnected || messagePagination.loadingOlder) return;
+    if (!messagePagination.hasMore) return;
+
+    dispatch(
+      setLoadingOlderMessages({
+        conversationId: selectedChat.id,
+        loading: true,
+      }),
+    );
+
+    emit("fetch_messages", {
+      conversationId: selectedChat.id,
+      offset: messages.length,
+    });
+  }, [
+    selectedChat,
+    isConnected,
+    messagePagination,
+    messages.length,
+    emit,
+    dispatch,
+  ]);
+
+  const getStatusForMessage = useCallback(
+    (message) => {
+      if (!selectedChat?.otherUserId) return null;
+      return getMessageStatus(
+        statuses,
+        message.id,
+        selectedChat.otherUserId,
+      );
+    },
+    [statuses, selectedChat],
+  );
 
   return {
     chats,
     archivedChats,
     selectedChat,
     tab,
-    messages: currentChatMessages,
-    statuses: currentChatStatuses,
+    messages,
+    statuses,
+    messagePagination,
+    otherUserPresence,
+    calls,
 
     setTab: (t) => dispatch(setTab(t)),
     selectChat: (chat) => dispatch(selectChat(chat)),
@@ -180,5 +239,8 @@ export const useChat = () => {
     unarchiveChat: (id) => dispatch(unarchiveChat(id)),
     sendMessage,
     markAsRead,
+    loadOlderMessages,
+    getStatusForMessage,
+    clearCalls: () => dispatch(clearCalls()),
   };
 };

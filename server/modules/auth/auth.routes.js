@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   verifyOtp,
   refreshAccessToken,
@@ -9,10 +8,12 @@ const {
 
 const checkForJwt = require("../../middlewares/auth.middleware");
 const authLimiter = require("../../middlewares/rateLimit");
+const validateBody = require("../../shared/middlewares/validateBody");
+const { verifyOtpSchema } = require("../../shared/validation/schemas");
 
 const router = express.Router();
 
-router.post("/verify-otp", authLimiter, verifyOtp);
+router.post("/verify-otp", authLimiter, validateBody(verifyOtpSchema), verifyOtp);
 router.post("/refresh", authLimiter, refreshAccessToken);
 router.post("/logout", authLimiter, invalidateRefreshTokenAndLogout);
 router.delete("/delete-account", checkForJwt(), deleteAccount);

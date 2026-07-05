@@ -57,10 +57,16 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
           </span>
         </div>
 
-        <div className="text-xs text-gray-400 truncate">
+        <div className="text-xs text-gray-400 truncate pr-2">
           {chat.message || chat.lastMessage || ""}
         </div>
       </div>
+
+      {(chat.unreadCount ?? 0) > 0 && !isSelected && (
+        <span className="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+          {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
+        </span>
+      )}
     </div>
   );
 };

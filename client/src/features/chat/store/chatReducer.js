@@ -5,6 +5,7 @@ import {
   fetchMyChats,
 } from "../api/chatThunk";
 import { formatChatTime } from "../../../shared/utils/formatChatTime";
+import { statusesArrayToMap, upsertStatus } from "./statusUtils";
 
 function bumpChatPreview(state, conversationId, lastMessage, lastMessageAt) {
   const chatIndex = state.chats.findIndex((c) => c.id === conversationId);
@@ -27,6 +28,12 @@ const initialState = {
   tab: "chats",
   messages: {},
   statuses: {},
+  messagePagination: {},
+  calls: [],
+  presence: {
+    online: {},
+    lastSeenAt: {},
+  },
   loading: false,
   error: null,
 };
@@ -54,11 +61,9 @@ const chatSlice = createSlice({
       }
     },
 
-    // SOCKET: new message
     addMessage: (state, action) => {
       const message = action.payload;
       if (!message || !message.id || !message.conversation_id) {
-        console.warn("Invalid message received:", message);
         return;
       }
 
@@ -76,30 +81,29 @@ const chatSlice = createSlice({
       }
 
       bumpChatPreview(state, convId, message.content, message.created_at);
+
+      const chat = state.chats.find((c) => c.id === convId);
+      if (chat && message.sender_id !== chat.otherUserId) {
+        chat.unreadCount = (chat.unreadCount || 0) + 1;
+      }
     },
 
-    // SOCKET: update last message on chat list item (without a full message object)
     updateChatLastMessage: (state, action) => {
       const { conversationId, lastMessage, lastMessageAt } = action.payload;
       bumpChatPreview(state, conversationId, lastMessage, lastMessageAt);
     },
 
-    // SOCKET: update message delivery/seen status
     updateMessageStatus: (state, action) => {
-      const { messageId, userId, status } = action.payload;
+      const { messageId, userId, status, conversationId } = action.payload;
+      if (!conversationId || !messageId || !userId) return;
 
-      for (const convId of Object.keys(state.statuses)) {
-        const statusEntry = state.statuses[convId].find(
-          (s) => s.message_id === messageId && s.user_id === userId,
-        );
-        if (statusEntry) {
-          statusEntry.msg_status = status;
-          break;
-        }
+      if (!state.statuses[conversationId]) {
+        state.statuses[conversationId] = {};
       }
+
+      upsertStatus(state.statuses[conversationId], messageId, userId, status);
     },
 
-    // SOCKET: read receipt
     markMessagesRead: (state, action) => {
       const { conversationId } = action.payload;
       if (state.messages[conversationId]) {
@@ -107,22 +111,89 @@ const chatSlice = createSlice({
           (msg) => ({ ...msg, is_read: true }),
         );
       }
+
+      const chat = state.chats.find((c) => c.id === conversationId);
+      if (chat) {
+        chat.unreadCount = 0;
+      }
     },
 
-    // SOCKET: set messages for a conversation (from message_history event)
     setMessages: (state, action) => {
-      const { conversationId, messages, statuses } = action.payload;
+      const {
+        conversationId,
+        messages,
+        statuses,
+        offset = 0,
+        hasMore,
+      } = action.payload;
 
       if (!conversationId || !Array.isArray(messages)) {
-        console.warn("Invalid setMessages payload:", action.payload);
         return;
       }
 
-      state.messages[conversationId] = messages.filter((m) => m && m.id);
+      const filtered = messages.filter((m) => m && m.id);
+
+      if (!state.messages[conversationId]) {
+        state.messages[conversationId] = [];
+      }
+
+      if (offset === 0) {
+        state.messages[conversationId] = filtered;
+      } else {
+        state.messages[conversationId] = [
+          ...filtered,
+          ...state.messages[conversationId],
+        ];
+      }
 
       if (statuses) {
-        state.statuses[conversationId] = statuses;
+        state.statuses[conversationId] = statusesArrayToMap(statuses);
       }
+
+      if (!state.messagePagination[conversationId]) {
+        state.messagePagination[conversationId] = {
+          hasMore: false,
+          loadingOlder: false,
+        };
+      }
+
+      if (hasMore !== undefined) {
+        state.messagePagination[conversationId].hasMore = hasMore;
+      }
+      state.messagePagination[conversationId].loadingOlder = false;
+    },
+
+    setLoadingOlderMessages: (state, action) => {
+      const { conversationId, loading } = action.payload;
+      if (!state.messagePagination[conversationId]) {
+        state.messagePagination[conversationId] = {
+          hasMore: false,
+          loadingOlder: false,
+        };
+      }
+      state.messagePagination[conversationId].loadingOlder = loading;
+    },
+
+    setPresence: (state, action) => {
+      const { userId, online, lastSeenAt } = action.payload;
+      if (!userId) return;
+
+      if (online) {
+        state.presence.online[userId] = true;
+      } else {
+        delete state.presence.online[userId];
+        if (lastSeenAt) {
+          state.presence.lastSeenAt[userId] = lastSeenAt;
+        }
+      }
+    },
+
+    addCall: (state, action) => {
+      state.calls.unshift(action.payload);
+    },
+
+    clearCalls: (state) => {
+      state.calls = [];
     },
 
     archiveChat: (state, action) => {
@@ -161,8 +232,6 @@ const chatSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-
-      // FETCH CONVERSATIONS
       .addCase(fetchMyChats.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -179,47 +248,76 @@ const chatSlice = createSlice({
           chatList = action.payload;
         }
         state.chats = chatList;
+        chatList.forEach((chat) => {
+          if (chat.otherUserId && chat.otherUserLastSeenAt) {
+            state.presence.lastSeenAt[chat.otherUserId] =
+              chat.otherUserLastSeenAt;
+          }
+        });
       })
       .addCase(fetchMyChats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        console.error("Failed to fetch chats:", action.payload);
       })
-
-      // CREATE / FIND CHAT
-      .addCase(createOrFindChat.fulfilled, () => {
-        // do nothing
-      })
-
-      // FETCH MESSAGES
-      .addCase(fetchMessages.pending, (state) => {
-        state.loading = true;
+      .addCase(createOrFindChat.fulfilled, () => {})
+      .addCase(fetchMessages.pending, (state, action) => {
+        const { offset = 0 } = action.meta.arg || {};
+        if (offset > 0) {
+          const { conversationId } = action.meta.arg;
+          if (!state.messagePagination[conversationId]) {
+            state.messagePagination[conversationId] = {
+              hasMore: false,
+              loadingOlder: false,
+            };
+          }
+          state.messagePagination[conversationId].loadingOlder = true;
+        } else {
+          state.loading = true;
+        }
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.loading = false;
-        const { conversationId, messages, statuses, offset } = action.payload;
+        const { conversationId, messages, statuses, offset, hasMore } =
+          action.payload;
 
         if (!state.messages[conversationId]) {
           state.messages[conversationId] = [];
         }
         if (!state.statuses[conversationId]) {
-          state.statuses[conversationId] = [];
+          state.statuses[conversationId] = {};
         }
 
+        const filtered = (messages || []).filter((m) => m && m.id);
+
         if (offset === 0) {
-          state.messages[conversationId] = messages;
-          state.statuses[conversationId] = statuses;
+          state.messages[conversationId] = filtered;
         } else {
           state.messages[conversationId] = [
-            ...messages,
+            ...filtered,
             ...state.messages[conversationId],
           ];
-          state.statuses[conversationId] = statuses;
         }
+
+        if (statuses) {
+          state.statuses[conversationId] = statusesArrayToMap(statuses);
+        }
+
+        if (!state.messagePagination[conversationId]) {
+          state.messagePagination[conversationId] = {
+            hasMore: false,
+            loadingOlder: false,
+          };
+        }
+        state.messagePagination[conversationId].hasMore = hasMore ?? false;
+        state.messagePagination[conversationId].loadingOlder = false;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        const { conversationId } = action.meta.arg || {};
+        if (conversationId && state.messagePagination[conversationId]) {
+          state.messagePagination[conversationId].loadingOlder = false;
+        }
       });
   },
 });
@@ -236,6 +334,10 @@ export const {
   archiveChat,
   unarchiveChat,
   setMessages,
+  setLoadingOlderMessages,
+  setPresence,
+  addCall,
+  clearCalls,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

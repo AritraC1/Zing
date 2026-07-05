@@ -1,5 +1,6 @@
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
+import PresenceLabel from "./PresenceLabel";
 import {
   X,
   Phone,
@@ -12,16 +13,7 @@ import {
 } from "lucide-react";
 
 const UserProfileDetails = ({ chat, onClose }) => {
-  const { archiveChat, unarchiveChat, tab } = useChat();
-
-  const media = [
-    "https://picsum.photos/200/200?1",
-    "https://picsum.photos/200/200?2",
-    "https://picsum.photos/200/200?3",
-    "https://picsum.photos/200/200?4",
-    "https://picsum.photos/200/200?5",
-    "https://picsum.photos/200/200?6",
-  ];
+  const { archiveChat, unarchiveChat, tab, otherUserPresence } = useChat();
 
   return (
     <div
@@ -32,7 +24,6 @@ const UserProfileDetails = ({ chat, onClose }) => {
         borderLeft: "1px solid #e5e7eb",
       }}
     >
-      {/* Header */}
       <div
         className="flex items-center justify-between px-5 h-16 shrink-0"
         style={{ background: "#ffffff", borderBottom: "1px solid #f0f0f0" }}
@@ -49,7 +40,6 @@ const UserProfileDetails = ({ chat, onClose }) => {
       </div>
 
       <div className="overflow-y-auto flex-1 flex flex-col gap-3 p-3">
-        {/* Profile Card */}
         <div className="bg-white rounded-2xl px-5 py-6 flex flex-col items-center shadow-sm">
           <div
             className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold shadow"
@@ -67,20 +57,17 @@ const UserProfileDetails = ({ chat, onClose }) => {
             {chat?.name || "Unknown"}
           </h3>
 
-          <p className="text-gray-400 text-sm mt-1">+91 87654 32109</p>
+          {chat?.phoneNumber && (
+            <p className="text-gray-400 text-sm mt-1">{chat.phoneNumber}</p>
+          )}
 
-          <div className="flex items-center gap-1.5 mt-2">
-            <span className="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
-            <span
-              className="text-xs font-semibold"
-              style={{ color: "#00c896" }}
-            >
-              ACTIVE NOW
-            </span>
-          </div>
+          <PresenceLabel
+            online={otherUserPresence.online}
+            lastSeenAt={otherUserPresence.lastSeenAt}
+            compact
+          />
         </div>
 
-        {/* Actions Card */}
         <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
           <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
             ACTIONS
@@ -132,24 +119,6 @@ const UserProfileDetails = ({ chat, onClose }) => {
           </div>
         </div>
 
-        {/* Shared Media Card */}
-        <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
-            SHARED MEDIA
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {media.map((img, i) => (
-              <img
-                key={i}
-                src={img}
-                alt="media"
-                className="rounded-xl object-cover w-full h-20"
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Danger Card */}
         <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
           <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
             DANGER ZONE

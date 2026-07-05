@@ -44,5 +44,8 @@ export function toConversation(raw) {
     lastMessageAt,
     message: lastMessage,
     time: formatChatTime(lastMessageAt),
+    unreadCount: Number(raw.unreadCount ?? raw.unread_count ?? 0),
+    otherUserLastSeenAt:
+      raw.otherUserLastSeenAt ?? raw.other_user_last_seen_at ?? null,
   };
 }

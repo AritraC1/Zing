@@ -2,7 +2,7 @@ const db = require("../../config/db");
 
 class SessionRepo {
   // create a session
-  static async createSession({ id, deviceId, refreshTokenHash, expiresAt }) {
+  static async createSession({ id, deviceId, refreshTokenHash, expiresAt }, client = db) {
     const query = `
       INSERT INTO sessions (
         id,
@@ -15,7 +15,7 @@ class SessionRepo {
     `;
 
     const values = [id, deviceId, refreshTokenHash, expiresAt];
-    const result = await db.query(query, values);
+    const result = await client.query(query, values);
 
     return result.rows[0];
   }
@@ -45,14 +45,14 @@ class SessionRepo {
   }
 
   // revoke device session
-  static async revokeDeviceSessions(deviceId) {
+  static async revokeDeviceSessions(deviceId, client = db) {
     const query = `
       UPDATE sessions
       SET revoked = TRUE
       WHERE device_id = $1
     `;
 
-    await db.query(query, [deviceId]);
+    await client.query(query, [deviceId]);
   }
 
   // revoke all sessions for a user

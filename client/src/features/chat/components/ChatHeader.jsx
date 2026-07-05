@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import UserProfileDetails from "./UserProfileDetails";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import PresenceLabel from "./PresenceLabel";
 
 const ChatHeader = () => {
-  const { selectedChat } = useChat();
+  const { selectedChat, otherUserPresence } = useChat();
   const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
 
@@ -51,12 +52,10 @@ const ChatHeader = () => {
               {selectedChat.name}
             </div>
 
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-              <span className="text-[10px] font-bold text-emerald-500 tracking-wider">
-                ACTIVE NOW
-              </span>
-            </div>
+            <PresenceLabel
+              online={otherUserPresence.online}
+              lastSeenAt={otherUserPresence.lastSeenAt}
+            />
           </div>
         </div>
 

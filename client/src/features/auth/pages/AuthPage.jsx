@@ -215,11 +215,16 @@ const AuthPage = () => {
             {/* QR LOGIN */}
             {loginMode === "qr" && (
               <>
-                <div className="bg-white p-6 rounded-2xl shadow-md border">
+                <div className="relative bg-white p-6 rounded-2xl shadow-md border opacity-60 pointer-events-none select-none">
                   <QRCodeCanvas value={qrValue} size={240} />
+                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
+                    <span className="rounded-full bg-gray-900 px-4 py-1.5 text-sm font-semibold text-white">
+                      Coming soon
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-6 text-sm text-gray-500 text-center">
-                  Scan with your mobile app
+                  QR login is not available yet
                 </p>
                 <button
                   onClick={() => {

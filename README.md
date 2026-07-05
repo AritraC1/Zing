@@ -144,6 +144,25 @@ cd server
 node index.js
 ```
 
+## 🧪 Local test script
+
+Quick manual regression checklist:
+
+1. Landing → Auth → phone OTP → onboard (with and without avatar)
+2. Search user → start chat → send text
+3. Send image → verify render in thread
+4. Other user receives → delivery tick → open chat → read tick (blue)
+5. Chat list shows correct preview, time, and unread badge
+6. Update profile name + avatar
+7. Logout → refresh → still logged out
+8. Invalid API access → 401/403 responses
+
+Automated reducer/mapper tests:
+
+```bash
+cd client && npm test
+```
+
 ## 📌 Notes
 
 - API routes are mounted under `/api` in the server.

@@ -12,7 +12,7 @@ const initialState = {
   isAuthChecking: true,
   user: null,
   accessToken: null,
-  loginMode: "qr",
+  loginMode: "phone",
   phone: "",
   otp: "",
   showOtp: false,

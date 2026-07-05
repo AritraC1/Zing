@@ -1,20 +1,18 @@
 const db = require("../../config/db");
 
 class ChatRepo {
-  // Create a conversation
-  static async createConversation(chatType) {
+  static async createConversation(chatType, client = db) {
     const query = `
             INSERT INTO conversations (id, chat_type, created_at)
             VALUES (gen_random_uuid(), $1, NOW())
             RETURNING id;
         `;
 
-    const result = await db.query(query, [chatType]);
+    const result = await client.query(query, [chatType]);
     return result.rows[0];
   }
 
-  // Find existing direct conversation between 2 users
-  static async findDirectConversation(user1, user2) {
+  static async findDirectConversation(user1, user2, client = db) {
     const query = `
         SELECT cp1.conversation_id
         FROM conversation_participants cp1
@@ -28,11 +26,10 @@ class ChatRepo {
         LIMIT 1;
     `;
 
-    const result = await db.query(query, [user1, user2]);
+    const result = await client.query(query, [user1, user2]);
     return result.rows[0];
   }
 
-  // Get all conversations for a user
   static async getUserConversations(userId) {
     const query = `
     SELECT
@@ -43,9 +40,19 @@ class ChatRepo {
       u.id AS "otherUserId",
       u.display_name AS "otherUserName",
       u.phone_number AS "otherUserPhone",
+      u.last_seen_at AS "otherUserLastSeenAt",
       om.storage_key AS "otherUserAvatarKey",
       lm.content AS "lastMessageContent",
-      lm.created_at AS "lastMessageCreatedAt"
+      lm.created_at AS "lastMessageCreatedAt",
+      (
+        SELECT COUNT(*)::int
+        FROM message_status ms
+        JOIN messages m ON ms.message_id = m.id
+        WHERE m.conversation_id = c.id
+          AND ms.user_id = $1
+          AND ms.msg_status != 'seen'
+          AND m.sender_id != $1
+      ) AS "unreadCount"
     FROM conversations c
     JOIN conversation_participants cp
       ON c.id = cp.conversation_id

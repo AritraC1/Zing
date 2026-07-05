@@ -47,6 +47,7 @@ export const fetchMessages = createAsyncThunk(
         messages: res.data.messages,
         statuses: res.data.statuses,
         offset,
+        hasMore: res.data.hasMore ?? res.data.messages?.length === 50,
       };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);

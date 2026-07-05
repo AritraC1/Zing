@@ -10,6 +10,7 @@ const DevicesRepo = require("../devices/devices.repo");
 const SessionRepo = require("../sessions/sessions.repo");
 const UserRepo = require("./users.repo");
 const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
+const { withTransaction } = require("../../shared/utils/withTransaction");
 
 function formatUserResponse(user) {
   if (!user) return null;
@@ -27,45 +28,53 @@ const onBoardNewUser = async (req, res) => {
     const { phoneNumber } = req.user;
     const { displayName, deviceId, deviceType } = req.body;
 
-    if (!displayName || !deviceId || !deviceType) {
-      return res.status(400).json({
-        message: "displayName, deviceId and deviceType are required",
-      });
-    }
-
     const user = await UserRepo.findByPhone(phoneNumber);
 
-    const updatedUser = await UserRepo.completeProfileById(user.id, displayName);
+    const updatedUser = await withTransaction(async (client) => {
+      const profile = await UserRepo.completeProfileByIdWithClient(
+        user.id,
+        displayName,
+        client,
+      );
+
+      let device = await DevicesRepo.findById(deviceId);
+
+      if (!device) {
+        device = await DevicesRepo.createDevice(
+          {
+            id: deviceId,
+            userId: user.id,
+            deviceType,
+            identityPublicKey: "TEST_PUBLIC_KEY",
+          },
+          client,
+        );
+      }
+
+      await SessionRepo.revokeDeviceSessions(deviceId, client);
+
+      const refreshToken = createRefreshTokenForUser({
+        id: user.id,
+        phoneNumber,
+      });
+      const refreshTokenHash = hashToken(refreshToken);
+
+      await SessionRepo.createSession(
+        {
+          id: crypto.randomUUID(),
+          deviceId,
+          refreshTokenHash,
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        },
+        client,
+      );
+
+      return { profile, refreshToken };
+    });
 
     const accessToken = createAccessTokenForUser({
       id: user.id,
       phoneNumber,
-    });
-    const refreshToken = createRefreshTokenForUser({
-      id: user.id,
-      phoneNumber,
-    });
-
-    const refreshTokenHash = hashToken(refreshToken);
-
-    let device = await DevicesRepo.findById(deviceId);
-
-    if (!device) {
-      device = await DevicesRepo.createDevice({
-        id: deviceId,
-        userId: user.id,
-        deviceType: deviceType,
-        identityPublicKey: "TEST_PUBLIC_KEY",
-      });
-    }
-
-    await SessionRepo.revokeDeviceSessions(deviceId);
-
-    await SessionRepo.createSession({
-      id: crypto.randomUUID(),
-      deviceId: deviceId,
-      refreshTokenHash,
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
     res.cookie("accessToken", accessToken, {
@@ -73,17 +82,17 @@ const onBoardNewUser = async (req, res) => {
       maxAge: 15 * 60 * 1000,
     });
 
-    res.cookie("refreshToken", refreshToken, {
+    res.cookie("refreshToken", updatedUser.refreshToken, {
       ...baseCookieOptions,
       maxAge: 14 * 24 * 60 * 60 * 1000,
     });
 
     return res.json({
       message: "Onboarding complete",
-      data: updatedUser,
+      data: updatedUser.profile,
     });
   } catch (error) {
-    console.log("Error: ", error);
+    console.error("Onboard error:", error);
     res.status(500).json({
       message: "Failed to onboard new user",
     });

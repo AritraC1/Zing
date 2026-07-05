@@ -48,7 +48,9 @@ export const useSocket = () => {
 
   const emit = useCallback((event, data) => {
     if (socketRef.current && socketRef.current.connected) {
-      console.log("🟢 Socket emit:", event, data);
+      if (import.meta.env.DEV) {
+        console.log("🟢 Socket emit:", event, data);
+      }
       socketRef.current.emit(event, data);
     } else {
       console.error("🔴 Cannot emit - socket not ready", {

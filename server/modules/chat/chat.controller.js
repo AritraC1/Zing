@@ -1,12 +1,12 @@
 const ChatRepo = require("./chat.repo");
-const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo");
+const ChatService = require("./chat.service");
 const MessageRepo = require("../messages/messagesRepo");
-const AppError = require("../../shared/errors/AppError");
 const asyncHandler = require("../../shared/utils/asyncHandler");
 const { assertConversationParticipant } = require("./chat.access");
 const { buildMediaUrl } = require("../../shared/utils/mediaUrl");
 
-// Fetch all conversations for current user
+const PAGE_SIZE = 50;
+
 const fetchAllMyConversations = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
@@ -23,59 +23,41 @@ const fetchAllMyConversations = asyncHandler(async (req, res) => {
   });
 });
 
-// Create or find direct conversation
 const createOrFindConversations = asyncHandler(async (req, res) => {
-  const { userId } = req.body; // the other user
-  const currentUserId = req.user.id; // logged-in user
+  const { userId } = req.body;
+  const currentUserId = req.user.id;
 
-  if (!userId || !currentUserId) {
-    throw new AppError("userId is required", 400);
-  }
-
-  if (String(userId) === String(currentUserId)) {
-    throw new AppError("Cannot start a conversation with yourself", 400);
-  }
-
-  const existingConversation = await ChatRepo.findDirectConversation(
+  const result = await ChatService.createDirectConversation(
     currentUserId,
     userId,
   );
 
-  if (existingConversation) {
-    return res.status(200).json({
-      conversationId: existingConversation.conversation_id,
-      message: "Conversation already exists",
-    });
-  }
-
-  const newConversation = await ChatRepo.createConversation("direct");
-
-  await ChatParticipantsRepo.addTwoParticipants(
-    newConversation.id,
-    currentUserId,
-    userId,
-  );
-
-  return res.status(201).json({
-    conversationId: newConversation.id,
-    message: "Conversation created",
+  return res.status(result.created ? 201 : 200).json({
+    conversationId: result.conversationId,
+    message: result.created
+      ? "Conversation created"
+      : "Conversation already exists",
   });
 });
 
-// Fetch messages for a conversation with pagination
 const fetchMessages = asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
   const userId = req.user.id;
-  const offset = parseInt(req.query.offset) || 0;
+  const offset = parseInt(req.query.offset, 10) || 0;
 
   await assertConversationParticipant(conversationId, userId);
 
   const [messages, statuses] = await Promise.all([
-    MessageRepo.getMessagesByConversation(conversationId, 50, offset),
+    MessageRepo.getMessagesByConversation(conversationId, PAGE_SIZE, offset),
     MessageRepo.getMessageStatusesForConversation(conversationId),
   ]);
 
-  return res.status(200).json({ messages, statuses });
+  return res.status(200).json({
+    messages,
+    statuses,
+    offset,
+    hasMore: messages.length === PAGE_SIZE,
+  });
 });
 
 module.exports = {
