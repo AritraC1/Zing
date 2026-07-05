@@ -133,7 +133,11 @@ const AuthPage = () => {
       }
     } catch (error) {
       console.error(error);
-      toast.error(error || "Invalid or expired OTP");
+      const message =
+        typeof error === "string"
+          ? error
+          : error?.error || error?.message || "Invalid or expired OTP";
+      toast.error(message);
     } finally {
       setLoadingOtp(false);
     }

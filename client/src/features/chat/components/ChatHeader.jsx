@@ -14,7 +14,8 @@ const ChatHeader = () => {
 
   const avatarUrl = selectedChat.profilePic || selectedChat.avatarUrl;
 
-  const startCall = () => navigate("/call", { state: { chat: selectedChat } });
+  const startCall = () =>
+    navigate("/audio-call", { state: { chat: selectedChat } });
 
   const startVideoCall = () =>
     navigate("/video-call", { state: { chat: selectedChat } });

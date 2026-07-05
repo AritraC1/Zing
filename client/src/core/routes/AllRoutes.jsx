@@ -9,6 +9,7 @@ import ProfileSetupPage from "../../features/profile/pages/ProfileSetupPage";
 
 import ProtectedRoutes from "./ProtectedRoutes";
 import ChatPage from "../../features/chat/pages/ChatPage";
+import CallPage from "../../features/calls/pages/CallPage";
 import AudioCallPage from "../../features/calls/pages/AudioCallPage";
 import VideoCallPage from "../../features/calls/pages/VideoCallPage";
 
@@ -29,7 +30,8 @@ const AllRoutes = () => {
       {/* Fully Protected Routes */}
       <Route element={<ProtectedRoutes />}>
         <Route path="/chat" element={<ChatPage />} />
-        <Route path="/call" element={<AudioCallPage />} />
+        <Route path="/call" element={<CallPage />} />
+        <Route path="/audio-call" element={<AudioCallPage />} />
         <Route path="/video-call" element={<VideoCallPage />} />
       </Route>
     </Routes>

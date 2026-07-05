@@ -1,9 +1,5 @@
 import axios from "axios";
 import API_CONFIG from "../config/apiConfig";
-import { refreshAccessTokenThunk } from "../../features/auth/api/authThunk";
-import { logout } from "../../features/auth/store/authReducer";
-import { resetChat } from "../../features/chat/store/chatReducer";
-import { persistor } from "../../store/store";
 
 // Store Injection
 // We store a reference to Redux store so we can dispatch actions
@@ -25,6 +21,10 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+
   if (!_store) return config;
 
   const token = _store.getState()?.auth?.accessToken;
@@ -87,6 +87,10 @@ axiosInstance.interceptors.response.use(
     isRefreshing = true;
 
     try {
+      // Lazy import
+      const { refreshAccessTokenThunk } =
+        await import("../../features/auth/api/authThunk");
+
       // Dispatch refresh token API call
       await _store.dispatch(refreshAccessTokenThunk()).unwrap();
 
@@ -98,6 +102,12 @@ axiosInstance.interceptors.response.use(
     } catch (refreshError) {
       // If refresh fails, reject all queued requests
       resolveQueue(refreshError);
+
+      // Lazy import
+      const { logout } = await import("../../features/auth/store/authReducer");
+      const { resetChat } =
+        await import("../../features/chat/store/chatReducer");
+      const { persistor } = await import("../../store/store");
 
       // Log the user out
       _store.dispatch(logout());

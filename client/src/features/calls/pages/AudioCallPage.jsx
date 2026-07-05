@@ -7,6 +7,12 @@ const AudioCallPage = () => {
   const location = useLocation();
   const chat = location.state?.chat;
 
+  useEffect(() => {
+    if (!chat) {
+      navigate("/call", { replace: true });
+    }
+  }, [chat, navigate]);
+
   const [status, setStatus] = useState("calling"); // calling | connected
   const [seconds, setSeconds] = useState(0);
   const [mute, setMute] = useState(false);
@@ -31,8 +37,10 @@ const AudioCallPage = () => {
 
   const endCall = () => {
     setStatus("ended");
-    navigate("/");
+    navigate("/call");
   };
+
+  if (!chat) return null;
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">

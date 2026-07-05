@@ -1,11 +1,24 @@
 import { MessageCircle, Phone, Archive, Settings } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../hooks/useChat";
 import { useState } from "react";
 import SettingsDialog from "../../profile/components/SettingsDialog";
 
 const IconSidebar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { tab, setTab, archivedChats } = useChat();
   const [openSettings, setOpenSettings] = useState(false);
+
+  const handleTabClick = (tabId) => {
+    if (tabId === "calls") {
+      navigate("/call");
+      return;
+    }
+
+    setTab(tabId);
+    navigate("/chat");
+  };
 
   const tabs = [{ id: "chats", icon: MessageCircle }];
 
@@ -29,12 +42,15 @@ const IconSidebar = () => {
 
           {tabs.map((t) => {
             const Icon = t.icon;
-            const isActive = tab === t.id;
+            const isActive =
+              t.id === "calls"
+                ? location.pathname === "/call"
+                : location.pathname === "/chat" && tab === t.id;
 
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => handleTabClick(t.id)}
                 className={`
                   p-2 rounded-lg flex items-center justify-center transition-colors
                   ${isActive ? "text-[#00c896]" : "text-gray-500 hover:text-gray-400"}

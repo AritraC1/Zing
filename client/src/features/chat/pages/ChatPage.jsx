@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import ChatLayout from "../layout/chatLayout";
 import { useChat } from "../hooks/useChat";
 import ChatHeader from "../components/ChatHeader";
@@ -5,7 +6,13 @@ import Messages from "../components/Messages";
 import MessageInput from "../components/MessageInput";
 
 const ChatPage = () => {
-  const { selectedChat, tab } = useChat();
+  const { selectedChat, tab, setTab } = useChat();
+
+  useEffect(() => {
+    if (tab === "calls") {
+      setTab("chats");
+    }
+  }, [tab, setTab]);
 
   // render message pane for both regular and archived tabs
   const showConversation = tab === "chats" || tab === "archive";

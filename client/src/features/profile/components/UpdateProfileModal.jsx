@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import {
   getMyDetailsThunk,
   updateProfileThunk,
@@ -8,6 +9,7 @@ import {
 
 const UpdateProfileModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
+  const fileInputRef = useRef(null);
 
   const user = useSelector((state) => state.auth.user);
   const loading = useSelector((state) => state.profile.loading);
@@ -17,49 +19,74 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    if (user) {
-      if (name !== (user.displayName || "")) {
-        setName(user.displayName || "");
-      }
+    if (!isOpen || !user) return;
 
-      if (imagePreview !== (user.avatarUrl || null)) {
-        setImagePreview(user.avatarUrl || null);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    setName(user.displayName || "");
+    setImagePreview(user.avatarUrl || null);
+    setFile(null);
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
   const handleImageChange = (e) => {
-    const selectedFile = e.target.files[0];
+    const selectedFile = e.target.files?.[0];
 
-    if (selectedFile) {
-      setFile(selectedFile);
-      setImagePreview(URL.createObjectURL(selectedFile));
+    if (!selectedFile) return;
+
+    if (!selectedFile.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
     }
+
+    setFile(selectedFile);
+    setImagePreview(URL.createObjectURL(selectedFile));
   };
 
   const handleSubmit = async () => {
+    const trimmedName = name.trim();
+    const hasNameChange =
+      trimmedName.length > 0 && trimmedName !== user?.displayName;
+
+    if (!hasNameChange && !file) {
+      toast.error("Change your name or upload a photo before saving");
+      return;
+    }
+
     try {
-      if (name.trim() && name !== user?.displayName) {
-        await dispatch(updateProfileThunk({ newDisplayName: name })).unwrap();
+      if (hasNameChange) {
+        await dispatch(
+          updateProfileThunk({ newDisplayName: trimmedName }),
+        ).unwrap();
       }
 
       if (file) {
         await dispatch(uploadAvatarThunk({ file })).unwrap();
       }
 
-      await dispatch(getMyDetailsThunk());
+      await dispatch(getMyDetailsThunk()).unwrap();
+      toast.success("Profile updated");
       onClose();
     } catch (err) {
-      console.error("Error:", err);
+      const message =
+        typeof err === "string"
+          ? err
+          : err?.message || err?.error || "Failed to update profile";
+      toast.error(message);
+      console.error("Profile update error:", err);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg w-[90%] max-w-md p-6 relative">
+    <div className="fixed inset-0 z-60 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative bg-white rounded-2xl shadow-lg w-[90%] max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-black text-xl"
@@ -72,8 +99,12 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
         </h2>
 
         <div className="flex flex-col items-center mb-4">
-          <label className="cursor-pointer">
-            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer"
+          >
+            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:opacity-90 transition">
               {imagePreview ? (
                 <img
                   src={imagePreview}
@@ -84,14 +115,19 @@ const UpdateProfileModal = ({ isOpen, onClose }) => {
                 <span className="text-gray-500 text-sm">Upload</span>
               )}
             </div>
+          </button>
 
-            <input
-              type="file"
-              className="hidden"
-              onChange={handleImageChange}
-              accept="image/*"
-            />
-          </label>
+          <p className="text-xs text-gray-500 mt-2">
+            {file ? "Photo selected" : "Tap to upload photo"}
+          </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleImageChange}
+            accept="image/*"
+          />
         </div>
 
         <input

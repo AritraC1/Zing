@@ -24,7 +24,7 @@ const checkSocketForJwt = require("./middlewares/socketAuth.middleware");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: corsOptions });
-const PORT_NUMBER = ENV.PORT || 3000;
+const PORT_NUMBER = ENV.PORT || 5001;
 
 // Middlewares
 

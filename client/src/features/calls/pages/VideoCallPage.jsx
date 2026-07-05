@@ -89,7 +89,7 @@ const VideoCallPage = () => {
   // END CALL
   const endCall = () => {
     stopMediaStream();
-    navigate("/");
+    navigate("/call");
   };
 
   // MUTE

@@ -16,7 +16,7 @@ const CallsList = () => {
   const { calls = [], clearCalls } = useChat();
 
   const startCall = (call) => {
-    navigate("/call", { state: { chat: call } });
+    navigate("/audio-call", { state: { chat: call } });
   };
 
   const startVideoCall = (call) => {
@@ -122,7 +122,7 @@ const CallsList = () => {
               Start a new audio/video call
             </p>
             <button
-              onClick={() => navigate("/call")}
+              onClick={() => navigate("/audio-call")}
               className="px-5 py-2 bg-white text-gray-800 text-sm font-semibold rounded-full hover:bg-gray-100 transition"
             >
               New Call
