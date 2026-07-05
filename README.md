@@ -169,12 +169,4 @@ npm run migrate  # run database migrations
 - Socket.IO is configured for real-time messaging and uses CORS for the Vite frontend.
 - Authentication tokens are attached through Axios interceptors and socket auth middleware.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Install dependencies and run the app locally
-4. Make your changes and verify the relevant flows
-5. Open a pull request with a clear summary
-
 ---
