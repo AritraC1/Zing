@@ -68,7 +68,7 @@ The repository is split into two main parts:
 Create a .env file in the server folder with values such as:
 
 ```env
-PORT=3000
+PORT=5001
 DATABASE_URL=postgres://user:password@localhost:5432/zing
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-access-secret
@@ -83,8 +83,8 @@ CLOUDINARY_API_SECRET=your-api-secret
 Create a .env file in the client folder with values such as:
 
 ```env
-VITE_BASE_URL=http://localhost:3000/api
-VITE_SOCKET_URL=http://localhost:3000
+VITE_BASE_URL=http://localhost:5001/api
+VITE_SOCKET_URL=http://localhost:5001
 VITE_QRVALUE=your-qr-value
 VITE_FIREBASE_API_KEY=your-key
 VITE_FIREBASE_AUTH_DOMAIN=your-domain
@@ -106,8 +106,8 @@ docker compose -f docker-compose.yaml up --build
 ```
 
 - Frontend: http://localhost:5173
-- Backend: http://localhost:3000
-- Swagger: http://localhost:3000/api-docs
+- Backend: http://localhost:5001
+- Swagger: http://localhost:5001/api-docs
 
 ### Option 2: Local Development
 
