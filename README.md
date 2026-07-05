@@ -103,10 +103,10 @@ cd server
 npm run start
 ```
 
-The server listens on `http://localhost:3000` by default and exposes Swagger docs at:
+The server listens on `http://localhost:5001` by default and exposes Swagger docs at:
 
 ```text
-http://localhost:3000/api-docs
+http://localhost:5001/api-docs
 ```
 
 ### 3. Start the frontend
