@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
 
-    UNIQUE (client_msg_id, sender_id) -- scoped per sender
-    UNIQUE (conversation_id, sequence_no)
+    UNIQUE (client_msg_id, sender_id), -- scoped per sender
+    UNIQUE (conversation_id, sequence_no) -- scoped per conversation
 );
