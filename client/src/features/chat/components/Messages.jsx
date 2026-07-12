@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useChat } from "../hooks/useChat";
+import { useChatSocket } from "../context/ChatSocketContext";
 import useAuth from "../../auth/hooks/useAuth";
 import MessageBubble from "./MessageBubble";
 import { groupMessagesByDate } from "../../../shared/utils/dateSeparators";
@@ -8,11 +9,10 @@ const Messages = () => {
   const {
     selectedChat,
     messages,
-    markAsRead,
-    loadOlderMessages,
     getStatusForMessage,
     messagePagination,
   } = useChat();
+  const { markAsRead, loadOlderMessages } = useChatSocket();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);

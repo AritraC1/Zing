@@ -2,13 +2,13 @@ import { Send, Plus, X, Smile } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { useChat } from "../hooks/useChat";
+import { useChatSocket } from "../context/ChatSocketContext";
 import { uploadMedia } from "../api/chatThunk";
 
 const MessageInput = () => {
   const dispatch = useDispatch();
 
-  const { sendMessage } = useChat();
+  const { sendMessage } = useChatSocket();
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);

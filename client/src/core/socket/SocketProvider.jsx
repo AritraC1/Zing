@@ -1,5 +1,4 @@
 import {
-  createContext,
   useEffect,
   useRef,
   useState,
@@ -9,10 +8,10 @@ import {
 
 import { io } from "socket.io-client";
 import useAuth from "../../features/auth/hooks/useAuth";
+import { SocketContext } from "./socketContext";
 
-const SocketContext = createContext(null);
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "/";
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
 function log(...args) {
   if (import.meta.env.DEV) {
@@ -52,6 +51,8 @@ export function SocketProvider({ children }) {
     log("creating socket connection");
     const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
+      transports: ["websocket", "polling"],
+      withCredentials: true,
       autoConnect: true,
       reconnection: true,
     });
