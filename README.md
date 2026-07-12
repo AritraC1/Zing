@@ -1,24 +1,24 @@
 # Zing
 
-Zing is a real-time communication platform with a React/Vite frontend and an Express-based backend. The app includes authentication, live chat, media sharing, and real-time socket events for a modern messaging experience.
+Zing is a real-time communication app with a React/Vite frontend and an Express-based backend. It supports authentication, chat, profile management, media sharing, and live socket-based updates.
 
 ![Landing page](client/src/assets/images/landing.png)
 
 ## Overview
 
-The repository is split into two main parts:
+The project is organized into two main parts:
 
-- Client: a React application with Redux Toolkit, Socket.IO client, routing, and UI for auth, chat, calls, profile, and user discovery.
-- Server: an Express API plus Socket.IO server backed by PostgreSQL, Redis, JWT auth, Swagger docs, and media uploads.
+- **Client:** a React application built with Vite, Redux Toolkit, React Router, Socket.IO client, and Tailwind-based UI components.
+- **Server:** an Express API and Socket.IO server backed by PostgreSQL, Redis, JWT authentication, Swagger documentation, and Cloudinary-powered media uploads.
 
 ## Key Features
 
-- JWT access/refresh token handling with cookie-based auth
-- Real-time one-to-one chat with socket-driven delivery/read states
-- Media upload support through Multer and Cloudinary
-- Redux state management with persistence for session-aware UI
-- Swagger API documentation for backend endpoints
-- Signal-compatible crypto dependencies for secure messaging workflows
+- JWT access and refresh token handling with cookie-based auth
+- Real-time one-to-one chat with delivery and read-state updates
+- Media upload support via Multer and Cloudinary
+- Redux state persistence for a smoother session experience
+- API documentation through Swagger
+- Secure messaging-related dependencies such as Signal protocol libraries
 
 ## Tech Stack
 
@@ -68,7 +68,7 @@ The repository is split into two main parts:
 Create a .env file in the server folder with values such as:
 
 ```env
-PORT=5001
+PORT=3000
 DATABASE_URL=postgres://user:password@localhost:5432/zing
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-access-secret
@@ -76,6 +76,7 @@ JWT_REFRESH_SECRET=your-refresh-secret
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
+FRONTEND_URL=http://localhost:5173
 ```
 
 ### Client
@@ -83,8 +84,8 @@ CLOUDINARY_API_SECRET=your-api-secret
 Create a .env file in the client folder with values such as:
 
 ```env
-VITE_BASE_URL=http://localhost:5001/api
-VITE_SOCKET_URL=http://localhost:5001
+VITE_BASE_URL=http://localhost:3000/api
+VITE_SOCKET_URL=http://localhost:3000
 VITE_QRVALUE=your-qr-value
 VITE_FIREBASE_API_KEY=your-key
 VITE_FIREBASE_AUTH_DOMAIN=your-domain
@@ -106,8 +107,8 @@ docker compose -f docker-compose.yaml up --build
 ```
 
 - Frontend: http://localhost:5173
-- Backend: http://localhost:5001
-- Swagger: http://localhost:5001/api-docs
+- Backend: http://localhost:3000
+- Swagger: http://localhost:3000/api-docs
 
 ### Option 2: Local Development
 
@@ -148,8 +149,8 @@ You can also use the helper script:
 
 ```bash
 cd client
-npm run dev      # start Vite dev server
-npm run build    # create production build
+npm run dev      # start the Vite dev server
+npm run build    # create a production build
 npm run lint     # run ESLint
 npm run test     # run Vitest tests
 ```
@@ -165,8 +166,14 @@ npm run migrate  # run database migrations
 ## API and Real-Time Notes
 
 - API routes are mounted under /api.
-- Swagger documentation is available at /api-docs on the backend.
-- Socket.IO is configured for real-time messaging and uses CORS for the Vite frontend.
+- Swagger docs are available at /api-docs on the backend.
+- Socket.IO is configured for real-time messaging and uses CORS settings that allow the Vite frontend.
 - Authentication tokens are attached through Axios interceptors and socket auth middleware.
 
----
+## Contributing
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Install dependencies and run the app locally.
+4. Make your changes and verify the relevant flows.
+5. Open a pull request with a clear summary.
