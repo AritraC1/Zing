@@ -7,6 +7,27 @@ import {
 import { formatChatTime } from "../../../shared/utils/formatChatTime";
 import { statusesArrayToMap, upsertStatus } from "./statusUtils";
 
+function findMessageIndex(messages, { id, clientMsgId }) {
+  return messages.findIndex(
+    (m) =>
+      (id && m.id === id) ||
+      (clientMsgId && m.client_msg_id === clientMsgId),
+  );
+}
+
+function mergePendingMessages(serverMessages, localMessages) {
+  const pending = (localMessages || []).filter(
+    (m) => m.sendStatus === "sending" || m.sendStatus === "failed",
+  );
+  const merged = [...serverMessages];
+  pending.forEach((p) => {
+    if (!merged.some((m) => m.client_msg_id === p.client_msg_id)) {
+      merged.push(p);
+    }
+  });
+  return merged;
+}
+
 function bumpChatPreview(state, conversationId, lastMessage, lastMessageAt) {
   const chatIndex = state.chats.findIndex((c) => c.id === conversationId);
   if (chatIndex === -1) return;
@@ -63,28 +84,122 @@ const chatSlice = createSlice({
 
     addMessage: (state, action) => {
       const message = action.payload;
-      if (!message || !message.id || !message.conversation_id) {
-        return;
-      }
+      if (!message?.conversation_id) return;
 
       const convId = message.conversation_id;
+      const clientMsgId = message.client_msg_id;
 
       if (!state.messages[convId]) {
         state.messages[convId] = [];
       }
 
-      const isDuplicate = state.messages[convId].some(
-        (m) => m.id === message.id,
-      );
-      if (!isDuplicate) {
-        state.messages[convId].push(message);
+      const existingIndex = findMessageIndex(state.messages[convId], {
+        id: message.id,
+        clientMsgId,
+      });
+
+      if (existingIndex !== -1) {
+        const existing = state.messages[convId][existingIndex];
+        if (existing.sendStatus && message.id) {
+          state.messages[convId][existingIndex] = {
+            ...message,
+            sendStatus: "sent",
+          };
+        }
+        return;
       }
 
+      if (!message.id && !clientMsgId) return;
+
+      state.messages[convId].push(message);
       bumpChatPreview(state, convId, message.content, message.created_at);
 
       const chat = state.chats.find((c) => c.id === convId);
       if (chat && message.sender_id !== chat.otherUserId) {
         chat.unreadCount = (chat.unreadCount || 0) + 1;
+      }
+    },
+
+    addOptimisticMessage: (state, action) => {
+      const message = action.payload;
+      if (!message?.conversation_id || !message?.client_msg_id) return;
+
+      const convId = message.conversation_id;
+      if (!state.messages[convId]) {
+        state.messages[convId] = [];
+      }
+
+      const existingIndex = findMessageIndex(state.messages[convId], {
+        clientMsgId: message.client_msg_id,
+      });
+      if (existingIndex !== -1) return;
+
+      state.messages[convId].push({
+        ...message,
+        id: message.client_msg_id,
+        sendStatus: "sending",
+      });
+
+      bumpChatPreview(state, convId, message.content, message.created_at);
+    },
+
+    reconcileMessage: (state, action) => {
+      const { clientMsgId, serverMessage } = action.payload;
+      if (!clientMsgId || !serverMessage?.id || !serverMessage.conversation_id) {
+        return;
+      }
+
+      const convId = serverMessage.conversation_id;
+      if (!state.messages[convId]) {
+        state.messages[convId] = [];
+      }
+
+      const index = findMessageIndex(state.messages[convId], { clientMsgId });
+      if (index !== -1) {
+        state.messages[convId][index] = {
+          ...serverMessage,
+          sendStatus: "sent",
+        };
+      } else {
+        const isDuplicate = state.messages[convId].some(
+          (m) => m.id === serverMessage.id,
+        );
+        if (!isDuplicate) {
+          state.messages[convId].push({ ...serverMessage, sendStatus: "sent" });
+        }
+      }
+
+      bumpChatPreview(
+        state,
+        convId,
+        serverMessage.content,
+        serverMessage.created_at,
+      );
+    },
+
+    markMessageFailed: (state, action) => {
+      const { clientMsgId, conversationId } = action.payload;
+      if (!clientMsgId || !conversationId) return;
+
+      const messages = state.messages[conversationId];
+      if (!messages) return;
+
+      const index = findMessageIndex(messages, { clientMsgId });
+      if (index !== -1) {
+        messages[index].sendStatus = "failed";
+      }
+    },
+
+    markMessageSending: (state, action) => {
+      const { clientMsgId, conversationId } = action.payload;
+      if (!clientMsgId || !conversationId) return;
+
+      const messages = state.messages[conversationId];
+      if (!messages) return;
+
+      const index = findMessageIndex(messages, { clientMsgId });
+      if (index !== -1) {
+        messages[index].sendStatus = "sending";
       }
     },
 
@@ -138,7 +253,10 @@ const chatSlice = createSlice({
       }
 
       if (offset === 0) {
-        state.messages[conversationId] = filtered;
+        state.messages[conversationId] = mergePendingMessages(
+          filtered,
+          state.messages[conversationId],
+        );
       } else {
         state.messages[conversationId] = [
           ...filtered,
@@ -290,7 +408,10 @@ const chatSlice = createSlice({
         const filtered = (messages || []).filter((m) => m && m.id);
 
         if (offset === 0) {
-          state.messages[conversationId] = filtered;
+          state.messages[conversationId] = mergePendingMessages(
+            filtered,
+            state.messages[conversationId],
+          );
         } else {
           state.messages[conversationId] = [
             ...filtered,
@@ -328,6 +449,10 @@ export const {
   selectChat,
   addChat,
   addMessage,
+  addOptimisticMessage,
+  reconcileMessage,
+  markMessageFailed,
+  markMessageSending,
   updateMessageStatus,
   updateChatLastMessage,
   markMessagesRead,

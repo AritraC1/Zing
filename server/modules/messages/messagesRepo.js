@@ -79,6 +79,12 @@ class MessageRepo {
       LEFT JOIN media med ON inserted.media_id = med.id;
     `;
 
+    const existing = await MessageRepo.getMessageByClientId(
+      senderId,
+      clientMsgId,
+    );
+    if (existing) return existing;
+
     try {
       const result = await db.query(query, [
         conversationId,
@@ -91,6 +97,13 @@ class MessageRepo {
       ]);
       return enrichMediaMessage(result.rows[0]);
     } catch (err) {
+      if (err.code === "23505") {
+        const existing = await MessageRepo.getMessageByClientId(
+          senderId,
+          clientMsgId,
+        );
+        if (existing) return existing;
+      }
       if (
         err.code === "23503" &&
         err.constraint === "messages_conversation_id_fkey"

@@ -11,6 +11,7 @@ const MessageRepo = require("../messages/messagesRepo");
 const ChatRepo = require("./chat.repo");
 const UserRepo = require("../users/users.repo");
 const { assertConversationParticipant } = require("./chat.access");
+const { validate: uuidValidate } = require("uuid");
 
 const PAGE_SIZE = 50;
 
@@ -55,9 +56,8 @@ module.exports = (io) => {
           offset,
         );
 
-        const statuses = await MessageRepo.getMessageStatusesForConversation(
-          conversationId,
-        );
+        const statuses =
+          await MessageRepo.getMessageStatusesForConversation(conversationId);
 
         socket.emit("message_history", {
           conversationId,
@@ -67,7 +67,10 @@ module.exports = (io) => {
           hasMore: messages.length === PAGE_SIZE,
         });
       } catch (err) {
-        socket.emit("error", { message: "Failed to fetch messages" });
+        socket.emit("error", {
+          message: "Failed to fetch messages",
+          conversationId,
+        });
       }
     });
 
@@ -83,11 +86,35 @@ module.exports = (io) => {
       }) => {
         // Allow sending if either content or mediaId is present
         if (!conversationId || (!content?.trim() && !mediaId)) {
+          socket.emit("error", {
+            message: "conversationId and content or mediaId are required",
+            clientMsgId,
+            conversationId,
+          });
+          return;
+        }
+
+        if (!clientMsgId || !uuidValidate(clientMsgId)) {
+          socket.emit("error", {
+            message: "Invalid or missing clientMsgId",
+            clientMsgId,
+            conversationId,
+          });
           return;
         }
 
         try {
           await assertConversationParticipant(conversationId, userId);
+
+          const existing = await MessageRepo.getMessageByClientId(
+            userId,
+            clientMsgId,
+          );
+          if (existing) {
+            socket.emit("message_sent", existing);
+            return;
+          }
+
           const participants = await ChatRepo.getParticipants(conversationId);
 
           const message = await MessageRepo.saveMessage({
@@ -122,6 +149,8 @@ module.exports = (io) => {
         } catch (err) {
           socket.emit("error", {
             message: err.message || "Failed to send message",
+            clientMsgId,
+            conversationId,
           });
         }
       },

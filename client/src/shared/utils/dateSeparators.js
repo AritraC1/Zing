@@ -28,9 +28,13 @@ export function groupMessagesByDate(messages) {
     const label = getDateSeparatorLabel(message.created_at);
     if (label !== currentLabel) {
       currentLabel = label;
-      groups.push({ type: "separator", label, key: `sep-${label}-${message.id}` });
+      groups.push({ type: "separator", label, key: `sep-${label}-${message.id || message.client_msg_id}` });
     }
-    groups.push({ type: "message", message, key: message.id });
+    groups.push({
+      type: "message",
+      message,
+      key: message.id || message.client_msg_id,
+    });
   }
 
   return groups;

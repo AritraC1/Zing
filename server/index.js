@@ -8,8 +8,21 @@ const swaggerSpec = require("./config/swagger");
 const allRoutes = require("./routes/allRoutes");
 const errorHandler = require("./middlewares/error.middleware");
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost",
+  "http://127.0.0.1",
+].filter(Boolean);
+
 const corsOptions = {
-  origin: "http://localhost:5173",
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true,
 };

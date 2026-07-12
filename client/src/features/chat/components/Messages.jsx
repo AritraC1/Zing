@@ -12,7 +12,7 @@ const Messages = () => {
     getStatusForMessage,
     messagePagination,
   } = useChat();
-  const { markAsRead, loadOlderMessages } = useChatSocket();
+  const { markAsRead, loadOlderMessages, retryMessage } = useChatSocket();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
@@ -118,12 +118,29 @@ const Messages = () => {
             const message = item.message;
             const isOwnMessage = user?.id && message.sender_id === user.id;
 
+            const deliveryStatus =
+              isOwnMessage && message.sendStatus === "sent"
+                ? getStatusForMessage(message)
+                : isOwnMessage && !message.sendStatus
+                  ? getStatusForMessage(message)
+                  : null;
+
             return (
               <MessageBubble
                 key={item.key}
                 message={message}
                 isOwnMessage={isOwnMessage}
-                status={isOwnMessage ? getStatusForMessage(message) : null}
+                status={deliveryStatus}
+                sendStatus={isOwnMessage ? message.sendStatus : undefined}
+                onRetry={
+                  isOwnMessage && message.sendStatus === "failed"
+                    ? () =>
+                        retryMessage(
+                          message.client_msg_id,
+                          message.conversation_id,
+                        )
+                    : undefined
+                }
               />
             );
           })}

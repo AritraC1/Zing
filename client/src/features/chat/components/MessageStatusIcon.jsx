@@ -1,4 +1,21 @@
-const MessageStatusIcon = ({ status }) => {
+const MessageStatusIcon = ({ status, sendStatus }) => {
+  if (sendStatus === "sending") {
+    return (
+      <span
+        className="inline-block ml-1 w-3 h-3 border-2 border-white/60 border-t-transparent rounded-full animate-spin"
+        aria-label="Sending"
+      />
+    );
+  }
+
+  if (sendStatus === "failed") {
+    return (
+      <span className="inline-block ml-1 text-red-200 font-bold" aria-label="Failed">
+        !
+      </span>
+    );
+  }
+
   if (!status) return null;
 
   const isRead = status === "seen";

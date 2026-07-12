@@ -11,7 +11,10 @@ import useAuth from "../../features/auth/hooks/useAuth";
 import { SocketContext } from "./socketContext";
 
 const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
+  import.meta.env.VITE_SOCKET_URL ||
+  (typeof window !== "undefined"
+    ? window.location.origin
+    : "http://localhost:3000");
 
 function log(...args) {
   if (import.meta.env.DEV) {

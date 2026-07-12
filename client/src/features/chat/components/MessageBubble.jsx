@@ -16,8 +16,10 @@ const MessageBubble = memo(function MessageBubble({
   message,
   isOwnMessage,
   status,
+  sendStatus,
+  onRetry,
 }) {
-  if (!message?.id) return null;
+  if (!message?.id && !message?.client_msg_id) return null;
 
   const isImage = message.mime_type?.startsWith("image/");
   const isVideo = message.mime_type?.startsWith("video/");
@@ -26,6 +28,8 @@ const MessageBubble = memo(function MessageBubble({
   const createdAt = message.created_at
     ? new Date(message.created_at)
     : new Date();
+  const isFailed = sendStatus === "failed";
+  const isSending = sendStatus === "sending";
 
   return (
     <div
@@ -44,61 +48,81 @@ const MessageBubble = memo(function MessageBubble({
         </div>
       )}
 
-      <div
-        className={`max-w-xs px-3.5 py-2.5 text-sm leading-relaxed wrap-break-words shadow-sm
-        ${
-          isOwnMessage
-            ? "bg-emerald-500 text-white rounded-3xl"
-            : "bg-gray-100 text-gray-900 rounded-3xl"
-        }`}
-      >
-        {isImage && (
-          <img
-            src={message.secure_url}
-            alt="media"
-            className="rounded-2xl mb-2 max-w-full"
-          />
-        )}
-
-        {isVideo && (
-          <video controls className="rounded-2xl mb-2 max-w-full">
-            <source src={message.secure_url} type={message.mime_type} />
-          </video>
-        )}
-
-        {!isImage && !isVideo && hasAttachment && (
-          <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 mb-2">
-            <a
-              href={message.secure_url || "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium underline underline-offset-2"
-            >
-              Open attachment
-            </a>
-            <p className="text-[10px] opacity-80 mt-1">
-              {message.mime_type || "file"}
-            </p>
-          </div>
-        )}
-
-        {message.content && <div>{message.content}</div>}
-
+      <div className="flex flex-col items-end gap-1 max-w-xs">
         <div
-          className={`text-[10px] mt-1 flex items-center gap-1
+          className={`w-full px-3.5 py-2.5 text-sm leading-relaxed wrap-break-words shadow-sm
           ${
             isOwnMessage
-              ? "justify-end text-white/70"
-              : "justify-start text-gray-400"
+              ? `text-white rounded-3xl ${
+                  isFailed
+                    ? "bg-red-400"
+                    : isSending
+                      ? "bg-emerald-400 opacity-80"
+                      : "bg-emerald-500"
+                }`
+              : "bg-gray-100 text-gray-900 rounded-3xl"
           }`}
         >
-          {createdAt.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {isImage && (
+            <img
+              src={message.secure_url}
+              alt="media"
+              className="rounded-2xl mb-2 max-w-full"
+            />
+          )}
 
-          {isOwnMessage && <MessageStatusIcon status={status} />}
+          {isVideo && (
+            <video controls className="rounded-2xl mb-2 max-w-full">
+              <source src={message.secure_url} type={message.mime_type} />
+            </video>
+          )}
+
+          {!isImage && !isVideo && hasAttachment && (
+            <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 mb-2">
+              <a
+                href={message.secure_url || "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium underline underline-offset-2"
+              >
+                Open attachment
+              </a>
+              <p className="text-[10px] opacity-80 mt-1">
+                {message.mime_type || "file"}
+              </p>
+            </div>
+          )}
+
+          {message.content && <div>{message.content}</div>}
+
+          <div
+            className={`text-[10px] mt-1 flex items-center gap-1
+            ${
+              isOwnMessage
+                ? "justify-end text-white/70"
+                : "justify-start text-gray-400"
+            }`}
+          >
+            {createdAt.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+
+            {isOwnMessage && (
+              <MessageStatusIcon status={status} sendStatus={sendStatus} />
+            )}
+          </div>
         </div>
+
+        {isOwnMessage && isFailed && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-[10px] font-medium text-red-500 hover:text-red-600 px-1"
+          >
+            Tap to retry
+          </button>
+        )}
       </div>
     </div>
   );
