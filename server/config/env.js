@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const required = [
   "DATABASE_URL",
-  "REDIS_URL",
+  // "REDIS_URL",
   "JWT_SECRET",
   "JWT_REFRESH_SECRET",
   "CLOUDINARY_CLOUD_NAME",
@@ -24,7 +24,7 @@ class ENV {
 
   // DB & Redis
   static DB_URL = process.env.DATABASE_URL;
-  static REDIS = process.env.REDIS_URL;
+  // static REDIS = process.env.REDIS_URL;
 
   // JWT
   static JWT_SECRET_KEY = process.env.JWT_SECRET;
