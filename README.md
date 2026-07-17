@@ -2,6 +2,8 @@
 
 Zing is a real-time communication app with a React/Vite frontend and an Express-based backend. It supports authentication, chat, profile management, media sharing, and live socket-based updates.
 
+> Note: At the moment, only the frontend is deployed. The backend is currently intended for local development and future deployment.
+
 ![Landing page](client/src/assets/images/landing.png)
 
 ## Overview
@@ -190,3 +192,5 @@ This workflow is a helpful reference for the expected validation steps before op
 3. Install dependencies and run the app locally.
 4. Make your changes and verify the relevant flows.
 5. Open a pull request with a clear summary.
+
+---
