@@ -1,0 +1,72 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    # Client
+    client:
+        name: Client CI
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: client
+        steps:
+            - name: Check out code
+              uses: actions/checkout@v4
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: client/package-lock.json
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Lint
+              run: npm run lint
+
+            - name: Build
+              run: npm run build
+
+    # Server
+    server:
+        name: Server CI
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: server
+
+        steps:
+        - name: Check out code
+          uses: actions/checkout@v4
+
+        - name: Set up Node
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'npm'
+            cache-dependency-path: server/package-lock.json
+
+        - name: Install dependencies
+          run: npm ci
+
+        - name: Run tests
+          run: npm test
+
+    # Docker build check
+    docker-build-check:
+        name: Docker Build Check
+        needs: [client, server]
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                service: [client, server]
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build image (no push)
+              run: docker build -t ${{ matrix.service }}-ci-check ./${{ matrix.service }}
