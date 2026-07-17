@@ -36,6 +36,9 @@ The project is organized into two main parts:
   README.md
   dev.sh
   docker-compose.yaml
+  .github/
+    workflows/
+      ci.yml
   client/
     package.json
     src/
@@ -162,6 +165,16 @@ cd server
 npm run start    # start the Express server
 npm run migrate  # run database migrations
 ```
+
+## CI/CD
+
+The repository includes a GitHub Actions workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) that validates the project by:
+
+- installing client and server dependencies
+- building the client app
+- checking Docker image builds for both services
+
+This workflow is a helpful reference for the expected validation steps before opening a pull request.
 
 ## API and Real-Time Notes
 
