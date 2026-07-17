@@ -20,24 +20,6 @@ services:
     networks:
       - zing-network
 
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: zing-redis
-  #   restart: unless-stopped
-  #   ports:
-  #     - "6379:6379"
-  #   command: redis-server --appendonly yes
-  #   volumes:
-  #     - redis-data:/data
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 30s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 10s
-  #   networks:
-  #     - zing-network
-
   api:
     build:
       context: ./server
