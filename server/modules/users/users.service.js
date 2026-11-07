@@ -28,7 +28,6 @@ const formatUserResponse = (user) => {
 class UserService {
   constructor() {
     this.userRepo = new UserRepository();
-    this.sessionRepo = new SessionRepository();
     this.deviceRepo = new DeviceRepository();
   }
 
@@ -64,14 +63,14 @@ class UserService {
       }
 
       // One active session per device
-      await this.sessionRepo.revokeDeviceSessions(deviceId, client);
+      await SessionRepository.revokeDeviceSessions(deviceId, client);
 
       const refreshToken = createRefreshTokenForUser({
         id: user.id,
         phoneNumber,
       });
 
-      await this.sessionRepo.createSession(
+      await SessionRepository.createSession(
         {
           id: crypto.randomUUID(),
           deviceId,

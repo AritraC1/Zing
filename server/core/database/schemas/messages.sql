@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS messages (
     msg_type message_type,
     media_id UUID REFERENCES media(id),
     forwarded_from_id UUID REFERENCES messages(id),
-    content TEXT NOT NULL,
+    content TEXT, -- nullable: media/voice messages may have no text
     created_at TIMESTAMP DEFAULT NOW(),
 
     UNIQUE (client_msg_id, sender_id), -- scoped per sender

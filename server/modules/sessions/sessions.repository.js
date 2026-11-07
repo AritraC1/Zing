@@ -80,4 +80,4 @@ class SessionRepository {
   }
 }
 
-export default SessionRepository;
+module.exports = SessionRepository;

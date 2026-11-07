@@ -263,4 +263,4 @@ class MessageRepository {
   }
 }
 
-export default MessageRepository;
+module.exports = MessageRepository;

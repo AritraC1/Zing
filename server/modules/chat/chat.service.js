@@ -5,7 +5,7 @@ const { withTransaction } = require("../../utils/withTransaction");
 
 class ChatService {
   constructor() {
-    this.participantRepo = new ParticipantsRepository();
+    // Repos with static methods are called statically (see auth.service.js)
   }
 
   async createDirectConversation(currentUserId, otherUserId) {
@@ -44,7 +44,7 @@ class ChatService {
         client,
       );
 
-      await this.participantRepo.addTwoParticipants(
+      await ParticipantsRepository.addTwoParticipants(
         newConversation.id,
         currentUserId,
         otherUserId,

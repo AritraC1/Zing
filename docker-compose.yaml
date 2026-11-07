@@ -34,6 +34,9 @@ services:
       - server/.env
     environment:
       FRONTEND_URL: http://localhost
+      # Inside the compose network the DB is reachable as `postgres:5432`
+      # (this overrides the localhost:5433 URL in server/.env)
+      DATABASE_URL: postgresql://zing:zing%407111030@postgres:5432/zing_db
     depends_on:
       postgres:
         condition: service_healthy

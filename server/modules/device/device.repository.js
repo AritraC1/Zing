@@ -54,4 +54,4 @@ class DeviceRepository {
   }
 }
 
-export default DeviceRepository;
+module.exports = DeviceRepository;

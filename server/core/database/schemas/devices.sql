@@ -1,4 +1,4 @@
-CREATE TYPE device_type AS ENUM ('phone','web');
+CREATE TYPE device_type AS ENUM ('web','ios','android','desktop');
 
 CREATE TABLE IF NOT EXISTS devices (
     id UUID PRIMARY KEY,

@@ -18,4 +18,4 @@ class participantsRepository {
   }
 }
 
-export default participantsRepository;
+module.exports = participantsRepository;
