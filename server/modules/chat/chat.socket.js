@@ -7,7 +7,7 @@
 // Marking messages as read
 // Tracking message delivery and seen status
 
-const MessageRepo = require("../messages/messages.repository");
+const MessageRepository = require("../messages/messages.repository");
 const ChatRepo = require("./chat.repository");
 const UserRepository = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
@@ -15,6 +15,7 @@ const { validate: uuidValidate } = require("uuid");
 
 const PAGE_SIZE = 50;
 const userRepo = new UserRepository();
+const messageRepo = new MessageRepository();
 
 // Map to track online users: userId -> socketId
 const onlineUsers = new Map();
@@ -32,7 +33,7 @@ module.exports = (io) => {
       await userRepo.updateLastSeen(userId);
       broadcastPresence(io, userId, true);
 
-      const deliveredRows = await MessageRepo.markAllPendingAsDelivered(userId);
+      const deliveredRows = await messageRepo.markAllPendingAsDelivered(userId);
 
       deliveredRows.forEach(({ message_id, sender_id }) => {
         const recipientSocketId = onlineUsers.get(sender_id);
@@ -187,7 +188,9 @@ module.exports = (io) => {
       } catch (err) {
         console.error("message_delivered error:", err);
         if (err.statusCode === 403) {
-          socket.emit("error", { message: "Not a participant in this conversation" });
+          socket.emit("error", {
+            message: "Not a participant in this conversation",
+          });
         }
       }
     });
@@ -218,7 +221,9 @@ module.exports = (io) => {
       } catch (err) {
         console.error("mark_read error:", err);
         if (err.statusCode === 403) {
-          socket.emit("error", { message: "Not a participant in this conversation" });
+          socket.emit("error", {
+            message: "Not a participant in this conversation",
+          });
         }
       }
     });

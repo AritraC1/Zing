@@ -1,7 +1,7 @@
 const db = require("../../core/config/db.config");
 
-class MediaRepo {
-  static async insertMedia({
+class MediaRepository {
+  async insertMedia({
     uploader_id,
     storage_key,
     mime_type,
@@ -43,4 +43,4 @@ class MediaRepo {
   }
 }
 
-module.exports = MediaRepo;
+module.exports = MediaRepository;

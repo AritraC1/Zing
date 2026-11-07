@@ -10,3 +10,6 @@ core/config/firebase/serviceAccountKey.json
 
 # Mac specific
 .DS_Store
+
+# Temp
+core/public/temp

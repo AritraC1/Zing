@@ -136,8 +136,8 @@ const ProfileSetupPage = () => {
       <div className="absolute inset-0 bg-linear-to-b from-white via-slate-50/50 to-emerald-50/30 pointer-events-none" />
 
       {/* Decorative Ambient Blobs */}
-      <div className="absolute -top-32 -right-32 w-96 h-96 sm:w-128 sm:h-128 rounded-full bg-emerald-200/50 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-80 h-80 sm:w-112 sm:h-112 rounded-full bg-teal-200/40 blur-3xl pointer-events-none" />
+      <div className="absolute -top-32 -right-32 w-96 h-96 sm:w-lg sm:h-128 rounded-full bg-emerald-200/50 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-80 h-80 sm:w-md sm:h-112 rounded-full bg-teal-200/40 blur-3xl pointer-events-none" />
 
       {/* Subtle Dot Pattern */}
       <div

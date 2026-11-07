@@ -1,6 +1,8 @@
 const fs = require("fs");
 const uploadOnCloudinary = require("./cloudinary");
-const MediaRepo = require("../modules/media/media.repository");
+const MediaRepository = require("../modules/media/media.repository");
+
+const mediaRepo = new MediaRepository();
 
 async function uploadFileToCloudinary({
   localFilePath,
@@ -18,7 +20,7 @@ async function uploadFileToCloudinary({
     fs.unlinkSync(localFilePath);
   }
 
-  const media = await MediaRepo.insertMedia({
+  const media = await mediaRepo.insertMedia({
     uploader_id: uploaderId,
     storage_key: cloudinaryResponse.public_id,
     mime_type: mimeType,
