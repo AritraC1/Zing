@@ -158,6 +158,8 @@ module.exports = (io) => {
 
     socket.on("message_delivered", async ({ messageId, conversationId }) => {
       try {
+        await assertConversationParticipant(conversationId, userId);
+
         const updated = await MessageRepo.updateMessageStatus(
           messageId,
           userId,
@@ -183,11 +185,16 @@ module.exports = (io) => {
         });
       } catch (err) {
         console.error("message_delivered error:", err);
+        if (err.statusCode === 403) {
+          socket.emit("error", { message: "Not a participant in this conversation" });
+        }
       }
     });
 
     socket.on("mark_read", async ({ conversationId }) => {
       try {
+        await assertConversationParticipant(conversationId, userId);
+
         const updatedRows = await MessageRepo.markConversationAsSeen(
           conversationId,
           userId,
@@ -209,6 +216,9 @@ module.exports = (io) => {
         });
       } catch (err) {
         console.error("mark_read error:", err);
+        if (err.statusCode === 403) {
+          socket.emit("error", { message: "Not a participant in this conversation" });
+        }
       }
     });
 

@@ -1,5 +1,5 @@
 const ChatRepo = require("./chat.repo");
-const AppError = require("../../shared/errors/AppError");
+const AppError = require("../../core/errors/AppError");
 
 async function assertConversationParticipant(conversationId, userId) {
   const participants = await ChatRepo.getParticipants(conversationId);

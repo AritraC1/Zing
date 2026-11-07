@@ -1,5 +1,5 @@
 const cookie = require("cookie");
-const { validateAccessToken } = require("../shared/utils/jwtTokenUtil");
+const { validateAccessToken } = require("../../shared/utils/jwtTokenUtil");
 
 const checkSocketForJwt = (cookieName = "accessToken") => {
   return (socket, next) => {

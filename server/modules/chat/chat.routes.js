@@ -5,8 +5,8 @@ const {
   fetchMessages,
 } = require("./chat.controller");
 const checkForJwt = require("../../middlewares/auth.middleware");
-const validateBody = require("../../shared/middlewares/validateBody");
-const { createConversationSchema } = require("../../shared/validation/schemas");
+const validateBody = require("../../core/validation/validateBody");
+const { createConversationSchema } = require("../../core/validation/schemas");
 
 const router = express.Router();
 

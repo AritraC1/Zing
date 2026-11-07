@@ -8,8 +8,8 @@ const {
 } = require("./users.controller");
 const checkForJwt = require("../../middlewares/auth.middleware");
 const upload = require("../../middlewares/multer.middleware");
-const validateBody = require("../../shared/middlewares/validateBody");
-const { onboardSchema } = require("../../shared/validation/schemas");
+const validateBody = require("../../core/validation/validateBody");
+const { onboardSchema } = require("../../core/validation/schemas");
 
 const router = express.Router();
 

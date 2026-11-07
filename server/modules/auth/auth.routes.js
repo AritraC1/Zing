@@ -8,8 +8,8 @@ const {
 
 const checkForJwt = require("../../middlewares/auth.middleware");
 const authLimiter = require("../../middlewares/rateLimit");
-const validateBody = require("../../shared/middlewares/validateBody");
-const { verifyOtpSchema } = require("../../shared/validation/schemas");
+const validateBody = require("../../core/validation/validateBody");
+const { verifyOtpSchema } = require("../../core/validation/schemas");
 
 const router = express.Router();
 

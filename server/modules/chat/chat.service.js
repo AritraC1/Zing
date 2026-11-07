@@ -1,6 +1,6 @@
 const ChatRepo = require("./chat.repo");
 const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo");
-const AppError = require("../../shared/errors/AppError");
+const AppError = require("../../core/errors/AppError");
 const { withTransaction } = require("../../shared/utils/withTransaction");
 
 class ChatService {

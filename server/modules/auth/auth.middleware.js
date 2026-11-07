@@ -1,4 +1,4 @@
-const { validateAccessToken } = require("../shared/utils/jwtTokenUtil");
+const { validateAccessToken } = require("../../shared/utils/jwtTokenUtil");
 
 const checkForJwt = (cookieName = "accessToken") => {
   return (req, res, next) => {
