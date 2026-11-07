@@ -8,7 +8,9 @@ services:
     env_file:
       - server/.env
     ports:
-      - "5432:5432"
+      # Host port 5433 to avoid clashing with any other local Postgres;
+      # containers on the compose network still reach it as `postgres:5432`
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

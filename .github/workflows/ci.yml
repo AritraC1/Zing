@@ -27,8 +27,13 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            # Re-enable once lint errors are fixed
+            # (react-hooks/set-state-in-effect, react-refresh/only-export-components)
             # - name: Lint
             #   run: npm run lint
+
+            - name: Tests
+              run: npm run test
 
             - name: Build
               run: npm run build
@@ -42,21 +47,23 @@ jobs:
                 working-directory: server
 
         steps:
-        - name: Check out code
-          uses: actions/checkout@v4
+            - name: Check out code
+              uses: actions/checkout@v4
 
-        - name: Set up Node
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
-            cache: 'npm'
-            cache-dependency-path: server/package-lock.json
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: server/package-lock.json
 
-        - name: Install dependencies
-          run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-        # - name: Run tests
-        #   run: npm test
+            # Jest run is self-contained (no DB needed):firebase is mocked
+            # and repos are mocked in the test suites
+            - name: Run tests
+              run: npm test
 
     # Docker build check
     docker-build-check:
@@ -67,6 +74,7 @@ jobs:
             matrix:
                 service: [client, server]
         steps:
-            - uses: actions/checkout@v4
+            - name: Check out code
+              uses: actions/checkout@v4
             - name: Build image (no push)
               run: docker build -t ${{ matrix.service }}-ci-check ./${{ matrix.service }}

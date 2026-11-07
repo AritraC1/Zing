@@ -178,14 +178,15 @@ npm run start    # start the Express + Socket.IO server
 npm run migrate  # run database migrations (idempotent, tracked in schema_migrations)
 ```
 
-> Tests exist for a few client reducers/mappers (`*.test.js` files under `client/src`). The server currently has no test suite.
+> Tests exist for both apps: server Jest suites (`npm test`) and client Vitest suites (`npm run test`), both mocked and DB-free.
 
 ## CI/CD
 
 The repository includes a GitHub Actions workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) that validates the project by:
 
 - installing client and server dependencies
-- building the client app
+- running client Vitest tests (`npm run test`) and building the client app
+- running server Jest tests (`npm test`, no database required — mocks)
 - checking Docker image builds for both services
 
 This workflow is a helpful reference for the expected validation steps before opening a pull request.

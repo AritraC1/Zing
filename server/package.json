@@ -6,8 +6,9 @@
   "scripts": {
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
+    "dev": "nodemon index.js",
     "start": "node index.js",
-    "migrate": "node shared/db/migration.js"
+    "migrate": "node core/database/migration.js"
   },
   "keywords": [],
   "author": "",

@@ -7,8 +7,8 @@
 // Marking messages as read
 // Tracking message delivery and seen status
 
-const MessageRepo = require("../messages/messagesRepo");
-const ChatRepo = require("./chat.repo");
+const MessageRepo = require("../messages/messages.repository");
+const ChatRepo = require("./chat.repository");
 const UserRepo = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
