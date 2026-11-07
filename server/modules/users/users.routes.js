@@ -1,22 +1,19 @@
 const express = require("express");
-const {
-  fetchMyProfile,
-  updateProfile,
-  uploadAvatar,
-  fetchUsersByPhone,
-  onBoardNewUser,
-} = require("./users.controller");
+const { usersController } = require("./users.controller");
 const checkForJwt = require("../auth/auth.middleware");
 const upload = require("../../core/media/multer.middleware");
-const validateBody = require("../../core/validation/validateBody");
-const { onboardSchema } = require("../../core/validation/schemas");
 
 const router = express.Router();
 
-router.post("/onboard", checkForJwt(), validateBody(onboardSchema), onBoardNewUser);
-router.get("/me", checkForJwt(), fetchMyProfile);
-router.patch("/update-profile", checkForJwt(), updateProfile);
-router.post("/upload-avatar", upload.single("avatar"), checkForJwt(), uploadAvatar);
-router.get("/search", checkForJwt(), fetchUsersByPhone);
+router.post("/onboard", checkForJwt(), usersController.onBoardNewUser);
+router.get("/me", checkForJwt(), usersController.fetchMyProfile);
+router.patch("/update-profile", checkForJwt(), usersController.updateProfile);
+router.post(
+  "/upload-avatar",
+  upload.single("avatar"),
+  checkForJwt(),
+  usersController.uploadAvatar,
+);
+router.get("/search", checkForJwt(), usersController.fetchUsersByPhone);
 
 module.exports = router;

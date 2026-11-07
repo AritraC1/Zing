@@ -29,8 +29,8 @@ const enrichMediaMessage = (row) => {
   };
 };
 
-class MessageRepo {
-  static async saveMessage({
+class MessageRepository {
+  async saveMessage({
     conversationId,
     senderId,
     content,
@@ -114,7 +114,7 @@ class MessageRepo {
     }
   }
 
-  static async getMessageByClientId(senderId, clientMsgId) {
+  async getMessageByClientId(senderId, clientMsgId) {
     const query = `
       SELECT
         m.*,
@@ -145,11 +145,7 @@ class MessageRepo {
     return enrichMediaMessage(result.rows[0]);
   }
 
-  static async getMessagesByConversation(
-    conversationId,
-    limit = 50,
-    offset = 0,
-  ) {
+  async getMessagesByConversation(conversationId, limit = 50, offset = 0) {
     const query = `
       SELECT
         m.*,
@@ -182,7 +178,7 @@ class MessageRepo {
     return result.rows.map(enrichMediaMessage);
   }
 
-  static async getMessageStatusesForConversation(conversationId) {
+  async getMessageStatusesForConversation(conversationId) {
     const query = `
       SELECT ms.message_id, ms.user_id, ms.msg_status, ms.delivered_at, ms.seen_at, ms.created_at
       FROM message_status ms
@@ -193,7 +189,7 @@ class MessageRepo {
     return result.rows;
   }
 
-  static async initializeMessageStatuses(messageId, recipientIds) {
+  async initializeMessageStatuses(messageId, recipientIds) {
     if (!recipientIds?.length) return;
 
     const values = recipientIds
@@ -208,7 +204,7 @@ class MessageRepo {
     await db.query(query, [messageId, ...recipientIds]);
   }
 
-  static async updateMessageStatus(messageId, userId, msgStatus) {
+  async updateMessageStatus(messageId, userId, msgStatus) {
     const query = `
       UPDATE message_status
       SET msg_status = $3,
@@ -233,7 +229,7 @@ class MessageRepo {
     return result.rows;
   }
 
-  static async markConversationAsSeen(conversationId, userId) {
+  async markConversationAsSeen(conversationId, userId) {
     const query = `
       UPDATE message_status ms
       SET msg_status = 'seen',
@@ -250,7 +246,7 @@ class MessageRepo {
     return result.rows;
   }
 
-  static async markAllPendingAsDelivered(userId) {
+  async markAllPendingAsDelivered(userId) {
     const query = `
       UPDATE message_status ms
       SET msg_status = 'delivered',
@@ -267,4 +263,4 @@ class MessageRepo {
   }
 }
 
-module.exports = MessageRepo;
+export default MessageRepository;

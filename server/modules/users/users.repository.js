@@ -116,7 +116,8 @@ class UserRepository {
     return result.rows[0]?.last_seen_at;
   }
 
-  async completeProfileByIdWithClient(id, displayName) {
+  // Complete User profile (transaction-aware)
+  async completeProfileByIdWithClient(id, displayName, client = db) {
     const query = `
     UPDATE users
      SET display_name = $1,
@@ -125,7 +126,7 @@ class UserRepository {
     RETURNING *
     `;
 
-    const result = await db.query(query, [displayName, id]);
+    const result = await client.query(query, [displayName, id]);
     return result.rows[0];
   }
 }

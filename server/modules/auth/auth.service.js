@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const admin = require("../../core/config/firebase.config");
 const UserRepository = require("../users/users.repository");
 const SessionRepository = require("../sessions/sessions.repository");
-const DevicesRepository = require("../devices/devices.repository");
+const DeviceRepository = require("../device/device.repository");
 const {
   createAccessTokenForUser,
   createRefreshTokenForUser,
@@ -15,8 +15,8 @@ const AppError = require("../../core/errors/AppError");
 class AuthService {
   constructor() {
     this.userRepo = new UserRepository();
-    this.sessionRepo = SessionRepository;
-    this.deviceRepo = DevicesRepository;
+    this.sessionRepo = new SessionRepository();
+    this.deviceRepo = new DeviceRepository();
   }
 
   // Verify the Firebase OTP token, create the user if new, and issue tokens

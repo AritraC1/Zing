@@ -1,227 +1,114 @@
-const crypto = require("crypto");
-const hashToken = require("../../utils/hash");
-const uploadFileToCloudinary = require("../../utils/uploadToCloudinary");
-const { buildMediaUrl } = require("../../utils/mediaUrl");
-const {
-  createAccessTokenForUser,
-  createRefreshTokenForUser,
-} = require("../../utils/jwtTokenUtil");
-const DevicesRepo = require("../devices/devices.repository");
-const SessionRepo = require("../sessions/sessions.repository");
-const UserRepo = require("./users.repository");
-const { baseCookieOptions } = require("../../utils/cookieOptions");
-const { withTransaction } = require("../../utils/withTransaction");
+const { parseBody } = require("../../core/validation/parseBody");
+const { onboardSchema } = require("../../core/validation/schemas");
+const { issueCookies } = require("../../utils/issueCookies");
+const UserService = require("./users.service");
 
-function formatUserResponse(user) {
-  if (!user) return null;
+class UserController {
+  constructor(userService = new UserService()) {
+    this.userService = userService;
+  }
 
-  return {
-    ...user,
-    avatar_url: user.avatar_storage_key
-      ? buildMediaUrl(user.avatar_storage_key)
-      : null,
+  // POST /api/users/onboard
+  onBoardNewUser = async (req, res, next) => {
+    try {
+      const data = parseBody(onboardSchema, req.body);
+
+      const { profile, accessToken, refreshToken } =
+        await this.userService.onboardUser({
+          phoneNumber: req.user.phoneNumber,
+          ...data,
+        });
+
+      issueCookies(res, { accessToken, refreshToken });
+
+      res.status(200).json({
+        success: true,
+        message: "Onboarding complete",
+        data: profile,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/users/me
+  fetchMyProfile = async (req, res, next) => {
+    try {
+      const user = await this.userService.fetchMyProfile(req.user.phoneNumber);
+
+      res.status(200).json({
+        success: true,
+        message: "Successfully fetched user profile",
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // PATCH /api/users/update-profile
+  updateProfile = async (req, res, next) => {
+    try {
+      const user = await this.userService.updateProfile({
+        phoneNumber: req.user.phoneNumber,
+        newDisplayName: req.body.newDisplayName,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "User details updated successfully",
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // POST /api/users/upload-avatar
+  uploadAvatar = async (req, res, next) => {
+    try {
+      if (!req.file?.path) {
+        return res.status(400).json({
+          success: false,
+          message: "File is required",
+        });
+      }
+
+      const data = await this.userService.uploadAvatar({
+        userId: req.user.id,
+        localFilePath: req.file.path,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "File uploaded successfully",
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // GET /api/users/search
+  fetchUsersByPhone = async (req, res, next) => {
+    try {
+      const user = await this.userService.fetchUserByPhone(
+        req.query.phoneNumber,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "User found",
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
   };
 }
 
-const onBoardNewUser = async (req, res) => {
-  try {
-    const { phoneNumber } = req.user;
-    const { displayName, deviceId, deviceType } = req.body;
+const usersController = new UserController();
 
-    const user = await UserRepo.findByPhone(phoneNumber);
-
-    const updatedUser = await withTransaction(async (client) => {
-      const profile = await UserRepo.completeProfileByIdWithClient(
-        user.id,
-        displayName,
-        client,
-      );
-
-      let device = await DevicesRepo.findById(deviceId);
-
-      if (!device) {
-        device = await DevicesRepo.createDevice(
-          {
-            id: deviceId,
-            userId: user.id,
-            deviceType,
-            identityPublicKey: "TEST_PUBLIC_KEY",
-          },
-          client,
-        );
-      }
-
-      await SessionRepo.revokeDeviceSessions(deviceId, client);
-
-      const refreshToken = createRefreshTokenForUser({
-        id: user.id,
-        phoneNumber,
-      });
-      const refreshTokenHash = hashToken(refreshToken);
-
-      await SessionRepo.createSession(
-        {
-          id: crypto.randomUUID(),
-          deviceId,
-          refreshTokenHash,
-          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        },
-        client,
-      );
-
-      return { profile, refreshToken };
-    });
-
-    const accessToken = createAccessTokenForUser({
-      id: user.id,
-      phoneNumber,
-    });
-
-    res.cookie("accessToken", accessToken, {
-      ...baseCookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie("refreshToken", updatedUser.refreshToken, {
-      ...baseCookieOptions,
-      maxAge: 14 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.json({
-      message: "Onboarding complete",
-      data: updatedUser.profile,
-    });
-  } catch (error) {
-    console.error("Onboard error:", error);
-    res.status(500).json({
-      message: "Failed to onboard new user",
-    });
-  }
-};
-
-const fetchMyProfile = async (req, res) => {
-  try {
-    const { phoneNumber } = req.user;
-
-    const user = await UserRepo.findByPhoneWithAvatar(phoneNumber);
-
-    return res.status(200).json({
-      message: "Successfully fetched user profile",
-      data: formatUserResponse(user),
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Unable to get profile data",
-    });
-  }
-};
-
-const updateProfile = async (req, res) => {
-  try {
-    const { phoneNumber } = req.user;
-    const { newDisplayName } = req.body;
-
-    if (!phoneNumber || !newDisplayName) {
-      return res.status(404).json({
-        message: "Phone Number or New display name missing",
-      });
-    }
-
-    const user = await UserRepo.findByPhone(phoneNumber);
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    await UserRepo.updateUser(user.id, newDisplayName);
-    const updatedUser = await UserRepo.findByIdWithAvatar(user.id);
-
-    return res.status(200).json({
-      message: "User details updated successfully",
-      data: formatUserResponse(updatedUser),
-    });
-  } catch (error) {
-    console.error("Error", error);
-    res.status(500).json({
-      message: "Unable to update profile data",
-    });
-  }
-};
-
-const uploadAvatar = async (req, res) => {
-  try {
-    const localFilePath = req.file?.path;
-
-    if (!localFilePath) {
-      return res.status(400).json({
-        message: "File is required",
-      });
-    }
-
-    const { media, cloudinaryResponse } = await uploadFileToCloudinary({
-      localFilePath,
-      uploaderId: req.user.id,
-      mimeType: req.file.mimetype,
-      sizeBytes: req.file.size,
-    });
-
-    await UserRepo.setAvatarMediaId(req.user.id, media.id);
-    const updatedUser = await UserRepo.findByIdWithAvatar(req.user.id);
-
-    res.status(200).json({
-      message: "File uploaded successfully",
-      data: {
-        avatarUrl: cloudinaryResponse.secure_url,
-        avatarMediaId: media.id,
-        user: formatUserResponse(updatedUser),
-      },
-    });
-  } catch (error) {
-    console.error("uploadAvatar error:", error);
-    res.status(500).json({
-      message: "Upload failed",
-    });
-  }
-};
-
-const fetchUsersByPhone = async (req, res) => {
-  const { phoneNumber } = req.query;
-
-  if (!phoneNumber) {
-    return res.status(400).json({
-      message: "Phone number is required",
-    });
-  }
-
-  const user = await UserRepo.findByPhoneWithAvatar(phoneNumber);
-
-  if (!user) {
-    return res.status(404).json({
-      message: "User not found",
-    });
-  }
-
-  const formattedUser = {
-    id: user.id,
-    name: user.display_name,
-    phoneNumber: user.phone_number,
-    profilePic: user.avatar_storage_key
-      ? buildMediaUrl(user.avatar_storage_key)
-      : null,
-  };
-
-  return res.status(200).json({
-    message: "User found",
-    user: formattedUser,
-  });
-};
-
-module.exports = {
-  onBoardNewUser,
-  fetchMyProfile,
-  updateProfile,
-  uploadAvatar,
-  fetchUsersByPhone,
-};
+module.exports = { UserController, usersController };

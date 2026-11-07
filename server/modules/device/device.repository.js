@@ -1,9 +1,9 @@
 const { validate: uuidValidate } = require("uuid");
 const db = require("../../core/config/db.config");
 
-class DevicesRepository {
+class DeviceRepository {
   // Find device by device id
-  static async findById(id) {
+  async findById(id) {
     // Validate id
     if (!uuidValidate(id)) {
       return null;
@@ -20,7 +20,7 @@ class DevicesRepository {
   }
 
   // Find a device by user_id
-  static async findByUserId(user_id) {
+  async findByUserId(user_id) {
     const query = `
         SELECT * 
         FROM devices
@@ -32,7 +32,10 @@ class DevicesRepository {
   }
 
   // Create a new device
-  static async createDevice({ id, userId, deviceType, identityPublicKey }, client = db) {
+  async createDevice(
+    { id, userId, deviceType, identityPublicKey },
+    client = db,
+  ) {
     const query = `
     INSERT INTO devices (
         id, 
@@ -51,4 +54,4 @@ class DevicesRepository {
   }
 }
 
-module.exports = DevicesRepository;
+export default DeviceRepository;

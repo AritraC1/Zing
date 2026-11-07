@@ -1,10 +1,14 @@
 const ChatRepo = require("./chat.repository");
-const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repository");
+const ParticipantsRepository = require("./participants.repository");
 const AppError = require("../../core/errors/AppError");
 const { withTransaction } = require("../../utils/withTransaction");
 
 class ChatService {
-  static async createDirectConversation(currentUserId, otherUserId) {
+  constructor() {
+    this.participantRepo = new ParticipantsRepository();
+  }
+
+  async createDirectConversation(currentUserId, otherUserId) {
     if (String(otherUserId) === String(currentUserId)) {
       throw new AppError("Cannot start a conversation with yourself", 400);
     }
@@ -35,9 +39,12 @@ class ChatService {
         };
       }
 
-      const newConversation = await ChatRepo.createConversation("direct", client);
+      const newConversation = await ChatRepo.createConversation(
+        "direct",
+        client,
+      );
 
-      await ChatParticipantsRepo.addTwoParticipants(
+      await this.participantRepo.addTwoParticipants(
         newConversation.id,
         currentUserId,
         otherUserId,
