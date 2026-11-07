@@ -1,8 +1,8 @@
 const express = require("express");
 const multer = require("multer");
 
-const checkForJwt = require("../../middlewares/auth.middleware");
-const upload = require("../../middlewares/multer.middleware");
+const checkForJwt = require("../auth/auth.middleware");
+const upload = require("../../core/media/multer.middleware");
 const { fileUpload } = require("./media.controller");
 
 const router = express.Router();

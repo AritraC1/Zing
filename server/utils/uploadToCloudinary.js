@@ -1,6 +1,6 @@
 const fs = require("fs");
 const uploadOnCloudinary = require("./cloudinary");
-const MediaRepo = require("../../modules/media/media.repo");
+const MediaRepo = require("../modules/media/media.repository");
 
 async function uploadFileToCloudinary({
   localFilePath,

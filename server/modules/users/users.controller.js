@@ -1,16 +1,16 @@
 const crypto = require("crypto");
-const hashToken = require("../../shared/utils/hash");
-const uploadFileToCloudinary = require("../../shared/utils/uploadToCloudinary");
-const { buildMediaUrl } = require("../../shared/utils/mediaUrl");
+const hashToken = require("../../utils/hash");
+const uploadFileToCloudinary = require("../../utils/uploadToCloudinary");
+const { buildMediaUrl } = require("../../utils/mediaUrl");
 const {
   createAccessTokenForUser,
   createRefreshTokenForUser,
-} = require("../../shared/utils/jwtTokenUtil");
-const DevicesRepo = require("../devices/devices.repo");
-const SessionRepo = require("../sessions/sessions.repo");
-const UserRepo = require("./users.repo");
-const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
-const { withTransaction } = require("../../shared/utils/withTransaction");
+} = require("../../utils/jwtTokenUtil");
+const DevicesRepo = require("../devices/devices.repository");
+const SessionRepo = require("../sessions/sessions.repository");
+const UserRepo = require("./users.repository");
+const { baseCookieOptions } = require("../../utils/cookieOptions");
+const { withTransaction } = require("../../utils/withTransaction");
 
 function formatUserResponse(user) {
   if (!user) return null;

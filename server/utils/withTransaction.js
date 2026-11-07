@@ -1,4 +1,4 @@
-const pool = require("../../config/db");
+const pool = require("../core/config/db.config");
 
 async function withTransaction(callback) {
   const client = await pool.connect();

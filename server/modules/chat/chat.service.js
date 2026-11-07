@@ -1,7 +1,7 @@
-const ChatRepo = require("./chat.repo");
-const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo");
+const ChatRepo = require("./chat.repository");
+const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repository");
 const AppError = require("../../core/errors/AppError");
-const { withTransaction } = require("../../shared/utils/withTransaction");
+const { withTransaction } = require("../../utils/withTransaction");
 
 class ChatService {
   static async createDirectConversation(currentUserId, otherUserId) {

@@ -1,21 +1,12 @@
-const authController = require("./auth.controller");
-const UserRepo = require("../users/users.repo");
-const SessionRepo = require("../sessions/sessions.repo");
-const DevicesRepo = require("../devices/devices.repo");
-const { createAccessTokenForUser, createRefreshTokenForUser, validateRefreshToken } = require("../../shared/utils/jwtTokenUtil");
-const admin = require("../../config/firebase");
+const { AuthController } = require("./auth.controller");
+const verifyOtpSchema = require("../../core/validation/schemas");
+const AppError = require("../../core/errors/AppError");
 
-const mockAuth = admin._mockAuth;
-
-// Mock all dependencies
-jest.mock("../users/users.repo");
-jest.mock("../sessions/sessions.repo");
-jest.mock("../devices/devices.repo");
-jest.mock("../../shared/utils/jwtTokenUtil");
-jest.mock("../../shared/utils/hash");
-jest.mock("crypto", () => ({
-  randomUUID: jest.fn(() => "test-session-id"),
-}));
+const VALID_BODY = {
+  idToken: "valid-firebase-token",
+  deviceId: "e9ee1ebf-68b5-4c31-8fbb-100da424740b",
+  deviceType: "web",
+};
 
 const mockRes = () => {
   const res = {};
@@ -26,162 +17,235 @@ const mockRes = () => {
   return res;
 };
 
-describe("Auth Controller", () => {
-  let req, res;
+describe("AuthController", () => {
+  let controller;
+  let authService;
+  let req;
+  let res;
+  let next;
 
   beforeEach(() => {
+    authService = {
+      verifyOtp: jest.fn(),
+      refreshAccessToken: jest.fn(),
+      logout: jest.fn(),
+      deleteAccount: jest.fn(),
+    };
+    controller = new AuthController(authService);
+
     req = { body: {}, cookies: {}, user: { id: "user-123" } };
     res = mockRes();
-    jest.clearAllMocks();
-    mockAuth.verifyIdToken.mockReset();
+    next = jest.fn();
   });
 
   describe("verifyOtp", () => {
-    it("returns 400 if phone number not in token", async () => {
-      req.body = { idToken: "valid-token", deviceId: "dev-1", deviceType: "ios" };
-      admin.auth().verifyIdToken.mockResolvedValue({ phone_number: null });
-
-      await authController.verifyOtp(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Phone number not found in token" });
-    });
-
-    it("returns 401 if Firebase token is invalid", async () => {
-      req.body = { idToken: "invalid-token", deviceId: "dev-1", deviceType: "ios" };
-      admin.auth().verifyIdToken.mockRejectedValue(new Error("Invalid token"));
-
-      await authController.verifyOtp(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ error: "Invalid or expired Firebase token" });
-    });
-
-    it("creates new user and returns onboarding token if user doesn't exist", async () => {
-      req.body = { idToken: "valid-token", deviceId: "dev-1", deviceType: "ios" };
-      admin.auth().verifyIdToken.mockResolvedValue({ phone_number: "+15551234567" });
-      UserRepo.findByPhone.mockResolvedValue(null);
-      UserRepo.createUser.mockResolvedValue({ id: "new-user-id", phone_number: "+15551234567" });
-      createAccessTokenForUser.mockReturnValue("onboarding-token");
-
-      await authController.verifyOtp(req, res);
-
-      expect(UserRepo.createUser).toHaveBeenCalledWith("+15551234567");
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        isNewUser: true,
-        profileCompleted: false,
-        accessToken: "onboarding-token",
-      }));
-    });
-
-    it("returns access/refresh tokens for existing user", async () => {
-      req.body = { idToken: "valid-token", deviceId: "dev-1", deviceType: "ios" };
-      admin.auth().verifyIdToken.mockResolvedValue({ phone_number: "+15551234567" });
-      UserRepo.findByPhone.mockResolvedValue({ id: "existing-user", phone_number: "+15551234567", profile_completed: true });
-      createAccessTokenForUser.mockReturnValue("access-token");
-      createRefreshTokenForUser.mockReturnValue("refresh-token");
-      DevicesRepo.findById.mockResolvedValue(null);
-      DevicesRepo.createDevice.mockResolvedValue({ id: "dev-1" });
-      SessionRepo.revokeDeviceSessions.mockResolvedValue();
-      SessionRepo.createSession.mockResolvedValue();
-
-      await authController.verifyOtp(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        isNewUser: false,
-        profileCompleted: true,
+    it("responds 200 with wrapped DTO and issues cookies for an existing user", async () => {
+      req.body = VALID_BODY;
+      authService.verifyOtp.mockResolvedValue({
         accessToken: "access-token",
-      }));
-      expect(res.cookie).toHaveBeenCalledWith("accessToken", "access-token", expect.any(Object));
-      expect(res.cookie).toHaveBeenCalledWith("refreshToken", "refresh-token", expect.any(Object));
+        refreshToken: "refresh-token",
+        isNewUser: false,
+        onboardingCompleted: true,
+      });
+
+      await controller.verifyOtp(req, res, next);
+
+      expect(authService.verifyOtp).toHaveBeenCalledWith(VALID_BODY);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          isNewUser: false,
+          onboardingCompleted: true,
+          accessToken: "access-token",
+        },
+      });
+      expect(res.cookie).toHaveBeenCalledWith(
+        "accessToken",
+        "access-token",
+        expect.any(Object),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "refreshToken",
+        "refresh-token",
+        expect.any(Object),
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("issues only a short-lived access token cookie for a new user", async () => {
+      req.body = VALID_BODY;
+      authService.verifyOtp.mockResolvedValue({
+        accessToken: "onboarding-token",
+        refreshToken: null,
+        isNewUser: true,
+        onboardingCompleted: false,
+      });
+
+      await controller.verifyOtp(req, res, next);
+
+      expect(res.cookie).toHaveBeenCalledTimes(1);
+      expect(res.cookie).toHaveBeenCalledWith(
+        "accessToken",
+        "onboarding-token",
+        expect.objectContaining({ maxAge: 10 * 60 * 1000 }),
+      );
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          isNewUser: true,
+          onboardingCompleted: false,
+          accessToken: "onboarding-token",
+        },
+      });
+    });
+
+    it("rejects an invalid body without hitting the service", async () => {
+      req.body = { idToken: "", deviceId: "not-a-uuid", deviceType: "web" };
+
+      await controller.verifyOtp(req, res, next);
+
+      expect(authService.verifyOtp).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+      const error = next.mock.calls[0][0];
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.statusCode).toBe(400);
+      expect(error.message).toBe("Validation failed");
+      expect(error.details).toHaveProperty("idToken");
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it("forwards service errors to the error middleware", async () => {
+      req.body = VALID_BODY;
+      const failure = new AppError("Invalid or expired Firebase token", 401);
+      authService.verifyOtp.mockRejectedValue(failure);
+
+      await controller.verifyOtp(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(failure);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
     });
   });
 
   describe("refreshAccessToken", () => {
-    it("returns 401 if refresh token missing", async () => {
-      req.cookies = {};
-
-      await authController.refreshAccessToken(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ error: "Refresh token required" });
-    });
-
-    it("returns 403 if session not found", async () => {
+    it("responds 200 with a new access token and cookie", async () => {
       req.cookies = { refreshToken: "valid-refresh" };
-      validateRefreshToken.mockReturnValue({ id: "user-123", phoneNumber: "+15551234567" });
-      const hash = require("../../shared/utils/hash");
-      hash.mockReturnValue("hashed-token");
-      SessionRepo.findByRefreshTokenHash.mockResolvedValue(null);
-
-      await authController.refreshAccessToken(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith({ error: "Invalid session" });
-    });
-
-    it("returns new access token on success", async () => {
-      req.cookies = { refreshToken: "valid-refresh" };
-      validateRefreshToken.mockReturnValue({ id: "user-123", phoneNumber: "+15551234567" });
-      const hash = require("../../shared/utils/hash");
-      hash.mockReturnValue("hashed-token");
-      SessionRepo.findByRefreshTokenHash.mockResolvedValue({ id: "session-1", expires_at: new Date(Date.now() + 86400000) });
-      createAccessTokenForUser.mockReturnValue("new-access-token");
-      SessionRepo.updateLastUsed.mockResolvedValue();
-
-      await authController.refreshAccessToken(req, res);
-
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-        message: "New access token generated",
+      authService.refreshAccessToken.mockResolvedValue({
         accessToken: "new-access-token",
-      }));
+      });
+
+      await controller.refreshAccessToken(req, res, next);
+
+      expect(authService.refreshAccessToken).toHaveBeenCalledWith(
+        "valid-refresh",
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { accessToken: "new-access-token" },
+      });
+      expect(res.cookie).toHaveBeenCalledWith(
+        "accessToken",
+        "new-access-token",
+        expect.objectContaining({ maxAge: 15 * 60 * 1000 }),
+      );
+      expect(res.cookie).not.toHaveBeenCalledWith(
+        "refreshToken",
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("forwards errors (401/403) from the service", async () => {
+      req.cookies = {};
+      const failure = new AppError("Refresh token required", 401);
+      authService.refreshAccessToken.mockRejectedValue(failure);
+
+      await controller.refreshAccessToken(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(failure);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  describe("invalidateRefreshTokenAndLogout", () => {
-    it("clears cookies and returns success", async () => {
+  describe("logout", () => {
+    it("revokes the session, clears cookies and responds 200", async () => {
       req.cookies = { refreshToken: "valid-refresh" };
-      const hash = require("../../shared/utils/hash");
-      hash.mockReturnValue("hashed-token");
-      SessionRepo.findByRefreshTokenHash.mockResolvedValue({ id: "session-1" });
-      SessionRepo.revokeSession.mockResolvedValue();
+      authService.logout.mockResolvedValue({ loggedOut: true });
 
-      await authController.invalidateRefreshTokenAndLogout(req, res);
+      await controller.logout(req, res, next);
 
-      expect(res.clearCookie).toHaveBeenCalledWith("accessToken", expect.any(Object));
-      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", expect.any(Object));
-      expect(res.json).toHaveBeenCalledWith({ message: "Logged out successfully" });
+      expect(authService.logout).toHaveBeenCalledWith("valid-refresh");
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        "accessToken",
+        expect.any(Object),
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        "refreshToken",
+        expect.any(Object),
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Logged out successfully",
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("forwards service errors to the error middleware", async () => {
+      req.cookies = {};
+      const failure = new AppError("Refresh token required", 400);
+      authService.logout.mockRejectedValue(failure);
+
+      await controller.logout(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(failure);
+      expect(res.clearCookie).not.toHaveBeenCalled();
     });
   });
 
   describe("deleteAccount", () => {
-    it("deletes user and revokes sessions", async () => {
+    it("deletes the account, clears cookies and responds 200", async () => {
       req.user = { id: "user-123" };
-      const next = jest.fn();
-      SessionRepo.revokeAllUserSessions.mockResolvedValue();
-      UserRepo.deleteUserById.mockResolvedValue();
+      authService.deleteAccount.mockResolvedValue({ deleted: true });
 
-      // Call the handler directly to see what happens
-      let error = null;
-      let result;
-      try {
-        result = await authController.deleteAccount(req, res, next);
-      } catch (e) {
-        error = e;
-      }
-      console.log("error:", error);
-      console.log("deleteAccount result:", result);
-      console.log("res.status calls:", res.status.mock.calls);
-      console.log("res.json calls:", res.json.mock.calls);
-      console.log("next calls:", next.mock.calls);
+      await controller.deleteAccount(req, res, next);
 
-      expect(SessionRepo.revokeAllUserSessions).toHaveBeenCalledWith("user-123");
-      expect(UserRepo.deleteUserById).toHaveBeenCalledWith("user-123");
+      expect(authService.deleteAccount).toHaveBeenCalledWith("user-123");
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        "accessToken",
+        expect.any(Object),
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        "refreshToken",
+        expect.any(Object),
+      );
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({ message: "user deleted successfully" });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Account deleted successfully",
+      });
       expect(next).not.toHaveBeenCalled();
+    });
+
+    it("forwards service errors to the error middleware", async () => {
+      const failure = new AppError("User not found", 404);
+      authService.deleteAccount.mockRejectedValue(failure);
+
+      await controller.deleteAccount(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(failure);
+      expect(res.json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("schema", () => {
+    it("exposes the expected verify-otp schema", () => {
+      expect(verifyOtpSchema.verifyOtpSchema.safeParse(VALID_BODY).success).toBe(
+        true,
+      );
     });
   });
 });

@@ -1,4 +1,4 @@
-const db = require("../../config/db");
+const db = require("../../core/config/db.config");
 
 class ChatRepo {
   static async createConversation(chatType, client = db) {

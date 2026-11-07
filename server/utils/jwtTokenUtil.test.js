@@ -5,7 +5,7 @@ const {
   validateRefreshToken,
 } = require("./jwtTokenUtil");
 const hashToken = require("./hash");
-const AppError = require("../errors/AppError");
+const AppError = require("../core/errors/AppError");
 
 describe("JWT Token Utilities", () => {
   const originalEnv = process.env;

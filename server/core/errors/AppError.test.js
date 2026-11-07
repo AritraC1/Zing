@@ -1,5 +1,5 @@
 const AppError = require("./AppError");
-const asyncHandler = require("../../shared/utils/asyncHandler");
+const asyncHandler = require("../../utils/asyncHandler");
 
 describe("AppError", () => {
   it("creates error with message and statusCode", () => {

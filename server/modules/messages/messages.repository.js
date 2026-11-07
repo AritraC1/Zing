@@ -1,5 +1,5 @@
-const db = require("../../config/db");
-const ENV = require("../../config/env");
+const db = require("../../core/config/db.config");
+const ENV = require("../../core/config/env");
 const { v4: uuidv4 } = require("uuid");
 
 const getResourceType = (mimeType) => {

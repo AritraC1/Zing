@@ -1,228 +1,90 @@
-const UserRepo = require("../users/users.repo");
-const SessionRepo = require("../sessions/sessions.repo");
-const DevicesRepo = require("../devices/devices.repo");
+const { verifyOtpSchema } = require("../../core/validation/schemas");
+const { parseBody } = require("../../core/validation/parseBody");
 const {
-  createAccessTokenForUser,
-  createRefreshTokenForUser,
-  validateRefreshToken,
-} = require("../../shared/utils/jwtTokenUtil");
-const hashToken = require("../../shared/utils/hash");
-const admin = require("../../config/firebase");
-const { baseCookieOptions } = require("../../shared/utils/cookieOptions");
-const asyncHandler = require("../../shared/utils/asyncHandler");
-const crypto = require("crypto");
+  issueCookies,
+  clearAuthCookies,
+} = require("../../utils/issueCookies");
+const AuthService = require("./auth.service");
 
-const verifyOtp = async (req, res) => {
-  try {
-    const { idToken, deviceId, deviceType } = req.body;
+class AuthController {
+  constructor(authService = new AuthService()) {
+    this.authService = authService;
+  }
 
-    let phoneNumber;
-
+  // POST /api/auth/verify-otp
+  verifyOtp = async (req, res, next) => {
     try {
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      phoneNumber = decodedToken.phone_number;
+      const data = parseBody(verifyOtpSchema, req.body);
 
-      if (!phoneNumber) {
-        return res
-          .status(400)
-          .json({ error: "Phone number not found in token" });
-      }
-    } catch (authError) {
-      console.error("Firebase Token Verification Failed:", authError);
-      return res
-        .status(401)
-        .json({ error: "Invalid or expired Firebase token" });
+      const { accessToken, refreshToken, isNewUser, onboardingCompleted } =
+        await this.authService.verifyOtp(data);
+
+      issueCookies(res, {
+        accessToken,
+        refreshToken,
+        shortLived: !refreshToken,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: { isNewUser, onboardingCompleted, accessToken },
+      });
+    } catch (error) {
+      next(error);
     }
+  };
 
-    let user = await UserRepo.findByPhone(phoneNumber);
+  // POST /api/auth/refresh
+  refreshAccessToken = async (req, res, next) => {
+    try {
+      const { accessToken } = await this.authService.refreshAccessToken(
+        req.cookies?.refreshToken,
+      );
 
-    const isNewUser = !user;
+      issueCookies(res, { accessToken });
 
-    if (isNewUser) {
-      user = await UserRepo.createUser(phoneNumber);
-
-      const onboardingToken = createAccessTokenForUser({
-        id: user.id,
-        phoneNumber,
+      res.status(200).json({
+        success: true,
+        data: { accessToken },
       });
-
-      res.cookie("accessToken", onboardingToken, {
-        ...baseCookieOptions,
-        maxAge: 10 * 60 * 1000,
-      });
-
-      return res.status(200).json({
-        message: "OTP verified",
-        isNewUser: true,
-        profileCompleted: false,
-        accessToken: onboardingToken,
-      });
+    } catch (error) {
+      next(error);
     }
+  };
 
-    const accessToken = createAccessTokenForUser({
-      id: user.id,
-      phoneNumber,
-    });
-    const refreshToken = createRefreshTokenForUser({
-      id: user.id,
-      phoneNumber,
-    });
+  // POST /api/auth/logout
+  logout = async (req, res, next) => {
+    try {
+      await this.authService.logout(req.cookies?.refreshToken);
 
-    const refreshTokenHash = hashToken(refreshToken);
+      clearAuthCookies(res);
 
-    let device = await DevicesRepo.findById(deviceId);
-
-    if (!device) {
-      device = await DevicesRepo.createDevice({
-        id: deviceId,
-        userId: user.id,
-        deviceType,
-        identityPublicKey: "TEST_PUBLIC_KEY",
+      res.status(200).json({
+        success: true,
+        message: "Logged out successfully",
       });
+    } catch (error) {
+      next(error);
     }
+  };
 
-    await SessionRepo.revokeDeviceSessions(deviceId);
+  // DELETE /api/auth/delete-account
+  deleteAccount = async (req, res, next) => {
+    try {
+      await this.authService.deleteAccount(req.user.id);
 
-    await SessionRepo.createSession({
-      id: crypto.randomUUID(),
-      deviceId,
-      refreshTokenHash,
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    });
+      clearAuthCookies(res);
 
-    res.cookie("accessToken", accessToken, {
-      ...baseCookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie("refreshToken", refreshToken, {
-      ...baseCookieOptions,
-      maxAge: 14 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.status(200).json({
-      message: "OTP verified",
-      isNewUser: false,
-      profileCompleted: user.profile_completed,
-      accessToken,
-    });
-  } catch (error) {
-    console.error("Verify OTP error:", error);
-    return res.status(500).json({
-      error: "OTP verification failed",
-    });
-  }
-};
-
-const refreshAccessToken = async (req, res) => {
-  try {
-    const refreshToken = req.cookies.refreshToken;
-
-    if (!refreshToken) {
-      return res.status(401).json({
-        error: "Refresh token required",
+      res.status(200).json({
+        success: true,
+        message: "Account deleted successfully",
       });
+    } catch (error) {
+      next(error);
     }
+  };
+}
 
-    const payload = validateRefreshToken(refreshToken);
+const authController = new AuthController();
 
-    const refreshTokenHash = hashToken(refreshToken);
-
-    const session = await SessionRepo.findByRefreshTokenHash(refreshTokenHash);
-
-    if (!session) {
-      return res.status(403).json({
-        error: "Invalid session",
-      });
-    }
-
-    if (session.expires_at && new Date(session.expires_at) < new Date()) {
-      return res.status(403).json({
-        error: "Session expired",
-      });
-    }
-
-    const newAccessToken = createAccessTokenForUser({
-      id: payload.id,
-      phoneNumber: payload.phoneNumber,
-    });
-
-    await SessionRepo.updateLastUsed(session.id);
-
-    res.cookie("accessToken", newAccessToken, {
-      ...baseCookieOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    return res.json({
-      message: "New access token generated",
-      accessToken: newAccessToken,
-    });
-  } catch (error) {
-    return res.status(403).json({
-      error: "Invalid refresh token",
-    });
-  }
-};
-
-const invalidateRefreshTokenAndLogout = async (req, res) => {
-  try {
-    const refreshToken = req.cookies.refreshToken;
-
-    if (!refreshToken) {
-      return res.status(400).json({
-        error: "Refresh token required",
-      });
-    }
-
-    const refreshTokenHash = hashToken(refreshToken);
-
-    const session = await SessionRepo.findByRefreshTokenHash(refreshTokenHash);
-
-    if (!session) {
-      res.clearCookie("accessToken", baseCookieOptions);
-      res.clearCookie("refreshToken", baseCookieOptions);
-
-      return res.status(404).json({
-        message: "Session not found, but logged out on client",
-      });
-    }
-
-    await SessionRepo.revokeSession(session.id);
-
-    res.clearCookie("accessToken", {
-      ...baseCookieOptions,
-    });
-
-    res.clearCookie("refreshToken", {
-      ...baseCookieOptions,
-    });
-
-    return res.json({
-      message: "Logged out successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: "Logout failed",
-    });
-  }
-};
-
-const deleteAccount = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-
-  await SessionRepo.revokeAllUserSessions(userId);
-  await UserRepo.deleteUserById(userId);
-
-  res.clearCookie("accessToken", baseCookieOptions);
-  res.clearCookie("refreshToken", baseCookieOptions);
-
-  return res.status(200).json({ message: "user deleted successfully" });
-});
-
-module.exports = {
-  verifyOtp,
-  refreshAccessToken,
-  invalidateRefreshTokenAndLogout,
-  deleteAccount,
-};
+module.exports = { AuthController, authController };

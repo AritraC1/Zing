@@ -9,7 +9,7 @@
 
 const MessageRepo = require("../messages/messagesRepo");
 const ChatRepo = require("./chat.repo");
-const UserRepo = require("../users/users.repo");
+const UserRepo = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
 

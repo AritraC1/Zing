@@ -2,7 +2,12 @@ const admin = require("firebase-admin");
 
 let serviceAccount;
 
-const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "./config/firebase/serviceAccountKey.json";
+const path = require("path");
+const keyPath = path.resolve(
+  process.cwd(),
+  process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+    "./core/config/firebase/serviceAccountKey.json",
+);
 try {
   serviceAccount = require(keyPath);
 } catch (e) {

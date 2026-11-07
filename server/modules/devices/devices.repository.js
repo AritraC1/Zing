@@ -1,7 +1,7 @@
 const { validate: uuidValidate } = require("uuid");
-const db = require("../../config/db");
+const db = require("../../core/config/db.config");
 
-class DevicesRepo {
+class DevicesRepository {
   // Find device by device id
   static async findById(id) {
     // Validate id
@@ -51,4 +51,4 @@ class DevicesRepo {
   }
 }
 
-module.exports = DevicesRepo;
+module.exports = DevicesRepository;

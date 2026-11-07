@@ -1,4 +1,4 @@
-const ChatRepo = require("./chat.repo");
+const ChatRepo = require("./chat.repository");
 const AppError = require("../../core/errors/AppError");
 
 async function assertConversationParticipant(conversationId, userId) {

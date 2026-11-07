@@ -1,12 +1,12 @@
 const ChatService = require("./chat.service");
 const ChatRepo = require("./chat.repo");
 const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repo");
-const { withTransaction } = require("../../shared/utils/withTransaction");
-const AppError = require("../../shared/errors/AppError");
+const { withTransaction } = require("../../utils/withTransaction");
+const AppError = require("../../core/errors/AppError");
 
 jest.mock("./chat.repo");
 jest.mock("../chatParticipants/chatParticipants.repo");
-jest.mock("../../shared/utils/withTransaction");
+jest.mock("../../utils/withTransaction");
 
 describe("ChatService", () => {
   beforeEach(() => {

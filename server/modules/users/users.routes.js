@@ -6,8 +6,8 @@ const {
   fetchUsersByPhone,
   onBoardNewUser,
 } = require("./users.controller");
-const checkForJwt = require("../../middlewares/auth.middleware");
-const upload = require("../../middlewares/multer.middleware");
+const checkForJwt = require("../auth/auth.middleware");
+const upload = require("../../core/media/multer.middleware");
 const validateBody = require("../../core/validation/validateBody");
 const { onboardSchema } = require("../../core/validation/schemas");
 

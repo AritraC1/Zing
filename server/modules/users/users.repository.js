@@ -1,16 +1,16 @@
-const db = require("../../config/db");
+const db = require("../../core/config/db.config");
 
-class UserRepo {
+class UserRepository {
   // Find a user by phone number
-  static async findByPhone(phone_number) {
+  async findByPhone(phoneNumber) {
     const query = `SELECT * FROM users WHERE phone_number = $1`;
 
-    const result = await db.query(query, [phone_number]);
+    const result = await db.query(query, [phoneNumber]);
     return result.rows[0];
   }
 
   // Find a user by phone number with avatar storage key
-  static async findByPhoneWithAvatar(phone_number) {
+  async findByPhoneWithAvatar(phoneNumber) {
     const query = `
       SELECT u.*, m.storage_key AS avatar_storage_key
       FROM users u
@@ -18,12 +18,12 @@ class UserRepo {
       WHERE u.phone_number = $1
     `;
 
-    const result = await db.query(query, [phone_number]);
+    const result = await db.query(query, [phoneNumber]);
     return result.rows[0];
   }
 
   // Find a user by id with avatar storage key
-  static async findByIdWithAvatar(id) {
+  async findByIdWithAvatar(id) {
     const query = `
       SELECT u.*, m.storage_key AS avatar_storage_key
       FROM users u
@@ -36,19 +36,19 @@ class UserRepo {
   }
 
   // Create a new user
-  static async createUser(phone_number) {
+  async createUser(phoneNumber) {
     const query = `
     INSERT INTO users (phone_number)
     VALUES ($1)
     RETURNING *
     `;
 
-    const result = await db.query(query, [phone_number]);
+    const result = await db.query(query, [phoneNumber]);
     return result.rows[0];
   }
 
   // Complete User profile
-  static async completeProfileById(id, displayName) {
+  async completeProfileById(id, displayName) {
     const query = `
     UPDATE users
      SET display_name = $1,
@@ -62,7 +62,7 @@ class UserRepo {
   }
 
   // Update user details
-  static async updateUser(id, displayName) {
+  async updateUser(id, displayName) {
     const query = `
     UPDATE users
     SET display_name = $1,
@@ -76,7 +76,7 @@ class UserRepo {
   }
 
   // Set avatar media id on user
-  static async setAvatarMediaId(userId, mediaId) {
+  async setAvatarMediaId(userId, mediaId) {
     const query = `
       UPDATE users
       SET avatar_media_id = $1, updated_at = NOW()
@@ -89,7 +89,7 @@ class UserRepo {
   }
 
   // Delete a user by id
-  static async deleteUserById(id) {
+  async deleteUserById(id) {
     const query = `DELETE FROM users WHERE id = $1`;
 
     const result = await db.query(query, [id]);
@@ -97,14 +97,14 @@ class UserRepo {
   }
 
   // Delete a user by phone number
-  static async deleteUserByPhoneNumber(phone_number) {
+  async deleteUserByPhoneNumber(phone_number) {
     const query = `DELETE FROM users where phone_number = $1`;
 
     const result = await db.query(query, [phone_number]);
     return result.rowCount;
   }
 
-  static async updateLastSeen(userId, client = db) {
+  async updateLastSeen(userId) {
     const query = `
       UPDATE users
       SET last_seen_at = NOW(), updated_at = NOW()
@@ -112,11 +112,11 @@ class UserRepo {
       RETURNING last_seen_at
     `;
 
-    const result = await client.query(query, [userId]);
+    const result = await db.query(query, [userId]);
     return result.rows[0]?.last_seen_at;
   }
 
-  static async completeProfileByIdWithClient(id, displayName, client = db) {
+  async completeProfileByIdWithClient(id, displayName) {
     const query = `
     UPDATE users
      SET display_name = $1,
@@ -125,9 +125,9 @@ class UserRepo {
     RETURNING *
     `;
 
-    const result = await client.query(query, [displayName, id]);
+    const result = await db.query(query, [displayName, id]);
     return result.rows[0];
   }
 }
 
-module.exports = UserRepo;
+module.exports = UserRepository;

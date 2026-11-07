@@ -1,6 +1,6 @@
-const db = require("../../config/db");
+const db = require("../../core/config/db.config");
 
-class SessionRepo {
+class SessionRepository {
   // create a session
   static async createSession({ id, deviceId, refreshTokenHash, expiresAt }, client = db) {
     const query = `
@@ -80,4 +80,4 @@ class SessionRepo {
   }
 }
 
-module.exports = SessionRepo;
+module.exports = SessionRepository;

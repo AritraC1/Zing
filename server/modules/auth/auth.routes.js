@@ -1,21 +1,13 @@
 const express = require("express");
-const {
-  verifyOtp,
-  refreshAccessToken,
-  invalidateRefreshTokenAndLogout,
-  deleteAccount,
-} = require("./auth.controller");
-
-const checkForJwt = require("../../middlewares/auth.middleware");
-const authLimiter = require("../../middlewares/rateLimit");
-const validateBody = require("../../core/validation/validateBody");
-const { verifyOtpSchema } = require("../../core/validation/schemas");
+const { authController } = require("./auth.controller");
+const checkForJwt = require("./auth.middleware");
+const authLimiter = require("../../core/rateLimit");
 
 const router = express.Router();
 
-router.post("/verify-otp", authLimiter, validateBody(verifyOtpSchema), verifyOtp);
-router.post("/refresh", authLimiter, refreshAccessToken);
-router.post("/logout", authLimiter, invalidateRefreshTokenAndLogout);
-router.delete("/delete-account", checkForJwt(), deleteAccount);
+router.post("/verify-otp", authLimiter, authController.verifyOtp);
+router.post("/refresh", authLimiter, authController.refreshAccessToken);
+router.post("/logout", authLimiter, authController.logout);
+router.delete("/delete-account", checkForJwt(), authController.deleteAccount);
 
 module.exports = router;

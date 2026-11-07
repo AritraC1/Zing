@@ -16,7 +16,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     "^uuid$": "<rootDir>/__mocks__/uuid.js",
-    "^../config/firebase$": "<rootDir>/__mocks__/firebase.js",
     "^../../config/firebase$": "<rootDir>/__mocks__/firebase.js",
+    "^../../core/config/firebase.config$": "<rootDir>/__mocks__/firebase.js",
   },
 };

@@ -1,4 +1,4 @@
-const ENV = require("../../config/env");
+const ENV = require("../core/config/env");
 
 function buildMediaUrl(storageKey) {
   if (!storageKey) return null;

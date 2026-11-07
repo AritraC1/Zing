@@ -39,17 +39,20 @@
  *             schema:
  *               type: object
  *               properties:
- *                 message:
- *                   type: string
- *                   example: OTP verified
- *                 isNewUser:
- *                   type: boolean
- *                   example: false
- *                 profileCompleted:
+ *                 success:
  *                   type: boolean
  *                   example: true
- *                 accessToken:
- *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isNewUser:
+ *                       type: boolean
+ *                       example: false
+ *                     onboardingCompleted:
+ *                       type: boolean
+ *                       example: true
+ *                     accessToken:
+ *                       type: string
  *       400:
  *         description: Missing required fields
  *       401:
@@ -72,11 +75,14 @@
  *             schema:
  *               type: object
  *               properties:
- *                 message:
- *                   type: string
- *                   example: New access token generated
- *                 accessToken:
- *                   type: string
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
  *       401:
  *         description: Refresh token missing
  *       403:

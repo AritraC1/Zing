@@ -66,13 +66,13 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(verifyOtpThunk.fulfilled, (state, action) => {
-        const payload = action.payload;
+        const payload = action.payload?.data ?? {};
         state.loading.verifyOtp = false;
         state.isAuthenticated = true;
         state.isAuthChecking = false;
         state.user = {
           isNewUser: payload.isNewUser,
-          profileCompleted: payload.profileCompleted,
+          profileCompleted: payload.onboardingCompleted ?? false,
         };
         state.accessToken = payload.accessToken || state.accessToken;
       })
@@ -141,7 +141,8 @@ const authSlice = createSlice({
         // Token refreshed successfully, maintain authentication state
         state.isAuthenticated = true;
         state.error = null;
-        state.accessToken = action.payload?.accessToken || state.accessToken;
+        state.accessToken =
+          action.payload?.data?.accessToken || state.accessToken;
       })
       .addCase(refreshAccessTokenThunk.rejected, (state, action) => {
         // Refresh failed, logout user

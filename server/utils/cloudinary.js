@@ -1,6 +1,6 @@
 const { v2: cloudinary } = require("cloudinary");
 const fs = require("fs");
-const ENV = require("../../config/env");
+const ENV = require("../core/config/env");
 
 cloudinary.config({
   cloud_name: ENV.CLOUDINARY_CLOUD_NAME,

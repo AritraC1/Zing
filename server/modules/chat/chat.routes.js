@@ -4,7 +4,7 @@ const {
   createOrFindConversations,
   fetchMessages,
 } = require("./chat.controller");
-const checkForJwt = require("../../middlewares/auth.middleware");
+const checkForJwt = require("../auth/auth.middleware");
 const validateBody = require("../../core/validation/validateBody");
 const { createConversationSchema } = require("../../core/validation/schemas");
 

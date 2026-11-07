@@ -1,14 +1,14 @@
 require("dotenv").config();
 
-const ENV = require("./config/env");
+const ENV = require("./core/config/env");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const swaggerUI = require("swagger-ui-express");
-const swaggerSpec = require("./config/swagger");
-import routes from "./routes/routes";
-const errorHandler = require("./middlewares/error.middleware");
-const dbPool = require("./config/db");
+const swaggerSpec = require("./core/config/swagger.config");
+const routes = require("./routes/routes");
+const errorHandler = require("./core/errors/error.middleware");
+const dbPool = require("./core/config/db.config");
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -33,7 +33,7 @@ const corsOptions = {
 const http = require("http");
 const { Server } = require("socket.io");
 const socketHandler = require("./core/config/socket");
-const checkSocketForJwt = require("./middlewares/socketAuth.middleware");
+const checkSocketForJwt = require("./modules/auth/socketAuth.middleware");
 
 // Declarations
 const app = express();

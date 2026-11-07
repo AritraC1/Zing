@@ -1,9 +1,9 @@
-const ChatRepo = require("./chat.repo");
+const ChatRepo = require("./chat.repository");
 const ChatService = require("./chat.service");
-const MessageRepo = require("../messages/messagesRepo");
-const asyncHandler = require("../../shared/utils/asyncHandler");
+const MessageRepo = require("../messages/messages.repository");
+const asyncHandler = require("../../utils/asyncHandler");
 const { assertConversationParticipant } = require("./chat.access");
-const { buildMediaUrl } = require("../../shared/utils/mediaUrl");
+const { buildMediaUrl } = require("../../utils/mediaUrl");
 
 const PAGE_SIZE = 50;
 
