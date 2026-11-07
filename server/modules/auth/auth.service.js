@@ -65,10 +65,10 @@ class AuthService {
       phoneNumber,
     });
 
-    let device = await DevicesRepository.findById(deviceId);
+    let device = await this.deviceRepo.findById(deviceId);
 
     if (!device) {
-      device = await DevicesRepository.createDevice({
+      device = await this.deviceRepo.createDevice({
         id: deviceId,
         userId: user.id,
         deviceType,
@@ -77,9 +77,9 @@ class AuthService {
     }
 
     // One active session per device
-    await SessionRepository.revokeDeviceSessions(deviceId);
+    await this.sessionRepo.revokeDeviceSessions(deviceId);
 
-    await SessionRepository.createSession({
+    await this.sessionRepo.createSession({
       id: crypto.randomUUID(),
       deviceId,
       refreshTokenHash: hashToken(refreshToken),
@@ -108,7 +108,7 @@ class AuthService {
       throw new AppError("Invalid refresh token", 403);
     }
 
-    const session = await SessionRepository.findByRefreshTokenHash(
+    const session = await this.sessionRepo.findByRefreshTokenHash(
       hashToken(refreshToken),
     );
 
@@ -120,7 +120,7 @@ class AuthService {
       throw new AppError("Session expired", 403);
     }
 
-    await SessionRepository.updateLastUsed(session.id);
+    await this.sessionRepo.updateLastUsed(session.id);
 
     const accessToken = createAccessTokenForUser({
       id: payload.id,
@@ -136,12 +136,12 @@ class AuthService {
       throw new AppError("Refresh token required", 400);
     }
 
-    const session = await SessionRepository.findByRefreshTokenHash(
+    const session = await this.sessionRepo.findByRefreshTokenHash(
       hashToken(refreshToken),
     );
 
     if (session) {
-      await SessionRepository.revokeSession(session.id);
+      await this.sessionRepo.revokeSession(session.id);
     }
 
     return { loggedOut: true };
@@ -149,7 +149,7 @@ class AuthService {
 
   // Revoke every session of the user and delete the account
   async deleteAccount(userId) {
-    await SessionRepository.revokeAllUserSessions(userId);
+    await this.sessionRepo.revokeAllUserSessions(userId);
     await this.userRepo.deleteUserById(userId);
 
     return { deleted: true };

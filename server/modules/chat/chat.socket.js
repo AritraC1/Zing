@@ -9,11 +9,12 @@
 
 const MessageRepo = require("../messages/messages.repository");
 const ChatRepo = require("./chat.repository");
-const UserRepo = require("../users/users.repository");
+const UserRepository = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
 
 const PAGE_SIZE = 50;
+const userRepo = new UserRepository();
 
 // Map to track online users: userId -> socketId
 const onlineUsers = new Map();
@@ -28,7 +29,7 @@ module.exports = (io) => {
     onlineUsers.set(userId, socket.id);
 
     try {
-      await UserRepo.updateLastSeen(userId);
+      await userRepo.updateLastSeen(userId);
       broadcastPresence(io, userId, true);
 
       const deliveredRows = await MessageRepo.markAllPendingAsDelivered(userId);
@@ -225,7 +226,7 @@ module.exports = (io) => {
     socket.on("disconnect", async () => {
       onlineUsers.delete(userId);
       try {
-        const lastSeenAt = await UserRepo.updateLastSeen(userId);
+        const lastSeenAt = await userRepo.updateLastSeen(userId);
         broadcastPresence(io, userId, false, lastSeenAt);
       } catch (err) {
         console.error("Error updating last seen on disconnect:", err);

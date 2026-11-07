@@ -2,7 +2,10 @@ const db = require("../../core/config/db.config");
 
 class SessionRepository {
   // create a session
-  static async createSession({ id, deviceId, refreshTokenHash, expiresAt }, client = db) {
+  async createSession(
+    { id, deviceId, refreshTokenHash, expiresAt },
+    client = db,
+  ) {
     const query = `
       INSERT INTO sessions (
         id,
@@ -21,7 +24,7 @@ class SessionRepository {
   }
 
   // Find
-  static async findByRefreshTokenHash(hash) {
+  async findByRefreshTokenHash(hash) {
     const query = `
       SELECT *
       FROM sessions
@@ -34,7 +37,7 @@ class SessionRepository {
   }
 
   // revoke a session
-  static async revokeSession(sessionId) {
+  async revokeSession(sessionId) {
     const query = `
       UPDATE sessions
       SET revoked = TRUE
@@ -45,7 +48,7 @@ class SessionRepository {
   }
 
   // revoke device session
-  static async revokeDeviceSessions(deviceId, client = db) {
+  async revokeDeviceSessions(deviceId, client = db) {
     const query = `
       UPDATE sessions
       SET revoked = TRUE
@@ -56,7 +59,7 @@ class SessionRepository {
   }
 
   // revoke all sessions for a user
-  static async revokeAllUserSessions(userId) {
+  async revokeAllUserSessions(userId) {
     const query = `
       UPDATE sessions
       SET revoked = TRUE
@@ -69,7 +72,7 @@ class SessionRepository {
   }
 
   // Update last used
-  static async updateLastUsed(sessionId) {
+  async updateLastUsed(sessionId) {
     const query = `
       UPDATE sessions
       SET last_used_at = NOW()

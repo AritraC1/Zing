@@ -29,6 +29,7 @@ class UserService {
   constructor() {
     this.userRepo = new UserRepository();
     this.deviceRepo = new DeviceRepository();
+    this.sessionRepo = new SessionRepository();
   }
 
   // Complete onboarding: set display name, register the device,
@@ -40,15 +41,18 @@ class UserService {
       throw new AppError("User not found", 404);
     }
 
-    const profile = await withTransaction(async (client) => {
-      const updatedProfile =
-        await this.userRepo.completeProfileByIdWithClient(
-          user.id,
-          displayName,
-          client,
-        );
+    const { profile, refreshToken } = await withTransaction(async (client) => {
+      const updatedProfile = await this.userRepo.completeProfileByIdWithClient(
+        user.id,
+        displayName,
+        client,
+      );
 
       let device = await this.deviceRepo.findById(deviceId);
+
+      if (device && device.user_id !== user.id) {
+        throw new AppError("Device belongs to another account", 403);
+      }
 
       if (!device) {
         device = await this.deviceRepo.createDevice(
@@ -63,14 +67,14 @@ class UserService {
       }
 
       // One active session per device
-      await SessionRepository.revokeDeviceSessions(deviceId, client);
+      await this.sessionRepo.revokeDeviceSessions(deviceId, client);
 
       const refreshToken = createRefreshTokenForUser({
         id: user.id,
         phoneNumber,
       });
 
-      await SessionRepository.createSession(
+      await this.sessionRepo.createSession(
         {
           id: crypto.randomUUID(),
           deviceId,
@@ -80,7 +84,7 @@ class UserService {
         client,
       );
 
-      return updatedProfile;
+      return { profile: updatedProfile, refreshToken };
     });
 
     const accessToken = createAccessTokenForUser({
