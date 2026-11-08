@@ -26,7 +26,7 @@ export const searchUserThunk = createAsyncThunk(
         paramsSerializer: (params) => new URLSearchParams(params).toString(),
       });
 
-      return res.data;
+      return res.data.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.data?.message ||

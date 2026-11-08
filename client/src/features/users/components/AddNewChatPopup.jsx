@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { User, ArrowLeft, Search, UserPlus } from "lucide-react";
+import { User, ArrowLeft, Search } from "lucide-react";
+import { toast } from "react-toastify";
 import { addChat, selectChat } from "../../chat/store/chatReducer";
 import { createOrFindChat } from "../../chat/api/chatThunk";
 import { searchUserThunk } from "../api/usersThunk";
@@ -9,6 +10,7 @@ import { clearUser } from "../store/usersReducer";
 const AddNewChatPopup = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
   const [search, setSearch] = useState("");
+  const [openingChat, setOpeningChat] = useState(false);
 
   const { user, loading, error } = useSelector((state) => state.users);
 
@@ -25,30 +27,42 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
   }, [search, dispatch]);
 
   const handleAddChat = async (user) => {
+    if (openingChat) return;
+
+    setOpeningChat(true);
     try {
-      const resultAction = await dispatch(createOrFindChat(user.id));
+      const { conversationId } = await dispatch(
+        createOrFindChat(user.id),
+      ).unwrap();
 
-      if (createOrFindChat.fulfilled.match(resultAction)) {
-        const { conversationId } = resultAction.payload;
-        const name =
-          user.name || user.displayName || user.phoneNumber || "Chat";
-
-        const newChat = {
-          id: conversationId,
-          name,
-          phoneNumber: user.phoneNumber,
-          message: "Start chatting...",
-          time: "Now",
-        };
-
-        dispatch(addChat(newChat));
-        dispatch(selectChat(newChat));
-        handleClose();
-      } else {
-        throw resultAction.payload || "Unable to create chat";
+      if (!conversationId) {
+        throw new Error("Unable to open chat");
       }
+
+      const name = user.name || user.displayName || user.phoneNumber || "Chat";
+      const chat = {
+        id: conversationId,
+        chatType: "direct",
+        otherUserId: user.id,
+        name,
+        phoneNumber: user.phoneNumber,
+        profilePic: user.profilePic || null,
+        avatarUrl: user.profilePic || null,
+        message: "Start chatting...",
+        time: "Now",
+      };
+
+      dispatch(addChat(chat));
+      dispatch(selectChat(chat));
+      handleClose();
     } catch (err) {
-      console.error("Add chat failed", err);
+      toast.error(
+        typeof err === "string"
+          ? err
+          : err?.message || "Unable to open chat",
+      );
+    } finally {
+      setOpeningChat(false);
     }
   };
 
@@ -152,9 +166,12 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
               </div>
 
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
-                <div
+                <button
+                  type="button"
                   onClick={() => handleAddChat(user)}
-                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50 transition"
+                  disabled={openingChat}
+                  aria-busy={openingChat}
+                  className="w-full flex items-center gap-4 px-5 py-4 text-left cursor-pointer hover:bg-gray-50 disabled:cursor-wait disabled:opacity-60 transition"
                 >
                   {user.profilePic ? (
                     <img
@@ -172,10 +189,10 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
                       {user.name}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {user.phoneNumber}
+                      {openingChat ? "Opening chat..." : user.phoneNumber}
                     </p>
                   </div>
-                </div>
+                </button>
               </div>
             </>
           )}

@@ -8,7 +8,7 @@
 // Tracking message delivery and seen status
 
 const MessageRepository = require("../messages/messages.repository");
-const ChatRepo = require("./chat.repository");
+const ChatRepository = require("./chat.repository");
 const UserRepository = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
@@ -16,6 +16,7 @@ const { validate: uuidValidate } = require("uuid");
 const PAGE_SIZE = 50;
 const userRepo = new UserRepository();
 const messageRepo = new MessageRepository();
+const chatRepo = ChatRepository();
 
 // Map to track online users: userId -> socketId
 const onlineUsers = new Map();
@@ -108,7 +109,7 @@ module.exports = (io) => {
         try {
           await assertConversationParticipant(conversationId, userId);
 
-          const existing = await MessageRepo.getMessageByClientId(
+          const existing = await messageRepo.getMessageByClientId(
             userId,
             clientMsgId,
           );
@@ -117,9 +118,9 @@ module.exports = (io) => {
             return;
           }
 
-          const participants = await ChatRepo.getParticipants(conversationId);
+          const participants = await chatRepo.getParticipants(conversationId);
 
-          const message = await MessageRepo.saveMessage({
+          const message = await messageRepo.saveMessage({
             conversationId,
             senderId: userId,
             content,
@@ -133,7 +134,7 @@ module.exports = (io) => {
             .filter(({ user_id }) => user_id !== userId)
             .map(({ user_id }) => user_id);
 
-          await MessageRepo.initializeMessageStatuses(message.id, recipientIds);
+          await messageRepo.initializeMessageStatuses(message.id, recipientIds);
           await ChatRepo.updateLastMessage(conversationId);
 
           participants.forEach(({ user_id }) => {
@@ -162,7 +163,7 @@ module.exports = (io) => {
       try {
         await assertConversationParticipant(conversationId, userId);
 
-        const updated = await MessageRepo.updateMessageStatus(
+        const updated = await messageRepo.updateMessageStatus(
           messageId,
           userId,
           "delivered",
@@ -172,7 +173,7 @@ module.exports = (io) => {
           return;
         }
 
-        const participants = await ChatRepo.getParticipants(conversationId);
+        const participants = await chatRepo.getParticipants(conversationId);
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
             const recipientSocketId = onlineUsers.get(user_id);
@@ -199,12 +200,12 @@ module.exports = (io) => {
       try {
         await assertConversationParticipant(conversationId, userId);
 
-        const updatedRows = await MessageRepo.markConversationAsSeen(
+        const updatedRows = await messageRepo.markConversationAsSeen(
           conversationId,
           userId,
         );
 
-        const participants = await ChatRepo.getParticipants(conversationId);
+        const participants = await chatRepo.getParticipants(conversationId);
 
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {

@@ -1,22 +1,26 @@
 const express = require("express");
-const {
-  fetchAllMyConversations,
-  createOrFindConversations,
-  fetchMessages,
-} = require("./chat.controller");
+const { chatController } = require("./chat.controller");
 const checkForJwt = require("../auth/auth.middleware");
 const validateBody = require("../../core/validation/validateBody");
 const { createConversationSchema } = require("../../core/validation/schemas");
 
 const router = express.Router();
 
-router.get("/my-conversations", checkForJwt(), fetchAllMyConversations);
+router.get(
+  "/my-conversations",
+  checkForJwt(),
+  chatController.fetchAllMyConversations,
+);
 router.post(
   "/create-find-conversation",
   checkForJwt(),
   validateBody(createConversationSchema),
-  createOrFindConversations,
+  chatController.createOrFindConversations,
 );
-router.get("/conversation/:conversationId/messages", checkForJwt(), fetchMessages);
+router.get(
+  "/conversation/:conversationId/messages",
+  checkForJwt(),
+  chatController.fetchMessages,
+);
 
 module.exports = router;

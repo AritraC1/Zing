@@ -145,11 +145,11 @@ const authSlice = createSlice({
           action.payload?.data?.accessToken || state.accessToken;
       })
       .addCase(refreshAccessTokenThunk.rejected, (state, action) => {
-        // Refresh failed, logout user
-        state.isAuthenticated = false;
+        // Refresh failed. Record the error but do not clear the session here:
+        // a transient/network error must not kick the user out. A hard logout
+        // is performed by the axios response interceptor only when the server
+        // confirms the refresh token is invalid (401/403 from /auth/refresh).
         state.isAuthChecking = false;
-        state.user = null;
-        state.accessToken = null;
         state.error = action.payload || "Session expired";
       });
   },

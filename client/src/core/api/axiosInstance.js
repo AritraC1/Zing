@@ -103,16 +103,28 @@ axiosInstance.interceptors.response.use(
       // If refresh fails, reject all queued requests
       resolveQueue(refreshError);
 
-      // Lazy import
-      const { logout } = await import("../../features/auth/store/authReducer");
-      const { resetChat } =
-        await import("../../features/chat/store/chatReducer");
-      const { persistor } = await import("../../store/store");
+      // Only wipe the session when the server explicitly rejected the
+      // refresh token (401/403 from /auth/refresh). Transient / network
+      // errors must not kick the user out — they keep their (possibly still
+      // valid) access token and the next request will retry the refresh.
+      const isTokenInvalidated =
+        refreshError?.response &&
+        (refreshError.response.status === 401 ||
+          refreshError.response.status === 403);
 
-      // Log the user out
-      _store.dispatch(logout());
-      _store.dispatch(resetChat());
-      await persistor.purge();
+      if (isTokenInvalidated) {
+        // Lazy import
+        const { logout } = await import("../../features/auth/store/authReducer");
+        const { resetChat } =
+          await import("../../features/chat/store/chatReducer");
+        const { persistor } = await import("../../store/store");
+
+        // Log the user out
+        _store.dispatch(logout());
+        _store.dispatch(resetChat());
+        await persistor.purge();
+      }
+
       return Promise.reject(refreshError);
     } finally {
       // Reset refresh flag

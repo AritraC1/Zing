@@ -1,8 +1,10 @@
-const ChatRepo = require("./chat.repository");
+const ChatRepository = require("./chat.repository");
 const AppError = require("../../core/errors/AppError");
 
+const chatRepo = new ChatRepository();
+
 async function assertConversationParticipant(conversationId, userId) {
-  const participants = await ChatRepo.getParticipants(conversationId);
+  const participants = await chatRepo.getParticipants(conversationId);
 
   if (!participants.length) {
     throw new AppError("Conversation not found", 404);

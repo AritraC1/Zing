@@ -1,4 +1,3 @@
-const MediaRepo = require("./media.repository");
 const uploadFileToCloudinary = require("../../utils/uploadToCloudinary");
 
 const fileUpload = async (req, res) => {

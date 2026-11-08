@@ -24,7 +24,7 @@ const usersSlice = createSlice({
       })
       .addCase(searchUserThunk.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
+        state.user = action.payload;
       })
       .addCase(searchUserThunk.rejected, (state, action) => {
         state.loading = false;

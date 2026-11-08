@@ -1,18 +1,18 @@
 const db = require("../../core/config/db.config");
 
-class ChatRepo {
-  static async createConversation(chatType, client = db) {
+class ChatRepository {
+  async createConversation(chatType) {
     const query = `
             INSERT INTO conversations (id, chat_type, created_at)
             VALUES (gen_random_uuid(), $1, NOW())
             RETURNING id;
         `;
 
-    const result = await client.query(query, [chatType]);
+    const result = await db.query(query, [chatType]);
     return result.rows[0];
   }
 
-  static async findDirectConversation(user1, user2, client = db) {
+  async findDirectConversation(user1, user2) {
     const query = `
         SELECT cp1.conversation_id
         FROM conversation_participants cp1
@@ -26,11 +26,11 @@ class ChatRepo {
         LIMIT 1;
     `;
 
-    const result = await client.query(query, [user1, user2]);
+    const result = await db.query(query, [user1, user2]);
     return result.rows[0];
   }
 
-  static async getUserConversations(userId) {
+  async getUserConversations(userId) {
     const query = `
     SELECT
       c.id,
@@ -79,7 +79,7 @@ class ChatRepo {
   }
 
   // Update last mesage time stamp
-  static async updateLastMessage(conversationId) {
+  async updateLastMessage(conversationId) {
     const query = `
     UPDATE conversations
     SET last_message_at = NOW()
@@ -89,7 +89,7 @@ class ChatRepo {
   }
 
   // Get all participants in a conversation
-  static async getParticipants(conversationId) {
+  async getParticipants(conversationId) {
     const query = `
     SELECT user_id FROM conversation_participants
     WHERE conversation_id = $1;
@@ -99,4 +99,4 @@ class ChatRepo {
   }
 }
 
-module.exports = ChatRepo;
+module.exports = ChatRepository;

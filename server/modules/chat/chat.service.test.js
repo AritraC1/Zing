@@ -9,25 +9,28 @@ jest.mock("../chatParticipants/chatParticipants.repository");
 jest.mock("../../utils/withTransaction");
 
 describe("ChatService", () => {
+  let chatService;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    chatService = new ChatService();
   });
 
   describe("createDirectConversation", () => {
     const currentUserId = "user-1";
     const otherUserId = "user-2";
 
-    it("throws AppError if trying to start conversation with self", async () => {
-      await expect(ChatService.createDirectConversation(currentUserId, currentUserId))
+    it("throws AppError if trying to start conversation with yourself", async () => {
+      await expect(chatService.createDirectConversation(currentUserId, currentUserId))
         .rejects.toThrow(AppError);
-      await expect(ChatService.createDirectConversation(currentUserId, currentUserId))
+      await expect(chatService.createDirectConversation(currentUserId, currentUserId))
         .rejects.toMatchObject({ message: "Cannot start a conversation with yourself", statusCode: 400 });
     });
 
     it("returns existing conversation if one exists", async () => {
       ChatRepo.findDirectConversation.mockResolvedValue({ conversation_id: "existing-conv" });
 
-      const result = await ChatService.createDirectConversation(currentUserId, otherUserId);
+      const result = await chatService.createDirectConversation(currentUserId, otherUserId);
 
       expect(result).toEqual({ conversationId: "existing-conv", created: false });
       expect(ChatRepo.findDirectConversation).toHaveBeenCalledTimes(1);
@@ -44,7 +47,7 @@ describe("ChatService", () => {
         return callback(mockClient);
       });
 
-      const result = await ChatService.createDirectConversation(currentUserId, otherUserId);
+      const result = await chatService.createDirectConversation(currentUserId, otherUserId);
 
       expect(result).toEqual({ conversationId: "new-conv", created: true });
       expect(ChatRepo.createConversation).toHaveBeenCalledWith("direct", expect.any(Object));
@@ -59,7 +62,7 @@ describe("ChatService", () => {
         return callback(mockClient);
       });
 
-      const result = await ChatService.createDirectConversation(currentUserId, otherUserId);
+      const result = await chatService.createDirectConversation(currentUserId, otherUserId);
 
       expect(result).toEqual({ conversationId: "race-conv", created: false });
       expect(ChatRepo.createConversation).not.toHaveBeenCalled();

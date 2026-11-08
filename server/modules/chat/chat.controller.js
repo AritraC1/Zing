@@ -1,67 +1,67 @@
-const ChatRepo = require("./chat.repository");
 const ChatService = require("./chat.service");
-const MessageRepo = require("../messages/messages.repository");
-const asyncHandler = require("../../utils/asyncHandler");
-const { assertConversationParticipant } = require("./chat.access");
-const { buildMediaUrl } = require("../../utils/mediaUrl");
 
-const PAGE_SIZE = 50;
+class ChatController {
+  constructor(chatService = new ChatService()) {
+    this.chatService = chatService;
+  }
 
-const fetchAllMyConversations = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  // GET /api/chat/my-conversations
+  fetchAllMyConversations = async (req, res, next) => {
+    try {
+      const userId = req.user.id;
 
-  const rows = await ChatRepo.getUserConversations(userId);
-  const conversations = rows.map((row) => ({
-    ...row,
-    otherUserAvatarUrl: row.otherUserAvatarKey
-      ? buildMediaUrl(row.otherUserAvatarKey)
-      : null,
-  }));
+      const conversations = await this.chatService.getMyConversations(userId);
 
-  return res.status(200).json({
-    conversations,
-  });
-});
+      return res.status(200).json({
+        conversations,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
-const createOrFindConversations = asyncHandler(async (req, res) => {
-  const { userId } = req.body;
-  const currentUserId = req.user.id;
+  // POST /api/chat/create-find-conversation
+  createOrFindConversations = async (req, res, next) => {
+    try {
+      const { userId } = req.body;
+      const currentUserId = req.user.id;
 
-  const result = await ChatService.createDirectConversation(
-    currentUserId,
-    userId,
-  );
+      const result = await this.chatService.createDirectConversation(
+        currentUserId,
+        userId,
+      );
 
-  return res.status(result.created ? 201 : 200).json({
-    conversationId: result.conversationId,
-    message: result.created
-      ? "Conversation created"
-      : "Conversation already exists",
-  });
-});
+      return res.status(result.created ? 201 : 200).json({
+        conversationId: result.conversationId,
+        message: result.created
+          ? "Conversation created"
+          : "Conversation already exists",
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
-const fetchMessages = asyncHandler(async (req, res) => {
-  const { conversationId } = req.params;
-  const userId = req.user.id;
-  const offset = parseInt(req.query.offset, 10) || 0;
+  // GET /api/chat/conversation/:conversationId/messages
+  fetchMessages = async (req, res, next) => {
+    try {
+      const { conversationId } = req.params;
+      const userId = req.user.id;
+      const offset = parseInt(req.query.offset, 10) || 0;
 
-  await assertConversationParticipant(conversationId, userId);
+      const data = await this.chatService.getMessages(
+        conversationId,
+        userId,
+        offset,
+      );
 
-  const [messages, statuses] = await Promise.all([
-    MessageRepo.getMessagesByConversation(conversationId, PAGE_SIZE, offset),
-    MessageRepo.getMessageStatusesForConversation(conversationId),
-  ]);
+      return res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
 
-  return res.status(200).json({
-    messages,
-    statuses,
-    offset,
-    hasMore: messages.length === PAGE_SIZE,
-  });
-});
+const chatController = new ChatController();
 
-module.exports = {
-  fetchAllMyConversations,
-  createOrFindConversations,
-  fetchMessages,
-};
+module.exports = { ChatController, chatController };
