@@ -14,7 +14,7 @@ import {
   setPresence,
   setLoadingOlderMessages,
 } from "../store/chatReducer";
-import { fetchMyChats, fetchMessages } from "../api/chatThunk";
+import { fetchMyChats, fetchMessages, sendMessageRest } from "../api/chatThunk";
 import { useSocketContext } from "../../../core/socket/useSocketContext";
 import useAuth from "../../auth/hooks/useAuth";
 
@@ -75,6 +75,44 @@ export const useChatSocketSync = ({
     [emit],
   );
 
+  // HTTP fallback so messages still send when the socket is down.
+  // A failed REST attempt marks the message failed; the reconnect
+  // effect below re-sends anything still in the outbox once the
+  // socket is back (WhatsApp-style queueing).
+  const sendViaRest = useCallback(
+    (conversationId, clientMsgId, msg) => {
+      const run = async () => {
+        try {
+          const result = await dispatch(
+            sendMessageRest({
+              conversationId,
+              clientMsgId,
+              content: msg.content?.trim() || "",
+              mediaId: msg.media_id || msg.mediaId || null,
+              msgType: msg.msg_type || msg.msgType || "text",
+            }),
+          ).unwrap();
+
+          if (result?.message) {
+            dispatch(
+              reconcileMessage({
+                clientMsgId,
+                serverMessage: result.message,
+              }),
+            );
+          }
+        } catch {
+          dispatch(
+            markMessageFailed({ clientMsgId, conversationId }),
+          );
+          toast.error("Message not delivered yet. Tap to retry.");
+        }
+      };
+      run();
+    },
+    [dispatch],
+  );
+
   const retryMessage = useCallback(
     (clientMsgId, conversationId) => {
       const convId = conversationId || selectedChat?.id;
@@ -85,15 +123,22 @@ export const useChatSocketSync = ({
       );
       if (!msg) return;
 
-      if (!isConnected) {
-        toast.error("Still offline. Connect and try again.");
-        return;
-      }
-
       dispatch(markMessageSending({ clientMsgId, conversationId: convId }));
-      emitSendPayload(msg, clientMsgId);
+
+      if (isConnected) {
+        emitSendPayload(msg, clientMsgId);
+      } else {
+        sendViaRest(convId, clientMsgId, msg);
+      }
     },
-    [allMessages, selectedChat?.id, isConnected, dispatch, emitSendPayload],
+    [
+      allMessages,
+      selectedChat?.id,
+      isConnected,
+      dispatch,
+      emitSendPayload,
+      sendViaRest,
+    ],
   );
 
   useEffect(() => {
@@ -248,6 +293,8 @@ export const useChatSocketSync = ({
       const content = typeof payload === "string" ? payload : payload?.content;
       const mediaId = typeof payload === "object" ? payload?.mediaId : null;
       const msgType = payload?.msgType || (mediaId ? "media" : "text");
+      const mimeType = typeof payload === "object" ? payload?.mimeType : null;
+      const previewUrl = typeof payload === "object" ? payload?.previewUrl : null;
 
       if ((!content || !content.trim()) && !mediaId) return;
 
@@ -262,30 +309,34 @@ export const useChatSocketSync = ({
           content: trimmedContent,
           media_id: mediaId,
           msg_type: msgType,
+          // Local preview so the sender sees the image/audio immediately,
+          // before the server echo brings the real secure_url.
+          mime_type: mimeType,
+          secure_url: previewUrl || null,
           created_at: new Date().toISOString(),
         }),
       );
 
-      if (!isConnected) {
-        dispatch(
-          markMessageFailed({
-            clientMsgId,
-            conversationId: selectedChat.id,
-          }),
+      if (isConnected) {
+        emit("send_message", {
+          conversationId: selectedChat.id,
+          clientMsgId,
+          content: trimmedContent,
+          mediaId,
+          msgType,
+        });
+      } else {
+        // Socket unavailable — send over HTTP in the background. The
+        // optimistic message stays in "sending" state (clock icon) and
+        // is automatically re-sent if it fails and the socket reconnects.
+        sendViaRest(
+          selectedChat.id,
+          clientMsgId,
+          { content: trimmedContent, media_id: mediaId, msg_type: msgType },
         );
-        toast.error("You're offline. Tap retry when connected.");
-        return;
       }
-
-      emit("send_message", {
-        conversationId: selectedChat.id,
-        clientMsgId,
-        content: trimmedContent,
-        mediaId,
-        msgType,
-      });
     },
-    [selectedChat, user?.id, isConnected, dispatch, emit],
+    [selectedChat, user, isConnected, dispatch, emit, sendViaRest],
   );
 
   const markAsRead = useCallback(() => {

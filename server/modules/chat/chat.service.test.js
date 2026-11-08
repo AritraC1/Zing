@@ -1,12 +1,16 @@
 const ChatService = require("./chat.service");
-const ChatRepo = require("./chat.repository");
-const ChatParticipantsRepo = require("../chatParticipants/chatParticipants.repository");
 const { withTransaction } = require("../../utils/withTransaction");
 const AppError = require("../../core/errors/AppError");
 
 jest.mock("./chat.repository");
-jest.mock("../chatParticipants/chatParticipants.repository");
+jest.mock("./participants.repository");
 jest.mock("../../utils/withTransaction");
+
+// Repositories are mocked; jest automock creates per-instance mocks
+// (the service constructs its own), so the mocks are driven through
+// the instances owned by the service under test.
+let ChatRepo;
+let ChatParticipantsRepo;
 
 describe("ChatService", () => {
   let chatService;
@@ -14,6 +18,8 @@ describe("ChatService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     chatService = new ChatService();
+    ChatRepo = chatService.chatRepo;
+    ChatParticipantsRepo = chatService.participantsRepository;
   });
 
   describe("createDirectConversation", () => {

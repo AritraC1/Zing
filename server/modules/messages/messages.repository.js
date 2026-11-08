@@ -79,10 +79,7 @@ class MessageRepository {
       LEFT JOIN media med ON inserted.media_id = med.id;
     `;
 
-    const existing = await MessageRepo.getMessageByClientId(
-      senderId,
-      clientMsgId,
-    );
+    const existing = await this.getMessageByClientId(senderId, clientMsgId);
     if (existing) return existing;
 
     try {
@@ -98,10 +95,9 @@ class MessageRepository {
       return enrichMediaMessage(result.rows[0]);
     } catch (err) {
       if (err.code === "23505") {
-        const existing = await MessageRepo.getMessageByClientId(
-          senderId,
-          clientMsgId,
-        );
+        // Unique constraint race: another request already saved this
+        // client_msg_id — return the stored message so it is not lost.
+        const existing = await this.getMessageByClientId(senderId, clientMsgId);
         if (existing) return existing;
       }
       if (
@@ -207,7 +203,7 @@ class MessageRepository {
   async updateMessageStatus(messageId, userId, msgStatus) {
     const query = `
       UPDATE message_status
-      SET msg_status = $3,
+      SET msg_status = $3::message_delivery_status,
           delivered_at = CASE
             WHEN $3 = 'delivered' AND delivered_at IS NULL THEN NOW()
             ELSE delivered_at
@@ -255,7 +251,7 @@ class MessageRepository {
       WHERE ms.message_id = m.id
         AND ms.user_id = $1
         AND ms.msg_status = 'sent'
-      RETURNING ms.message_id, m.sender_id;
+      RETURNING ms.message_id, m.sender_id, m.conversation_id;
     `;
 
     const result = await db.query(query, [userId]);

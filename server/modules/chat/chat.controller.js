@@ -1,4 +1,5 @@
 const ChatService = require("./chat.service");
+const { notifyNewMessage } = require("./chat.events");
 
 class ChatController {
   constructor(chatService = new ChatService()) {
@@ -56,6 +57,47 @@ class ChatController {
       );
 
       return res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  };
+  // POST /api/chats/conversation/:conversationId/messages
+  // HTTP fallback for sending a message when the socket is disconnected.
+  sendMessage = async (req, res, next) => {
+    try {
+      const { conversationId } = req.params;
+      const userId = req.user.id;
+      const { content, clientMsgId, msgType, mediaId, forwardedFromId } =
+        req.body || {};
+
+      if (!conversationId || (!content?.trim() && !mediaId)) {
+        return res.status(400).json({
+          message: "content or mediaId is required",
+        });
+      }
+      if (!clientMsgId) {
+        return res.status(400).json({ message: "clientMsgId is required" });
+      }
+
+      const { message, created, participants } =
+        await this.chatService.sendMessage({
+          conversationId,
+          userId,
+          content,
+          clientMsgId,
+          msgType: msgType || (mediaId ? "media" : "text"),
+          mediaId,
+          forwardedFromId,
+        });
+
+      // Inform every participant's devices (offline ones catch up on
+      // next connect).
+      if (created) {
+        const participantIds = participants.map(({ user_id }) => user_id);
+        notifyNewMessage(message, participantIds);
+      }
+
+      return res.status(200).json({ message, created });
     } catch (error) {
       next(error);
     }

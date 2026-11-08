@@ -55,6 +55,37 @@ export const fetchMessages = createAsyncThunk(
   },
 );
 
+// Send a message over HTTP (fallback when the socket is disconnected).
+// Idempotent on clientMsgId — duplicates are never stored.
+export const sendMessageRest = createAsyncThunk(
+  "chat/sendMessageRest",
+  async (
+    { conversationId, clientMsgId, content, mediaId, msgType },
+    thunkAPI,
+  ) => {
+    try {
+      const res = await axiosInstance.post(
+        ENDPOINTS.CHAT.SEND_MESSAGE.replace(
+          ":conversationId",
+          conversationId,
+        ),
+        { clientMsgId, content, mediaId, msgType },
+      );
+      return {
+        conversationId,
+        clientMsgId,
+        message: res.data?.message,
+      };
+    } catch (err) {
+      return thunkAPI.rejectWithValue({
+        conversationId,
+        clientMsgId,
+        error: err.response?.data || err.message,
+      });
+    }
+  },
+);
+
 // Upload media
 export const uploadMedia = createAsyncThunk(
   "media/upload",

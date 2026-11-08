@@ -1,6 +1,7 @@
-import { Send, Plus, X, Smile } from "lucide-react";
+import { Send, Plus, X, Smile, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import { toast } from "react-toastify";
 
 import { useChatSocket } from "../context/ChatSocketContext";
 import { uploadMedia } from "../api/chatThunk";
@@ -11,7 +12,12 @@ const MessageInput = () => {
   const { sendMessage } = useChatSocket();
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
+  const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Ref mirror of isSending so the guard also works for events fired
+  // before a re-render (double-click, Enter spam) can slip through.
+  const isSendingRef = useRef(false);
 
   const handleMediaClick = () => fileInputRef.current.click();
 
@@ -22,6 +28,8 @@ const MessageInput = () => {
       preview: URL.createObjectURL(file),
     }));
     setFiles((prev) => [...prev, ...previewFiles]);
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = "";
   };
 
   const removeFile = (index) => {
@@ -31,30 +39,50 @@ const MessageInput = () => {
     setFiles(updated);
   };
 
-
   const handleSend = async () => {
+    if (isSendingRef.current) return;
     if (!message.trim() && files.length === 0) return;
+
+    isSendingRef.current = true;
+    setIsSending(true);
+
+    const content = message.trim();
+    const items = [...files];
 
     try {
       const uploadedMedia = [];
 
-      for (const item of files) {
+      for (const item of items) {
         const media = await dispatch(uploadMedia(item.file)).unwrap();
-        uploadedMedia.push(media);
+        uploadedMedia.push({ ...media, previewUrl: item.preview });
       }
 
-      // Allow sending file-only messages (no text required)
-      sendMessage({
-        content: message,
-        mediaId: uploadedMedia[0]?.id || null,
-        msgType: uploadedMedia.length > 0 ? "media" : "text",
-      });
+      // WhatsApp-style: every selected image/file becomes its own
+      // message so nothing gets dropped or silently merged. The typed
+      // text acts as a caption on the first message.
+      if (uploadedMedia.length === 0) {
+        sendMessage({ content, mediaId: null, msgType: "text" });
+      } else {
+        uploadedMedia.forEach((media, index) => {
+          sendMessage({
+            content: index === 0 ? content : "",
+            mediaId: media.id,
+            msgType: "media",
+            mimeType: media.mime_type,
+            previewUrl: media.previewUrl,
+          });
+        });
+      }
 
       setMessage("");
-      files.forEach((f) => URL.revokeObjectURL(f.preview));
+      items.forEach((item) => URL.revokeObjectURL(item.preview));
       setFiles([]);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to send message:", err);
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      isSendingRef.current = false;
+      setIsSending(false);
     }
   };
 
@@ -66,7 +94,7 @@ const MessageInput = () => {
   };
 
   // Enable send if there is text or files
-  const canSend = message.trim() || files.length > 0;
+  const canSend = (message.trim() || files.length > 0) && !isSending;
 
   return (
     <div className="bg-white px-4 py-3">
@@ -74,7 +102,7 @@ const MessageInput = () => {
       {files.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto">
           {files.map((item, index) => (
-            <div key={index} className="relative">
+            <div key={`${item.preview}-${index}`} className="relative">
               {item.file.type.startsWith("image/") ? (
                 <img
                   src={item.preview}
@@ -89,7 +117,8 @@ const MessageInput = () => {
 
               <button
                 onClick={() => removeFile(index)}
-                className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white flex items-center justify-center"
+                disabled={isSending}
+                className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white flex items-center justify-center disabled:opacity-50"
               >
                 <X size={11} />
               </button>
@@ -103,7 +132,8 @@ const MessageInput = () => {
         {/* Plus */}
         <button
           onClick={handleMediaClick}
-          className="text-gray-400 hover:text-gray-700 transition-colors flex items-center"
+          disabled={isSending}
+          className="text-gray-400 hover:text-gray-700 transition-colors flex items-center disabled:opacity-50"
         >
           <Plus size={20} />
         </button>
@@ -133,7 +163,11 @@ const MessageInput = () => {
                 : "bg-gray-300 cursor-not-allowed"
             }`}
         >
-          <Send size={17} />
+          {isSending ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : (
+            <Send size={17} />
+          )}
         </button>
       </div>
 
@@ -144,6 +178,8 @@ const MessageInput = () => {
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
       />
     </div>
   );

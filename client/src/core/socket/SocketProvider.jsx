@@ -25,9 +25,13 @@ function log(...args) {
 export function SocketProvider({ children }) {
   const { isAuthenticated, user, accessToken } = useAuth();
 
-  // Module-level-per-provider single instance, held in a ref (not state)
-  // so it survives re-renders without recreating the connection.
+  // Live socket instance kept in a ref (so emit/on/off wrappers stay
+  // stable) and mirrored into state so the context always reflects the
+  // current connection. Without the state mirror, `socket` captured in
+  // useMemo would stay undefined/stale and consumers would treat a live
+  // connection as offline.
   const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -42,6 +46,7 @@ export function SocketProvider({ children }) {
         log("disconnecting (logout / unauthenticated)");
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null);
         setIsConnected(false);
         setIsReconnecting(false);
       }
@@ -92,6 +97,7 @@ export function SocketProvider({ children }) {
     });
 
     socketRef.current = socket;
+    setSocket(socket);
 
     // Provider unmount (app teardown) — safe to fully disconnect here.
     // NOT tied to any child component's lifecycle.
@@ -99,6 +105,7 @@ export function SocketProvider({ children }) {
       log("provider unmounting — disconnecting");
       socket.disconnect();
       socketRef.current = null;
+      setSocket(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id]);
@@ -136,14 +143,14 @@ export function SocketProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      socket: socketRef.current,
+      socket,
       isConnected,
       isReconnecting,
       emit,
       on,
       off,
     }),
-    [isConnected, isReconnecting, emit, on, off],
+    [socket, isConnected, isReconnecting, emit, on, off],
   );
 
   return (

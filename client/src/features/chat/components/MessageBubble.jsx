@@ -1,15 +1,43 @@
-import { memo } from "react";
-import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import { memo, useState } from "react";
+import { Download } from "lucide-react";
 import MessageStatusIcon from "./MessageStatusIcon";
+import MediaViewer from "./MediaViewer";
+import {
+  downloadMedia,
+  mediaFileName,
+} from "../../../shared/utils/downloadMedia";
 
-const getSenderInitial = (message) => {
-  if (!message) return "U";
+const SENDER_NAME_COLORS = [
+  "#e17055",
+  "#00a884",
+  "#53bdeb",
+  "#f5a623",
+  "#7f66ff",
+  "#e542a3",
+  "#36cfc9",
+  "#f5222d",
+];
+
+// WhatsApp-style sender-color: stable per sender so a given person
+// always gets the same name color within a conversation.
+const getSenderNameColor = (senderId) => {
+  if (!senderId) return SENDER_NAME_COLORS[0];
+  let hash = 0;
+  const key = String(senderId);
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  return SENDER_NAME_COLORS[Math.abs(hash) % SENDER_NAME_COLORS.length];
+};
+
+const getSenderName = (message) => {
+  if (!message) return "";
   const senderName =
     message.sender_name ||
     message.sender_username ||
     message.display_name ||
     "";
-  return senderName ? String(senderName).charAt(0).toUpperCase() : "U";
+  return senderName ? String(senderName).trim() : "";
 };
 
 const MessageBubble = memo(function MessageBubble({
@@ -18,37 +46,49 @@ const MessageBubble = memo(function MessageBubble({
   status,
   sendStatus,
   onRetry,
+  isGroupChat = false,
 }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
   if (!message?.id && !message?.client_msg_id) return null;
 
   const isImage = message.mime_type?.startsWith("image/");
   const isVideo = message.mime_type?.startsWith("video/");
   const hasAttachment = Boolean(message.secure_url || message.mime_type);
-  const senderInitial = getSenderInitial(message);
+  const senderName = getSenderName(message);
+  // WhatsApp shows the sender name above the bubble in group chats only.
+  const showSenderName = !isOwnMessage && isGroupChat && Boolean(senderName);
   const createdAt = message.created_at
     ? new Date(message.created_at)
     : new Date();
   const isFailed = sendStatus === "failed";
   const isSending = sendStatus === "sending";
 
-  return (
-    <div
-      className={`flex gap-2 ${
-        isOwnMessage ? "justify-end" : "justify-start"
-      }`}
-    >
-      {!isOwnMessage && (
-        <div
-          className="h-7 w-7 min-w-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
-          style={{
-            background: getAvatarGradient(String(message.sender_id || "unknown")),
-          }}
-        >
-          {senderInitial}
-        </div>
-      )}
+  const mediaUrl = message.secure_url;
 
+  const handleDownload = (e) => {
+    e.stopPropagation();
+    downloadMedia(mediaUrl, {
+      mimeType: message.mime_type,
+      filename: mediaFileName(message.mime_type),
+    });
+  };
+
+  return (
+    <>
+      <div
+        className={`flex gap-2 ${
+          isOwnMessage ? "justify-end" : "justify-start"
+        }`}
+      >
       <div className="flex flex-col items-end gap-1 max-w-xs">
+        {showSenderName && (
+          <span
+            className="text-[12px] font-semibold px-3.5"
+            style={{ color: getSenderNameColor(message.sender_id) }}
+          >
+            {senderName}
+          </span>
+        )}
         <div
           className={`w-full px-3.5 py-2.5 text-sm leading-relaxed wrap-break-words shadow-sm
           ${
@@ -63,29 +103,49 @@ const MessageBubble = memo(function MessageBubble({
               : "bg-gray-100 text-gray-900 rounded-3xl"
           }`}
         >
-          {isImage && (
-            <img
-              src={message.secure_url}
-              alt="media"
-              className="rounded-2xl mb-2 max-w-full"
-            />
+          {isImage && mediaUrl && (
+            <div
+              className="relative rounded-2xl overflow-hidden mb-2 group"
+              onClick={() => setViewerOpen(true)}
+            >
+              <img
+                src={mediaUrl}
+                alt="media"
+                className="max-h-80 max-w-full object-cover cursor-zoom-in rounded-2xl"
+              />
+
+              <button
+                onClick={handleDownload}
+                title="Download"
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-opacity cursor-pointer"
+              >
+                <Download size={14} />
+              </button>
+            </div>
           )}
 
-          {isVideo && (
-            <video controls className="rounded-2xl mb-2 max-w-full">
-              <source src={message.secure_url} type={message.mime_type} />
+          {isVideo && mediaUrl && (
+            <video controls className="rounded-2xl mb-2 max-w-full max-h-80">
+              <source src={mediaUrl} type={message.mime_type} />
             </video>
           )}
 
           {!isImage && !isVideo && hasAttachment && (
             <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 mb-2">
               <a
-                href={message.secure_url || "#"}
+                href={mediaUrl || "#"}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  downloadMedia(mediaUrl, {
+                    mimeType: message.mime_type,
+                    filename: mediaFileName(message.mime_type),
+                  });
+                }}
                 className="font-medium underline underline-offset-2"
               >
-                Open attachment
+                Download attachment
               </a>
               <p className="text-[10px] opacity-80 mt-1">
                 {message.mime_type || "file"}
@@ -124,7 +184,16 @@ const MessageBubble = memo(function MessageBubble({
           </button>
         )}
       </div>
-    </div>
+      </div>
+
+      {viewerOpen && isImage && (
+        <MediaViewer
+          url={mediaUrl}
+          mimeType={message.mime_type}
+          onClose={() => setViewerOpen(false)}
+        />
+      )}
+    </>
   );
 });
 

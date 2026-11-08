@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import UserProfileDetails from "./UserProfileDetails";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
-import PresenceLabel from "./PresenceLabel";
 import { useSocketContext } from "../../../core/socket/useSocketContext";
 
 const connectionStatus = (isConnected, isReconnecting) => {
@@ -19,7 +18,7 @@ const connectionStatus = (isConnected, isReconnecting) => {
 
 const ChatHeader = () => {
   const navigate = useNavigate();
-  const { selectedChat, otherUserPresence } = useChat();
+  const { selectedChat } = useChat();
   const { isConnected, isReconnecting } = useSocketContext();
   const [showProfile, setShowProfile] = useState(false);
 
@@ -61,11 +60,6 @@ const ChatHeader = () => {
             <div className="font-bold text-m text-gray-900 leading-tight">
               {selectedChat.name}
             </div>
-
-            <PresenceLabel
-              online={otherUserPresence.online}
-              lastSeenAt={otherUserPresence.lastSeenAt}
-            />
 
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`w-1.5 h-1.5 rounded-full ${conn.dot}`} />

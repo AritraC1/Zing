@@ -78,6 +78,49 @@ class ChatService {
     });
   }
 
+  // Save a message on behalf of a participant. Idempotent on clientMsgId
+  // so retries (socket or REST) never create duplicates.
+  async sendMessage({
+    conversationId,
+    userId,
+    content,
+    clientMsgId,
+    msgType = "text",
+    mediaId = null,
+    forwardedFromId = null,
+  }) {
+    await assertConversationParticipant(conversationId, userId);
+
+    const existing = await this.messageRepo.getMessageByClientId(
+      userId,
+      clientMsgId,
+    );
+    if (existing) {
+      return { message: existing, created: false, participants: [] };
+    }
+
+    const participants = await this.chatRepo.getParticipants(conversationId);
+
+    const message = await this.messageRepo.saveMessage({
+      conversationId,
+      senderId: userId,
+      content,
+      clientMsgId,
+      msgType,
+      mediaId,
+      forwardedFromId,
+    });
+
+    const recipientIds = participants
+      .filter(({ user_id }) => String(user_id) !== String(userId))
+      .map(({ user_id }) => user_id);
+
+    await this.messageRepo.initializeMessageStatuses(message.id, recipientIds);
+    await this.chatRepo.updateLastMessage(conversationId);
+
+    return { message, created: true, participants };
+  }
+
   // Fetch messages for a conversation after verifying the user is a participant
   async getMessages(conversationId, userId, offset = 0) {
     await assertConversationParticipant(conversationId, userId);

@@ -28,6 +28,12 @@ function mergePendingMessages(serverMessages, localMessages) {
   return merged;
 }
 
+// Chat list preview label: media-only messages would otherwise show
+// an empty last-message row.
+const previewText = (message) =>
+  message?.content ||
+  (message?.msg_type === "media" ? "📷 Photo" : "");
+
 function bumpChatPreview(state, conversationId, lastMessage, lastMessageAt) {
   const chatIndex = state.chats.findIndex((c) => c.id === conversationId);
   if (chatIndex === -1) return;
@@ -112,7 +118,7 @@ const chatSlice = createSlice({
       if (!message.id && !clientMsgId) return;
 
       state.messages[convId].push(message);
-      bumpChatPreview(state, convId, message.content, message.created_at);
+      bumpChatPreview(state, convId, previewText(message), message.created_at);
 
       const chat = state.chats.find((c) => c.id === convId);
       if (chat && message.sender_id !== chat.otherUserId) {
@@ -140,7 +146,7 @@ const chatSlice = createSlice({
         sendStatus: "sending",
       });
 
-      bumpChatPreview(state, convId, message.content, message.created_at);
+      bumpChatPreview(state, convId, previewText(message), message.created_at);
     },
 
     reconcileMessage: (state, action) => {
@@ -172,7 +178,7 @@ const chatSlice = createSlice({
       bumpChatPreview(
         state,
         convId,
-        serverMessage.content,
+        previewText(serverMessage),
         serverMessage.created_at,
       );
     },

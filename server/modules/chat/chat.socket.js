@@ -12,39 +12,77 @@ const ChatRepository = require("./chat.repository");
 const UserRepository = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
+const { setIo } = require("./chat.events");
 
 const PAGE_SIZE = 50;
 const userRepo = new UserRepository();
 const messageRepo = new MessageRepository();
-const chatRepo = ChatRepository();
+const chatRepo = new ChatRepository();
 
-// Map to track online users: userId -> socketId
+// userId -> Set<socket.id> (supports multiple tabs / devices per user)
 const onlineUsers = new Map();
+
+// Each socket of a user joins a personal room so events can be fanned
+// out to every connected tab/device with a single emit.
+const userRoom = (userId) => `user:${userId}`;
 
 function broadcastPresence(io, userId, online, lastSeenAt = null) {
   io.emit("presence_update", { userId, online, lastSeenAt });
 }
 
+function addSocketForUser(socket, userId) {
+  let sockets = onlineUsers.get(userId);
+  const wasOffline = !sockets || sockets.size === 0;
+
+  if (!sockets) {
+    sockets = new Set();
+    onlineUsers.set(userId, sockets);
+  }
+  sockets.add(socket.id);
+
+  return wasOffline;
+}
+
+function removeSocketForUser(socket, userId) {
+  const sockets = onlineUsers.get(userId);
+  if (!sockets) return true;
+
+  sockets.delete(socket.id);
+  if (sockets.size === 0) {
+    onlineUsers.delete(userId);
+    return true;
+  }
+  return false;
+}
+
 module.exports = (io) => {
+  // Share the io instance so REST endpoints can also fan out events.
+  setIo(io);
+
   io.on("connection", async (socket) => {
     const userId = socket.user.id;
-    onlineUsers.set(userId, socket.id);
+
+    socket.join(userRoom(userId));
+    const wentOnline = addSocketForUser(socket, userId);
 
     try {
+      if (wentOnline) broadcastPresence(io, userId, true);
       await userRepo.updateLastSeen(userId);
-      broadcastPresence(io, userId, true);
 
+      // Deliver messages that were queued while this user was offline.
+      // 'conversation_id' must be included so the client can update
+      // the message status in the right conversation.
       const deliveredRows = await messageRepo.markAllPendingAsDelivered(userId);
 
-      deliveredRows.forEach(({ message_id, sender_id }) => {
-        const recipientSocketId = onlineUsers.get(sender_id);
-        if (recipientSocketId) {
-          io.to(recipientSocketId).emit("message_delivered", {
+      deliveredRows.forEach(
+        ({ message_id, sender_id, conversation_id }) => {
+          io.to(userRoom(sender_id)).emit("message_delivered", {
             messageId: message_id,
+            conversationId: conversation_id,
             deliveredTo: userId,
           });
-        }
-      });
+        },
+      );
     } catch (err) {
       console.error("Error updating pending deliveries on connection:", err);
     }
@@ -53,14 +91,15 @@ module.exports = (io) => {
       try {
         await assertConversationParticipant(conversationId, userId);
 
-        const messages = await MessageRepo.getMessagesByConversation(
+        const messages = await messageRepo.getMessagesByConversation(
           conversationId,
           PAGE_SIZE,
           offset,
         );
 
-        const statuses =
-          await MessageRepo.getMessageStatusesForConversation(conversationId);
+        const statuses = await messageRepo.getMessageStatusesForConversation(
+          conversationId,
+        );
 
         socket.emit("message_history", {
           conversationId,
@@ -70,6 +109,7 @@ module.exports = (io) => {
           hasMore: messages.length === PAGE_SIZE,
         });
       } catch (err) {
+        console.error("fetch_messages error:", err.message);
         socket.emit("error", {
           message: "Failed to fetch messages",
           conversationId,
@@ -109,6 +149,8 @@ module.exports = (io) => {
         try {
           await assertConversationParticipant(conversationId, userId);
 
+          // Idempotency: the same clientMsgId may arrive twice (retry /
+          // reconnect flush). Never store or emit it twice.
           const existing = await messageRepo.getMessageByClientId(
             userId,
             clientMsgId,
@@ -135,21 +177,21 @@ module.exports = (io) => {
             .map(({ user_id }) => user_id);
 
           await messageRepo.initializeMessageStatuses(message.id, recipientIds);
-          await ChatRepo.updateLastMessage(conversationId);
+          await chatRepo.updateLastMessage(conversationId);
 
+          // Fan out to every device/tab of every participant — including
+          // the sender's other devices — so all sessions stay in sync.
+          // The message is always persisted first, so an offline recipient
+          // will still receive it on their next connection via
+          // markAllPendingAsDelivered. read receipts for the sender's own
+          // status rows simply no-op server-side.
           participants.forEach(({ user_id }) => {
-            if (user_id !== userId) {
-              const recipientSocketId = onlineUsers.get(user_id);
-              if (recipientSocketId) {
-                io.to(recipientSocketId).emit("new_message", message);
-              } else {
-                console.log("Recipient not online:", { userId: user_id });
-              }
-            }
+            io.to(userRoom(user_id)).emit("new_message", message);
           });
 
           socket.emit("message_sent", message);
         } catch (err) {
+          console.error("send_message error:", err.message);
           socket.emit("error", {
             message: err.message || "Failed to send message",
             clientMsgId,
@@ -176,14 +218,11 @@ module.exports = (io) => {
         const participants = await chatRepo.getParticipants(conversationId);
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
-            const recipientSocketId = onlineUsers.get(user_id);
-            if (recipientSocketId) {
-              io.to(recipientSocketId).emit("message_delivered", {
-                messageId,
-                deliveredTo: userId,
-                conversationId,
-              });
-            }
+            io.to(userRoom(user_id)).emit("message_delivered", {
+              messageId,
+              deliveredTo: userId,
+              conversationId,
+            });
           }
         });
       } catch (err) {
@@ -209,14 +248,11 @@ module.exports = (io) => {
 
         participants.forEach(({ user_id }) => {
           if (user_id !== userId) {
-            const recipientSocketId = onlineUsers.get(user_id);
-            if (recipientSocketId) {
-              io.to(recipientSocketId).emit("messages_read", {
-                conversationId,
-                readBy: userId,
-                messageIds: updatedRows.map((row) => row.message_id),
-              });
-            }
+            io.to(userRoom(user_id)).emit("messages_read", {
+              conversationId,
+              readBy: userId,
+              messageIds: updatedRows.map((row) => row.message_id),
+            });
           }
         });
       } catch (err) {
@@ -229,15 +265,19 @@ module.exports = (io) => {
       }
     });
 
-    socket.on("disconnect", async () => {
-      onlineUsers.delete(userId);
-      try {
-        const lastSeenAt = await userRepo.updateLastSeen(userId);
-        broadcastPresence(io, userId, false, lastSeenAt);
-      } catch (err) {
-        console.error("Error updating last seen on disconnect:", err);
-        broadcastPresence(io, userId, false);
-      }
+    socket.on("disconnect", () => {
+      const wentOffline = removeSocketForUser(socket, userId);
+      if (!wentOffline) return; // another tab/device is still connected
+
+      (async () => {
+        try {
+          const lastSeenAt = await userRepo.updateLastSeen(userId);
+          broadcastPresence(io, userId, false, lastSeenAt);
+        } catch (err) {
+          console.error("Error updating last seen on disconnect:", err);
+          broadcastPresence(io, userId, false);
+        }
+      })();
     });
   });
 };

@@ -18,6 +18,7 @@ const ENDPOINTS = {
     MY_CHATS: "/chats/my-conversations",
     CREATE_FIND_CHAT: "/chats/create-find-conversation",
     GET_MESSAGES: "/chats/conversation/:conversationId/messages",
+    SEND_MESSAGE: "/chats/conversation/:conversationId/messages",
   },
   MEDIA: {
     UPLOAD_MEDIA: "/media/upload",

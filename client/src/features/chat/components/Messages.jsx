@@ -132,6 +132,7 @@ const Messages = () => {
                 isOwnMessage={isOwnMessage}
                 status={deliveryStatus}
                 sendStatus={isOwnMessage ? message.sendStatus : undefined}
+                isGroupChat={selectedChat?.chatType === "group"}
                 onRetry={
                   isOwnMessage && message.sendStatus === "failed"
                     ? () =>

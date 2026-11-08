@@ -20,8 +20,17 @@ const createConversationSchema = z.object({
   userId: z.string().uuid("userId must be a valid UUID"),
 });
 
+const sendMessageSchema = z.object({
+  content: z.string().trim().max(4096).optional(),
+  clientMsgId: z.string().uuid("clientMsgId must be a valid UUID"),
+  msgType: z.enum(["text", "media"]).optional(),
+  mediaId: z.string().uuid().nullish(),
+  forwardedFromId: z.string().uuid().nullish(),
+});
+
 module.exports = {
   verifyOtpSchema,
   onboardSchema,
   createConversationSchema,
+  sendMessageSchema,
 };
