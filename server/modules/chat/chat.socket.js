@@ -55,6 +55,10 @@ function removeSocketForUser(socket, userId) {
   return false;
 }
 
+function getOnlineUserIds() {
+  return Array.from(onlineUsers.keys());
+}
+
 module.exports = (io) => {
   // Share the io instance so REST endpoints can also fan out events.
   setIo(io);
@@ -86,6 +90,18 @@ module.exports = (io) => {
     } catch (err) {
       console.error("Error updating pending deliveries on connection:", err);
     }
+
+    // Presence snapshot: a freshly connected client has no idea which
+    // users came online before it existed (those broadcasts went to
+    // nobody it could hear). Replay the current online set on request
+    // as normal presence_update events so the same reducer handles it.
+    socket.on("presence_snapshot", () => {
+      getOnlineUserIds()
+        .filter((id) => id !== userId)
+        .forEach((id) => {
+          socket.emit("presence_update", { userId: id, online: true });
+        });
+    });
 
     socket.on("fetch_messages", async ({ conversationId, offset = 0 }) => {
       try {

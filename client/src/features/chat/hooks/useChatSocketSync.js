@@ -239,6 +239,11 @@ export const useChatSocketSync = ({
     socket.on("presence_update", handlePresenceUpdate);
     socket.on("error", handleSocketError);
 
+    // Ask the server who is already online right now — otherwise users
+    // that connected before this client would show as offline/never
+    // "last seen" until their next reconnect.
+    emit("presence_snapshot");
+
     return () => {
       socket.off("new_message", handleNewMessage);
       socket.off("message_sent", handleMessageSent);
@@ -284,7 +289,11 @@ export const useChatSocketSync = ({
       );
       emitSendPayload(msg, msg.client_msg_id);
     });
-  }, [isConnected, user?.id, allMessages, dispatch, emitSendPayload]);
+
+    // Re-sync presence after a reconnect — the server may have missed
+    // our disconnect (or another login may have gone offline since).
+    emit("presence_snapshot");
+  }, [isConnected, user?.id, allMessages, dispatch, emitSendPayload, emit]);
 
   const sendMessage = useCallback(
     (payload) => {

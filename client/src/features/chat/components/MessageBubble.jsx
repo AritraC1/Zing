@@ -111,7 +111,7 @@ const MessageBubble = memo(function MessageBubble({
               <img
                 src={mediaUrl}
                 alt="media"
-                className="max-h-80 max-w-full object-cover cursor-zoom-in rounded-2xl"
+                className="max-h-52 max-w-[190px] sm:max-h-80 sm:max-w-full object-cover cursor-zoom-in rounded-2xl"
               />
 
               <button
@@ -125,7 +125,10 @@ const MessageBubble = memo(function MessageBubble({
           )}
 
           {isVideo && mediaUrl && (
-            <video controls className="rounded-2xl mb-2 max-w-full max-h-80">
+            <video
+              controls
+              className="rounded-2xl mb-2 max-h-52 max-w-[190px] sm:max-h-80 sm:max-w-full"
+            >
               <source src={mediaUrl} type={message.mime_type} />
             </video>
           )}

@@ -5,9 +5,9 @@ CREATE TABLE IF NOT EXISTS message_status(
     user_id UUID REFERENCES users(id),
     msg_status message_delivery_status NOT NULL,
 
-    delivered_at TIMESTAMP,
-    seen_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
+    delivered_at TIMESTAMPTZ,
+    seen_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
 
     PRIMARY KEY (message_id, user_id)
 );

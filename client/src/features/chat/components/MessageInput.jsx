@@ -1,10 +1,11 @@
 import { Send, Plus, X, Smile, Loader2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 
 import { useChatSocket } from "../context/ChatSocketContext";
 import { uploadMedia } from "../api/chatThunk";
+import EmojiPicker from "./EmojiPicker";
 
 const MessageInput = () => {
   const dispatch = useDispatch();
@@ -13,11 +14,58 @@ const MessageInput = () => {
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
   const [isSending, setIsSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
+  const smileButtonRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   // Ref mirror of isSending so the guard also works for events fired
   // before a re-render (double-click, Enter spam) can slip through.
   const isSendingRef = useRef(false);
+
+  // Close the emoji picker on outside taps (mousedown covers click and
+  // touch on mobile; the smile button itself is excluded so toggling works).
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+
+    const handleOutside = (e) => {
+      const picker = emojiPickerRef.current;
+      const smile = smileButtonRef.current;
+      if (
+        (picker && picker.contains(e.target)) ||
+        (smile && smile.contains(e.target))
+      ) {
+        return;
+      }
+      setShowEmojiPicker(false);
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+    };
+  }, [showEmojiPicker]);
+
+  // Insert at the cursor position if the input is focused, else append.
+  const insertEmoji = (emoji) => {
+    const el = inputRef.current;
+    const caret = el ? el.selectionStart : null;
+    setMessage((prev) => {
+      if (caret === null) return prev + emoji;
+      return prev.slice(0, caret) + emoji + prev.slice(el.selectionEnd ?? caret);
+    });
+    // Keep focus in the text field so the user can keep typing.
+    requestAnimationFrame(() => {
+      el?.focus();
+      if (el && caret !== null) {
+        const next = caret + emoji.length;
+        el.setSelectionRange(next, next);
+      }
+    });
+  };
 
   const handleMediaClick = () => fileInputRef.current.click();
 
@@ -97,7 +145,16 @@ const MessageInput = () => {
   const canSend = (message.trim() || files.length > 0) && !isSending;
 
   return (
-    <div className="bg-white px-3 sm:px-4 py-3 shrink-0">
+    <div className="relative bg-white px-3 sm:px-4 py-3 shrink-0">
+      {/* Emoji picker (floats above the input bar) */}
+      {showEmojiPicker && (
+        <div
+          ref={emojiPickerRef}
+          className="absolute bottom-full left-3 right-3 sm:left-2 sm:right-2 mb-2 z-40"
+        >
+          <EmojiPicker onSelect={insertEmoji} />
+        </div>
+      )}
       {/* File previews */}
       {files.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto">
@@ -140,6 +197,7 @@ const MessageInput = () => {
 
         {/* Input */}
         <input
+          ref={inputRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyPress}
@@ -148,7 +206,16 @@ const MessageInput = () => {
         />
 
         {/* Emoji */}
-        <button className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-full">
+        <button
+          ref={smileButtonRef}
+          onClick={() => setShowEmojiPicker((v) => !v)}
+          aria-label="Insert emoji"
+          className={`transition-colors p-1 rounded-full ${
+            showEmojiPicker
+              ? "text-emerald-500 bg-emerald-50"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
           <Smile size={22} />
         </button>
 

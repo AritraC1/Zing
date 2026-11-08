@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS media (
     size_byte BIGINT,
     checksum_sha256 TEXT,
     duration_ms INTEGER,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );

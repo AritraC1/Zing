@@ -1,4 +1,5 @@
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import { useSelector } from "react-redux";
 
 const ChatListItem = ({ chat, isSelected, onSelect }) => {
   if (!chat || !chat.id) {
@@ -11,6 +12,14 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
 
   const avatarUrl = chat.profilePic || chat.avatarUrl;
 
+  // Presence straight from the Redux store so the list dot always
+  // matches what the profile pane shows (same source of truth).
+  const isOnline = useSelector(
+    (state) => Boolean(state.chat.presence.online[chat.otherUserId]),
+  );
+
+  const hasUnread = (chat.unreadCount ?? 0) > 0;
+
   return (
     <div
       onClick={() => onSelect(chat)}
@@ -22,23 +31,37 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
         }`}
     >
       <div
-        className="h-11 w-11 min-w-11 rounded-full flex items-center justify-center font-bold text-white text-sm relative overflow-hidden"
+        className="h-11 w-11 min-w-11 rounded-full flex items-center justify-center font-bold text-white text-sm relative overflow-visible"
         style={
-          avatarUrl ? undefined : { background: getAvatarGradient(String(chat.id)) }
+          avatarUrl
+            ? undefined
+            : { background: getAvatarGradient(String(chat.id)) }
         }
       >
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={name}
-            className="w-full h-full object-cover"
+        <span className="h-11 w-11 min-w-11 rounded-full overflow-hidden flex items-center justify-center">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            String(name).charAt(0).toUpperCase()
+          )}
+        </span>
+
+        {/* WhatsApp-style presence: green dot when the receiver is online.
+            Falls back to the small selection dot when no one is online. */}
+        {isOnline ? (
+          <span
+            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 ${
+              isSelected ? "border-white" : "border-gray-100"
+            }`}
           />
         ) : (
-          String(name).charAt(0).toUpperCase()
-        )}
-
-        {isSelected && (
-          <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+          isSelected && (
+            <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+          )
         )}
       </div>
 
@@ -48,9 +71,13 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
             {name}
           </span>
 
+          {/* Latest-message time: green when unread/selected, gray
+              otherwise — same behaviour as WhatsApp. */}
           <span
             className={`text-[11px] ml-2 whitespace-nowrap ${
-              isSelected ? "text-emerald-500" : "text-gray-400"
+              hasUnread || isSelected
+                ? "text-emerald-500 font-medium"
+                : "text-gray-400"
             }`}
           >
             {chat.time || ""}
@@ -62,7 +89,7 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
         </div>
       </div>
 
-      {(chat.unreadCount ?? 0) > 0 && !isSelected && (
+      {hasUnread && !isSelected && (
         <span className="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
           {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
         </span>

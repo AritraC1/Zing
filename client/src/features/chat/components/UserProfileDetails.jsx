@@ -1,6 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
 import PresenceLabel from "./PresenceLabel";
+import MediaViewer from "./MediaViewer";
 import {
   X,
   Phone,
@@ -10,10 +12,49 @@ import {
   ArrowUpCircle,
   Ban,
   Trash2,
+  Play,
+  Images,
 } from "lucide-react";
 
+// Shared-media thumbnails rendered before the "+N" tile:
+// 3 on the first row + 2 on the second, with all remaining
+// media grouped under a single counter tile.
+const MAX_SHARED_MEDIA = 5;
+
 const UserProfileDetails = ({ chat, onClose }) => {
-  const { archiveChat, unarchiveChat, tab, otherUserPresence } = useChat();
+  const {
+    archiveChat,
+    unarchiveChat,
+    tab,
+    otherUserPresence,
+    messages,
+  } = useChat();
+
+  const avatarUrl = chat?.profilePic || chat?.avatarUrl;
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [viewerItem, setViewerItem] = useState(null);
+
+  // Reset transient state when switching to a different chat.
+  useEffect(() => {
+    setAvatarFailed(false);
+    setViewerItem(null);
+  }, [chat?.id]);
+
+  // Shared media from this conversation — most recent first, capped at
+  // MAX_SHARED_MEDIA thumbnails. `total` keeps the full count so the
+  // last tile can overlay "+N" when more exist beyond the cap.
+  const { items: mediaItems, total: mediaTotal } = useMemo(() => {
+    const all = (messages || []).filter(
+      (m) =>
+        m?.secure_url &&
+        (m.mime_type?.startsWith("image/") ||
+          m.mime_type?.startsWith("video/")),
+    );
+    return {
+      total: all.length,
+      items: all.slice(-MAX_SHARED_MEDIA).reverse(),
+    };
+  }, [messages]);
 
   return (
     <div
@@ -42,15 +83,27 @@ const UserProfileDetails = ({ chat, onClose }) => {
       <div className="overflow-y-auto flex-1 flex flex-col gap-3 p-3">
         <div className="bg-white rounded-2xl px-5 py-6 flex flex-col items-center shadow-sm">
           <div
-            className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold shadow"
+            className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center text-white font-bold shadow"
             style={{
-              background: getAvatarGradient(
-                String(chat?.id || chat?.name || ""),
-              ),
+              background:
+                avatarUrl && !avatarFailed
+                  ? undefined
+                  : getAvatarGradient(
+                      String(chat?.id || chat?.name || ""),
+                    ),
               fontSize: 36,
             }}
           >
-            {chat?.name?.charAt(0) || "U"}
+            {avatarUrl && !avatarFailed ? (
+              <img
+                src={avatarUrl}
+                alt={chat?.name || "Profile"}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              (chat?.name?.charAt(0) || "U").toUpperCase()
+            )}
           </div>
 
           <h3 className="mt-4 font-bold text-gray-900" style={{ fontSize: 17 }}>
@@ -67,6 +120,77 @@ const UserProfileDetails = ({ chat, onClose }) => {
             compact
           />
         </div>
+
+        {mediaItems.length > 0 && (
+          <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <Images size={13} className="text-gray-400" />
+                <p className="text-xs font-semibold tracking-widest text-gray-400">
+                  MEDIA
+                </p>
+              </div>
+              <span className="text-[10px] text-gray-400">
+                {mediaTotal}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              {mediaItems.map((item) => {
+                const isVideo =
+                  item.mime_type?.startsWith("video/");
+                return (
+                  <button
+                    key={item.id || item.client_msg_id}
+                    type="button"
+                    onClick={() => setViewerItem(item)}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-gray-100
+                      active:scale-95 transition touch-manipulation cursor-zoom-in"
+                    aria-label="View shared media"
+                  >
+                    {isVideo ? (
+                      <video
+                        src={item.secure_url}
+                        muted
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={item.secure_url}
+                        alt="Shared media"
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    {isVideo && (
+                      <span
+                        className="absolute inset-0 flex items-center justify-center
+                          bg-black/30 text-white"
+                      >
+                        <Play size={18} fill="currentColor" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* All remaining media grouped under a single "+N" tile */}
+              {mediaTotal - MAX_SHARED_MEDIA > 0 && (
+                <div
+                  className="aspect-square rounded-lg overflow-hidden bg-gray-100
+                    flex flex-col items-center justify-center gap-0.5 text-gray-500"
+                >
+                  <Images size={16} />
+                  <span className="text-sm font-semibold text-gray-600">
+                    +{mediaTotal - MAX_SHARED_MEDIA}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl px-5 py-4 shadow-sm">
           <p className="text-xs font-semibold tracking-widest text-gray-400 mb-4">
@@ -141,6 +265,14 @@ const UserProfileDetails = ({ chat, onClose }) => {
           </div>
         </div>
       </div>
+
+      {viewerItem && (
+        <MediaViewer
+          url={viewerItem.secure_url}
+          mimeType={viewerItem.mime_type}
+          onClose={() => setViewerItem(null)}
+        />
+      )}
     </div>
   );
 };

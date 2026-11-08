@@ -4,5 +4,5 @@ CREATE TABLE IF NOT EXISTS device_prekeys (
     key_id INTEGER,
     public_key TEXT,
     is_used BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
