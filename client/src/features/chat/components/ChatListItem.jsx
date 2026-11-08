@@ -14,11 +14,11 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
   return (
     <div
       onClick={() => onSelect(chat)}
-      className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl cursor-pointer transition-all relative
+      className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl cursor-pointer transition-all relative touch-manipulation
         ${
           isSelected
             ? "bg-white shadow-sm border-l-[3.5px] border-emerald-500"
-            : "border-l-[3.5px] border-transparent hover:bg-white/60"
+            : "border-l-[3.5px] border-transparent hover:bg-white/60 active:bg-white/90"
         }`}
     >
       <div

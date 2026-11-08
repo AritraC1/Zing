@@ -1,31 +1,26 @@
-import { Phone, Video, MoreVertical } from "lucide-react";
+import { Phone, Video, MoreVertical, ArrowLeft } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import UserProfileDetails from "./UserProfileDetails";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
-import { useSocketContext } from "../../../core/socket/useSocketContext";
+import { useAppShell } from "../../../shared/layout/useAppShell";
 
-const connectionStatus = (isConnected, isReconnecting) => {
-  if (isReconnecting) {
-    return { dot: "bg-amber-400", label: "Reconnecting…", text: "text-amber-600" };
-  }
-  if (isConnected) {
-    return { dot: "bg-emerald-500", label: "Connected", text: "text-emerald-600" };
-  }
-  return { dot: "bg-red-400", label: "Offline", text: "text-red-500" };
-};
+const connectionStatus = (isOnline) =>
+  isOnline
+    ? { dot: "bg-emerald-500", label: "Online", text: "text-emerald-600" }
+    : { dot: "bg-red-400", label: "Offline", text: "text-red-500" };
 
 const ChatHeader = () => {
   const navigate = useNavigate();
-  const { selectedChat } = useChat();
-  const { isConnected, isReconnecting } = useSocketContext();
+  const { selectedChat, otherUserPresence } = useChat();
+  const { isMobile, closeConversation } = useAppShell();
   const [showProfile, setShowProfile] = useState(false);
 
   if (!selectedChat) return null;
 
   const avatarUrl = selectedChat.profilePic || selectedChat.avatarUrl;
-  const conn = connectionStatus(isConnected, isReconnecting);
+  const conn = connectionStatus(otherUserPresence?.online);
 
   const startCall = () =>
     navigate("/audio-call", { state: { chat: selectedChat } });
@@ -35,10 +30,22 @@ const ChatHeader = () => {
 
   return (
     <>
-      <div className="h-16 bg-white border-b-2 border-gray-100 flex items-center justify-between px-6">
-        <div className="flex items-center gap-3">
+      <div className="h-16 shrink-0 bg-white border-b-2 border-gray-100 flex items-center justify-between px-3 md:px-6">
+        <div className="flex items-center gap-3 min-w-0">
+          {isMobile && (
+            <button
+              type="button"
+              onClick={closeConversation}
+              aria-label="Back to chats"
+              className="-ml-1 p-1.5 rounded-full text-gray-700 hover:bg-gray-100
+                active:scale-90 transition touch-manipulation shrink-0"
+            >
+              <ArrowLeft size={22} />
+            </button>
+          )}
+
           <div
-            className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200 overflow-hidden"
+            className="h-11 w-11 min-w-11 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200 overflow-hidden"
             style={
               avatarUrl
                 ? undefined
@@ -56,8 +63,8 @@ const ChatHeader = () => {
             )}
           </div>
 
-          <div>
-            <div className="font-bold text-m text-gray-900 leading-tight">
+          <div className="min-w-0">
+            <div className="font-bold text-m text-gray-900 leading-tight truncate">
               {selectedChat.name}
             </div>
 
@@ -70,24 +77,24 @@ const ChatHeader = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
           <button
             onClick={startVideoCall}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors active:scale-90 touch-manipulation"
           >
             <Video size={20} />
           </button>
 
           <button
             onClick={startCall}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors active:scale-90 touch-manipulation"
           >
             <Phone size={20} />
           </button>
 
           <button
             onClick={() => setShowProfile(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors active:scale-90 touch-manipulation"
           >
             <MoreVertical size={20} />
           </button>
@@ -95,7 +102,7 @@ const ChatHeader = () => {
       </div>
 
       <div
-        className={`fixed top-0 right-0 h-screen z-50 transform transition-transform duration-300
+        className={`fixed top-0 right-0 h-dvh z-50 transform transition-transform duration-300
           ${showProfile ? "translate-x-0" : "translate-x-full"}`}
       >
         <UserProfileDetails

@@ -97,7 +97,7 @@ const MessageInput = () => {
   const canSend = (message.trim() || files.length > 0) && !isSending;
 
   return (
-    <div className="bg-white px-4 py-3">
+    <div className="bg-white px-3 sm:px-4 py-3 shrink-0">
       {/* File previews */}
       {files.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto">

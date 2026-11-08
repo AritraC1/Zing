@@ -2,18 +2,25 @@ import { useState } from "react";
 import { useChat } from "../hooks/useChat";
 import ChatListItem from "./ChatListItem";
 import { Search } from "lucide-react";
+import { useAppShell } from "../../../shared/layout/useAppShell";
 
 const ArchivedChats = () => {
   const { archivedChats, selectedChat, selectChat } = useChat();
+  const { openConversation } = useAppShell();
   const [search, setSearch] = useState("");
+
+  const handleSelect = (chat) => {
+    selectChat(chat);
+    openConversation();
+  };
 
   const filteredChats = archivedChats.filter((chat) =>
     (chat.name || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
-    <div className="w-80 min-h-screen flex flex-col bg-gray-100 border-r border-gray-300">
-      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
+    <div className="w-full md:w-80 h-full md:min-h-screen flex flex-col bg-gray-100 md:border-r md:border-gray-300">
+      <div className="px-4 md:px-5 pt-4 md:pt-6 pb-3 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Archived</h1>
       </div>
 
@@ -51,7 +58,7 @@ const ArchivedChats = () => {
                   key={chat.id}
                   chat={chat}
                   isSelected={selectedChat?.id === chat.id}
-                  onSelect={selectChat}
+                  onSelect={handleSelect}
                 />
               ))
             )}

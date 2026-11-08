@@ -17,11 +17,11 @@ const UserProfileDetails = ({ chat, onClose }) => {
 
   return (
     <div
-      className="h-screen flex flex-col"
+      className="h-dvh flex flex-col"
       style={{
-        width: 300,
         background: "#f0f2f5",
         borderLeft: "1px solid #e5e7eb",
+        width: "min(300px, 100vw)",
       }}
     >
       <div

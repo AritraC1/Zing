@@ -81,7 +81,7 @@ const Messages = () => {
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-8 py-6 bg-white flex flex-col gap-2"
+      className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-8 py-4 sm:py-6 bg-white flex flex-col gap-2"
     >
       {!messages || messages.length === 0 ? (
         <div className="flex items-center justify-center text-gray-400 h-full">

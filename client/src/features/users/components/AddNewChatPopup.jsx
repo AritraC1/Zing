@@ -6,9 +6,11 @@ import { addChat, selectChat } from "../../chat/store/chatReducer";
 import { createOrFindChat } from "../../chat/api/chatThunk";
 import { searchUserThunk } from "../api/usersThunk";
 import { clearUser } from "../store/usersReducer";
+import { useAppShell } from "../../../shared/layout/useAppShell";
 
 const AddNewChatPopup = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
+  const { openConversation } = useAppShell();
   const [search, setSearch] = useState("");
   const [openingChat, setOpeningChat] = useState(false);
 
@@ -54,6 +56,7 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
 
       dispatch(addChat(chat));
       dispatch(selectChat(chat));
+      openConversation();
       handleClose();
     } catch (err) {
       toast.error(
@@ -76,7 +79,7 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-2xl h-[80vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
+      <div className="w-[calc(100%-1.5rem)] max-w-2xl h-[75vh] md:h-[80vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-6 h-16 bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">

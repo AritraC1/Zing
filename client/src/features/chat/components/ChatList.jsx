@@ -3,21 +3,28 @@ import { useChat } from "../hooks/useChat";
 import ChatListItem from "./ChatListItem";
 import { MessageSquarePlus, Search } from "lucide-react";
 import AddNewChatPopup from "../../users/components/AddNewChatPopup";
+import { useAppShell } from "../../../shared/layout/useAppShell";
 
 const ChatList = () => {
   const { chats, selectedChat, selectChat } = useChat();
+  const { openConversation } = useAppShell();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+
+  const handleSelect = (chat) => {
+    selectChat(chat);
+    openConversation();
+  };
 
   const filteredChats = chats.filter((chat) =>
     (chat.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="w-80 min-h-screen flex flex-col bg-gray-100 border-r border-gray-300">
-      
+    <div className="w-full md:w-80 h-full md:min-h-screen flex flex-col bg-gray-100 md:border-r md:border-gray-300">
+
       {/* Header */}
-      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
+      <div className="px-4 md:px-5 pt-4 md:pt-6 pb-3 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Messages</h1>
 
         <button
@@ -54,7 +61,7 @@ const ChatList = () => {
               key={chat.id}
               chat={chat}
               isSelected={selectedChat?.id === chat.id}
-              onSelect={selectChat}
+              onSelect={handleSelect}
             />
           ))
         ) : (

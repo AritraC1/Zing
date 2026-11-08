@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+a {
+  touch-action: manipulation;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }

@@ -29,19 +29,19 @@ const CallsList = () => {
   ).length;
 
   return (
-    <div className="flex-1 h-screen overflow-y-auto bg-gray-50">
+    <div className="flex-1 w-full h-full md:h-screen overflow-y-auto overscroll-contain bg-gray-50">
       {/* Top bar */}
-      <div className="relative flex items-center mb-8 bg-white border-b border-gray-200 px-8 py-3">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0 bg-white border-b border-gray-200 px-4 sm:px-8 py-3">
         {/* Left */}
         <h1 className="text-2xl font-bold text-gray-900">Calls</h1>
 
         {/* Center */}
-        <div className="absolute left-1/2 -translate-x-1/2">
+        <div className="relative w-full md:w-72 md:absolute md:left-1/2 md:-translate-x-1/2">
           <div className="relative">
             <input
               type="text"
               placeholder="Search call history..."
-              className="pl-9 pr-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 outline-none w-200 rounded-lg"
+              className="pl-9 pr-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 outline-none w-full rounded-lg"
             />
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -60,7 +60,7 @@ const CallsList = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8 px-8 py-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 px-4 sm:px-8 py-6">
         {/* Activity Card */}
         <div className="bg-white rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between mb-4">
@@ -132,7 +132,7 @@ const CallsList = () => {
       </div>
 
       {/* Recent Logs */}
-      <div className="flex items-center justify-between mb-4 px-8 py-6">
+      <div className="flex items-center justify-between mb-4 px-4 sm:px-8 py-6">
         <h2 className="text-base font-bold text-gray-800">Recent Logs</h2>
         {calls.length > 0 && (
           <button
@@ -145,7 +145,7 @@ const CallsList = () => {
       </div>
 
       {/* Call Log Items */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6 mx-8">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6 mx-4 sm:mx-8">
         {calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <RotateCcw size={28} className="mb-3 text-gray-300" />
@@ -229,7 +229,7 @@ const CallsList = () => {
                   onClick={() =>
                     isVideo ? startVideoCall(call) : startCall(call)
                   }
-                  className="w-10 h-10 rounded-full bg-gray-100 hover:bg-teal-50 flex items-center justify-center text-gray-500 hover:text-teal-600 transition shrink-0"
+                  className="w-10 h-10 rounded-full bg-gray-100 hover:bg-teal-50 flex items-center justify-center text-gray-500 hover:text-teal-600 active:scale-90 transition touch-manipulation shrink-0"
                 >
                   {isVideo ? <Video size={16} /> : <Phone size={16} />}
                 </button>
@@ -241,7 +241,7 @@ const CallsList = () => {
 
       {/* Footer */}
       {calls.length > 0 && (
-        <div className="flex flex-col items-center text-gray-40 px-8 py-6">
+        <div className="flex flex-col items-center text-gray-40 px-4 sm:px-8 py-6">
           <RotateCcw size={22} className="mb-2 text-gray-300" />
           <p className="text-sm font-medium text-gray-400">
             End of recent history
