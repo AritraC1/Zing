@@ -13,50 +13,20 @@ const UserRepository = require("../users/users.repository");
 const { assertConversationParticipant } = require("./chat.access");
 const { validate: uuidValidate } = require("uuid");
 const { setIo } = require("./chat.events");
+const {
+  addSocketForUser,
+  removeSocketForUser,
+  getOnlineUserIds,
+  userRoom,
+} = require("../../core/sockets/presence");
 
 const PAGE_SIZE = 50;
 const userRepo = new UserRepository();
 const messageRepo = new MessageRepository();
 const chatRepo = new ChatRepository();
 
-// userId -> Set<socket.id> (supports multiple tabs / devices per user)
-const onlineUsers = new Map();
-
-// Each socket of a user joins a personal room so events can be fanned
-// out to every connected tab/device with a single emit.
-const userRoom = (userId) => `user:${userId}`;
-
 function broadcastPresence(io, userId, online, lastSeenAt = null) {
   io.emit("presence_update", { userId, online, lastSeenAt });
-}
-
-function addSocketForUser(socket, userId) {
-  let sockets = onlineUsers.get(userId);
-  const wasOffline = !sockets || sockets.size === 0;
-
-  if (!sockets) {
-    sockets = new Set();
-    onlineUsers.set(userId, sockets);
-  }
-  sockets.add(socket.id);
-
-  return wasOffline;
-}
-
-function removeSocketForUser(socket, userId) {
-  const sockets = onlineUsers.get(userId);
-  if (!sockets) return true;
-
-  sockets.delete(socket.id);
-  if (sockets.size === 0) {
-    onlineUsers.delete(userId);
-    return true;
-  }
-  return false;
-}
-
-function getOnlineUserIds() {
-  return Array.from(onlineUsers.keys());
 }
 
 module.exports = (io) => {
@@ -96,6 +66,8 @@ module.exports = (io) => {
     // nobody it could hear). Replay the current online set on request
     // as normal presence_update events so the same reducer handles it.
     socket.on("presence_snapshot", () => {
+      // The shared presence registry lives in core/sockets/presence.js and
+      // doubles as the online map for the call socket module.
       getOnlineUserIds()
         .filter((id) => id !== userId)
         .forEach((id) => {

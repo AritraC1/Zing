@@ -1,10 +1,10 @@
 import { Phone, Video, MoreVertical, ArrowLeft } from "lucide-react";
 import { useChat } from "../hooks/useChat";
-import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import UserProfileDetails from "./UserProfileDetails";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useAppShell } from "../../../shared/layout/useAppShell";
+import { useCall } from "../../calls/hooks/useCall";
 
 const connectionStatus = (isOnline) =>
   isOnline
@@ -12,9 +12,9 @@ const connectionStatus = (isOnline) =>
     : { dot: "bg-red-400", label: "Offline", text: "text-red-500" };
 
 const ChatHeader = () => {
-  const navigate = useNavigate();
   const { selectedChat, otherUserPresence } = useChat();
   const { isMobile, closeConversation } = useAppShell();
+  const { startCall } = useCall();
   const [showProfile, setShowProfile] = useState(false);
 
   if (!selectedChat) return null;
@@ -22,11 +22,23 @@ const ChatHeader = () => {
   const avatarUrl = selectedChat.profilePic || selectedChat.avatarUrl;
   const conn = connectionStatus(otherUserPresence?.online);
 
-  const startCall = () =>
-    navigate("/audio-call", { state: { chat: selectedChat } });
+  const startAudioCall = () =>
+    startCall({
+      conversationId: selectedChat.id,
+      peerId: selectedChat.otherUserId,
+      name: selectedChat.name,
+      avatarUrl,
+      callType: "audio",
+    });
 
   const startVideoCall = () =>
-    navigate("/video-call", { state: { chat: selectedChat } });
+    startCall({
+      conversationId: selectedChat.id,
+      peerId: selectedChat.otherUserId,
+      name: selectedChat.name,
+      avatarUrl,
+      callType: "video",
+    });
 
   return (
     <>
@@ -86,7 +98,7 @@ const ChatHeader = () => {
           </button>
 
           <button
-            onClick={startCall}
+            onClick={startAudioCall}
             className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors active:scale-90 touch-manipulation"
           >
             <Phone size={20} />

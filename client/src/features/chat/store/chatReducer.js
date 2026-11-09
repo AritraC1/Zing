@@ -3,6 +3,7 @@ import {
   createOrFindChat,
   fetchMessages,
   fetchMyChats,
+  fetchCallHistory,
 } from "../api/chatThunk";
 import { formatChatTime } from "../../../shared/utils/formatChatTime";
 import { statusesArrayToMap, upsertStatus } from "./statusUtils";
@@ -319,7 +320,6 @@ const chatSlice = createSlice({
     clearCalls: (state) => {
       state.calls = [];
     },
-
     archiveChat: (state, action) => {
       const chatId = action.payload;
       const chatIndex = state.chats.findIndex((c) => c.id === chatId);
@@ -384,6 +384,11 @@ const chatSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createOrFindChat.fulfilled, () => {})
+      .addCase(fetchCallHistory.fulfilled, (state, action) => {
+        if (Array.isArray(action.payload)) {
+          state.calls = action.payload;
+        }
+      })
       .addCase(fetchMessages.pending, (state, action) => {
         const { offset = 0 } = action.meta.arg || {};
         if (offset > 0) {

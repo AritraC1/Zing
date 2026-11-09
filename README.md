@@ -23,7 +23,7 @@ The project is organized into two main parts:
 - Account deletion with full session revocation
 - Landing page, onboarding, profile setup, settings, and archived chats UI
 
-> Call screens (audio/video) and the Signal/landline libraries are currently UI placeholders — WebRTC calling and end-to-end encryption are not wired up yet.
+> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). End-to-end encryption for calls is on the roadmap; chat encryption via the Signal libraries is still a work in progress.
 
 ## Tech Stack
 
@@ -32,6 +32,7 @@ The project is organized into two main parts:
 | Frontend | React 19, Vite, Tailwind CSS 4, Redux Toolkit, Redux Persist, Socket.IO Client |
 | Backend | Node.js, Express 5, Socket.IO, PostgreSQL, Swagger |
 | Auth & Security | Firebase phone auth, JWT, bcrypt/httpOnly cookies, DB-backed sessions & devices |
+| Calling | WebRTC (P2P audio/video, STUN), Socket.IO signaling, call history |
 | Media & Utilities | Cloudinary, Multer, Axios, Zod |
 
 > Redis appears in the development setup notes but is not currently used in the code — PostgreSQL handles persistence. It is planned for future features such as presence/rate-limiting stores.
@@ -56,7 +57,7 @@ The project is organized into two main parts:
     config/                   # env, db, swagger, firebase admin
     routes/allRoutes.js       # mounts module routers under /api
     middlewares/              # auth, error, multer, rate limit, socket auth
-    modules/                  # auth, chat, messages, media, users, devices, sessions
+    modules/                  # auth, chat, messages, media, users, devices, sessions, calls
     shared/                   # db migrations + SQL schemas, validation, utils
 ```
 

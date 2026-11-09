@@ -2,6 +2,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AllRoutes from "./core/routes/AllRoutes";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
+import { CallProvider } from "./features/calls/CallProvider";
 
 function App() {
   return (
@@ -15,7 +16,9 @@ function App() {
       />
 
       <ErrorBoundary>
-        <AllRoutes />
+        <CallProvider>
+          <AllRoutes />
+        </CallProvider>
       </ErrorBoundary>
     </>
   );

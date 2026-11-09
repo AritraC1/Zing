@@ -1,26 +1,46 @@
 import {
   Phone,
   Video,
-  Info,
   PhoneCall,
   PhoneMissed,
   PhoneIncoming,
   RotateCcw,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { fetchCallHistory } from "../../chat/api/chatThunk";
 import { useChat } from "../../chat/hooks/useChat";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import { useCall } from "../hooks/useCall";
 
 const CallsList = () => {
-  const navigate = useNavigate();
-  const { calls = [], clearCalls } = useChat();
+  const dispatch = useDispatch();
+  const { calls = [], chats = [], clearCalls } = useChat();
+  const { startCall } = useCall();
 
-  const startCall = (call) => {
-    navigate("/audio-call", { state: { chat: call } });
+  // Refresh the persisted history whenever the calls screen is shown.
+  useEffect(() => {
+    dispatch(fetchCallHistory());
+  }, [dispatch]);
+
+  const startAudioCall = (call) => {
+    startCall({
+      conversationId: call.conversationId,
+      peerId: call.peerId,
+      name: call.name,
+      avatarUrl: call.avatarUrl,
+      callType: call.callType || "audio",
+    });
   };
 
   const startVideoCall = (call) => {
-    navigate("/video-call", { state: { chat: call } });
+    startCall({
+      conversationId: call.conversationId,
+      peerId: call.peerId,
+      name: call.name,
+      avatarUrl: call.avatarUrl,
+      callType: call.callType || "video",
+    });
   };
 
   const totalThisWeek = calls.length;
@@ -122,8 +142,23 @@ const CallsList = () => {
               Start a new audio/video call
             </p>
             <button
-              onClick={() => navigate("/audio-call")}
-              className="px-5 py-2 bg-white text-gray-800 text-sm font-semibold rounded-full hover:bg-gray-100 transition"
+              onClick={() => {
+                const recentChat = chats[0];
+                if (recentChat) {
+                  startCall({
+                    conversationId: recentChat.id,
+                    peerId: recentChat.otherUserId,
+                    name: recentChat.name,
+                    avatarUrl: recentChat.profilePic || recentChat.avatarUrl,
+                    callType: "audio",
+                  });
+                }
+              }}
+              className={`px-5 py-2 text-sm font-semibold rounded-full transition ${
+                chats.length
+                  ? "bg-white text-gray-800 hover:bg-gray-100"
+                  : "bg-white/40 text-gray-200 cursor-not-allowed"
+              }`}
             >
               New Call
             </button>
@@ -169,14 +204,22 @@ const CallsList = () => {
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-base"
-                    style={{
-                      background: getAvatarGradient(String(call.id || name)),
-                    }}
-                  >
-                    {name.charAt(0).toUpperCase()}
-                  </div>
+                  {call.avatarUrl ? (
+                    <img
+                      src={call.avatarUrl}
+                      alt={name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-base"
+                      style={{
+                        background: getAvatarGradient(String(call.id || name)),
+                      }}
+                    >
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div
                     className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ${
                       isMissed ? "bg-red-500" : "bg-teal-500"
@@ -227,7 +270,7 @@ const CallsList = () => {
                 {/* Call back button */}
                 <button
                   onClick={() =>
-                    isVideo ? startVideoCall(call) : startCall(call)
+                    (isVideo ? startVideoCall : startAudioCall)(call)
                   }
                   className="w-10 h-10 rounded-full bg-gray-100 hover:bg-teal-50 flex items-center justify-center text-gray-500 hover:text-teal-600 active:scale-90 transition touch-manipulation shrink-0"
                 >

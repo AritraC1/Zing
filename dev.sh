@@ -17,7 +17,7 @@ trap 'jobs -p | xargs kill 2>/dev/null' EXIT
 docker compose -f "$ROOT_DIR/docker-compose.yaml" up -d --wait postgres
 
 # Local dev override: the API runs on the host, so it must reach Postgres
-# through the published port (5433) instead of the Docker hostname.
+# through the published port (5432) instead of the Docker hostname.
 # Credentials come from server/.env so Docker mode stays unaffected.
 set -a
 # shellcheck disable=SC1091

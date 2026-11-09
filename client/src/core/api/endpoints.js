@@ -20,6 +20,9 @@ const ENDPOINTS = {
     GET_MESSAGES: "/chats/conversation/:conversationId/messages",
     SEND_MESSAGE: "/chats/conversation/:conversationId/messages",
   },
+  CALLS: {
+    HISTORY: "/calls/history",
+  },
   MEDIA: {
     UPLOAD_MEDIA: "/media/upload",
   },

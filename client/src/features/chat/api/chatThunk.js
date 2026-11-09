@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../core/api/axiosInstance";
 import ENDPOINTS from "../../../core/api/endpoints";
 import { toConversation } from "../../../shared/api/mappers/conversation";
+import { toCall } from "../../../shared/api/mappers/call";
 
 // Fetch all my chats
 export const fetchMyChats = createAsyncThunk(
@@ -101,6 +102,21 @@ export const uploadMedia = createAsyncThunk(
       });
 
       return res.data.data;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Fetch the persisted call history (answered / missed / rejected)
+export const fetchCallHistory = createAsyncThunk(
+  "chat/fetchCallHistory",
+  async (_, thunkAPI) => {
+    try {
+      const res = await axiosInstance.get(ENDPOINTS.CALLS.HISTORY);
+      const list = res.data.calls ?? [];
+
+      return list.map(toCall);
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);
     }
