@@ -65,14 +65,19 @@ class CallsRepository {
   // passing status = 'answered' stamps ended_at and the duration. The caller
   // reports `durationSeconds` (time from connection to hangup); when absent
   // the server falls back to answered_at -> now.
+  //
+  // $2 must be cast to the enum in every usage: `SET status = $2` alone makes
+  // Postgres deduce $2 as the call_status enum while `$2 = 'answered'`
+  // elsewhere deduces text, which fails the whole statement with
+  // "inconsistent types deduced for parameter $2".
   async markCallEnded(callId, status = "answered", durationSeconds = null) {
     const query = `
       UPDATE calls
-      SET status = $2,
-          answered_at = COALESCE(answered_at, CASE WHEN $2 = 'answered' THEN NOW() ELSE answered_at END),
+      SET status = $2::call_status,
+          answered_at = COALESCE(answered_at, CASE WHEN $2::call_status = 'answered' THEN NOW() ELSE answered_at END),
           ended_at = NOW(),
           duration_seconds = CASE
-            WHEN $2 = 'answered' THEN COALESCE(
+            WHEN $2::call_status = 'answered' THEN COALESCE(
               $3::int,
               EXTRACT(EPOCH FROM (NOW() - COALESCE(answered_at, NOW())))::int
             )
@@ -97,7 +102,7 @@ class CallsRepository {
   // Sweep calls whose sockets never delivered a clean hangup (server restart
   // mid-call, dropped connections). Protects history from rows that can never
   // report a duration. Calls orphaned within the last 5 minutes are left
-  // alone so a quick nodemon restart doesn't stamp a live P2P call.
+  // alone so a quick dev-server restart doesn't stamp a live P2P call.
   async endOrphanedCalls() {
     const query = `
       WITH orphans AS (

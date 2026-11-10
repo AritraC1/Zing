@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "dev": "nodemon index.js",
+    "dev": "node --watch index.js",
     "start": "node index.js",
     "migrate": "node core/database/migration.js"
   },
@@ -35,7 +35,6 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
-    "nodemon": "^3.1.14",
     "supertest": "^7.0.0"
   }
 }

@@ -2,7 +2,7 @@
 # One-command local dev startup:
 #   - starts Postgres in Docker
 #   - runs DB migrations
-#   - starts the API (nodemon, :3000) and the client (Vite, :5173)
+#   - starts the API (node --watch, :3000) and the client (Vite, :5173)
 # Docker mode (api + frontend + nginx) remains available via `docker compose up -d`
 set -e
 

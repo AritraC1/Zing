@@ -13,6 +13,7 @@ import { useSocketContext } from "../../core/socket/useSocketContext";
 import { addCall } from "../chat/store/chatReducer";
 import { CallContext } from "./callContext";
 import IncomingCallOverlay from "./components/IncomingCallOverlay";
+import ringtone from "./utils/ringtone";
 import { toCall } from "../../shared/api/mappers/call";
 
 // WebRTC config — STUN only for now. Add a TURN server here later for
@@ -70,6 +71,27 @@ export function CallProvider({ children }) {
       clearInterval(timer);
       setCallDuration(0);
     };
+  }, [callState]);
+
+  // Browsers gate audio behind the first user gesture; make sure the
+  // ringtone can actually sound when a call arrives out of nowhere.
+  useEffect(() => {
+    ringtone.installUnlockListeners();
+  }, []);
+
+  // Ringtones — being called rings loudly; calling out hums softly with
+  // a ringback tone. Both stop the moment the call resolves (answered,
+  // declined, cancelled, failed...) or on unmount.
+  useEffect(() => {
+    if (callState === "incoming") {
+      ringtone.startIncoming();
+    } else if (callState === "outgoing") {
+      ringtone.startOutgoing();
+    } else {
+      ringtone.stop();
+    }
+
+    return () => ringtone.stop();
   }, [callState]);
 
   const emit = useCallback(

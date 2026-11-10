@@ -1,13 +1,42 @@
-import { defineConfig } from 'vite'
+import { defineConfig, createLogger } from 'vite'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+// The API dev process (`node --watch`) restarts on every server change — every
+// restart (and every browser reload) disturbs the proxied /socket.io
+// websocket: ECONNRESET on the old socket, EPIPE on in-flight writes and
+// ECONNREFUSED while it dials the API as it reboots. Socket.IO immediately
+// recovers from all three, but Vite prints each with a full stack trace,
+// drowning the terminal. Silence ONLY those transient transport codes for
+// the ws proxy; every other error passes through untouched.
+const devLogger = createLogger()
+const ORIGINAL_ERROR = devLogger.error.bind(devLogger)
+const TRANSIENT_CONNECT_ERRORS = ["ECONNRESET", "EPIPE", "ECONNREFUSED"]
+devLogger.error = (msg, options) => {
+  if (typeof msg === "string" && isTransientProxyNoise(msg)) {
+    return
+  }
+  ORIGINAL_ERROR(msg, options)
+}
+
+function isTransientProxyNoise(msg) {
+  // Wrapped by Vite ("ws proxy error: ...") or surfacing as a bare
+  // AggregateError stack straight from node:net's multi-address connect.
+  const isProxyNoise =
+    msg.includes("ws proxy") || msg.includes("AggregateError")
+  const isTransient = TRANSIENT_CONNECT_ERRORS.some((code) =>
+    msg.includes(code),
+  )
+  return isProxyNoise && isTransient
+}
+
 // ESM package: __dirname is not defined
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  customLogger: devLogger,
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
