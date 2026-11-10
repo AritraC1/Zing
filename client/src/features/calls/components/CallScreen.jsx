@@ -3,34 +3,50 @@ import { useNavigate } from "react-router-dom";
 import {
   Mic,
   MicOff,
+  Phone,
   PhoneOff,
   Volume2,
   Video as VideoIcon,
   VideoOff,
 } from "lucide-react";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
+import { formatClock } from "../../../shared/api/mappers/call";
 import { useCall } from "../hooks/useCall";
 
 // Shared call screen for both audio and video 1:1 calls.
-// Reads its full state (peer, streams, toggles) from CallProvider.
-const CallScreen = ({ isVideo }) => {
+// Reads its full state (peer, streams, toggles) from CallProvider; the
+// audio/video variant follows the context `callType` so a mid-call
+// audio <-> video switch flips this screen without changing who else
+// is rendered. The route (`/audio-call` / `/video-call`) only seeds the
+// initial URL.
+const CallScreen = () => {
   const navigate = useNavigate();
   const {
     callState,
+    callType,
     peer,
     localStream,
     remoteStream,
     muted,
     cameraOn,
+    callDuration,
     endCall,
+    switchToVideo,
+    switchToAudio,
     toggleMute,
     toggleCamera,
   } = useCall();
 
   const remoteAudioRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const localVideoRef = useRef(null);
-  const [seconds, setSeconds] = useState(0);
+  const [swapped, setSwapped] = useState(false); // tap PIP to swap views
+  const isVideo = callType === "video";
+
+  const localVideoTrack = localStream?.getVideoTracks()[0] ?? null;
+  // A disabled track sends no frames — treat it as absent for layout.
+  const hasLocalVideo = !!localVideoTrack?.enabled;
+  const remoteVideoTrack = remoteStream?.getVideoTracks()[0] ?? null;
+  const hasRemoteVideo = !!remoteVideoTrack?.enabled;
+  const hasBothVideos = hasLocalVideo && hasRemoteVideo;
 
   // Not in an active call (e.g. URL typed directly) -> back to calls list
   useEffect(() => {
@@ -46,39 +62,17 @@ const CallScreen = ({ isVideo }) => {
     }
   }, [remoteStream]);
 
-  // Attach remote video for the video variant
-  useEffect(() => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream || null;
-    }
-  }, [remoteStream]);
-
-  // Local PIP (video variant)
-  useEffect(() => {
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = isVideo ? localStream || null : null;
-    }
-  }, [isVideo, localStream]);
-
-  // Call timer — interval only lives while connected; the cleanup also
-  // resets the counter when the call state drops back.
-  useEffect(() => {
-    if (callState !== "connected") return undefined;
-    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
-
-    return () => {
-      clearInterval(timer);
-      setSeconds(0);
-    };
-  }, [callState]);
-
-  const formatTime = () => {
-    const m = String(Math.floor(seconds / 60)).padStart(2, "0");
-    const s = String(seconds % 60).padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
   if (!peer || callState === "incoming") return null;
+
+  // Which stream stars in the big view vs the small PIP window.
+  const mainStream = swapped ? localStream : remoteStream;
+  const mainIsSelf = swapped;
+  const mainHasVideo = mainIsSelf ? hasLocalVideo : hasRemoteVideo;
+  const pipStream = mainIsSelf ? remoteStream : localStream;
+  const pipHasVideo = mainIsSelf ? hasRemoteVideo : hasLocalVideo;
+
+  // Tap-to-swap only makes sense when both sides are streaming video.
+  const canSwap = hasBothVideos && isVideo && callState === "connected";
 
   const statusLabel =
     callState === "outgoing"
@@ -98,27 +92,56 @@ const CallScreen = ({ isVideo }) => {
       {/* Remote audio (invisible) plays for both variants */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
-      {/* VIDEO variant: remote full-screen + local PIP */}
+      {/* VIDEO variant: full-screen remote + tappable self PIP.
+          The PIP shows YOUR camera from the moment it opens (before the
+          callee answers too), like WhatsApp. */}
       {isVideo && (
         <>
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {remoteStream && (
-            <div className="absolute bottom-28 right-4 w-28 h-40 md:w-36 md:h-52 rounded-xl overflow-hidden shadow-lg border-2 border-white/30 z-10 bg-gray-800">
+          {mainHasVideo && (
+            <video
+              key={mainStream?.id ?? "main"}
+              ref={(el) => {
+                if (el) el.srcObject = mainStream || null;
+              }}
+              autoPlay
+              muted // audio plays through the dedicated <audio> element
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+
+          {/* Self-preview window — visible while the call rings/connects */}
+          {pipHasVideo && (
+            <button
+              type="button"
+              onClick={() => setSwapped((s) => !s)}
+              disabled={!canSwap}
+              className={`absolute bottom-28 right-4 w-28 h-40 md:w-36 md:h-52 rounded-xl overflow-hidden shadow-lg border-2 border-white/30 z-10 bg-gray-800 transition ${
+                canSwap ? "cursor-pointer hover:border-white/60" : "cursor-default"
+              }`}
+              aria-label={canSwap ? "Swap video views" : "Your preview"}
+            >
               <video
-                ref={localVideoRef}
+                key={pipStream?.id ?? "pip"}
+                ref={(el) => {
+                  if (el) el.srcObject = pipStream || null;
+                }}
                 autoPlay
                 muted
                 playsInline
                 className="w-full h-full object-cover"
               />
-            </div>
+              {canSwap && (
+                <span className="absolute bottom-1 left-0 right-0 text-center text-[10px] font-medium text-white/70 bg-black/30 rounded-full mx-3 py-0.5">
+                  TAP TO SWAP
+                </span>
+              )}
+            </button>
           )}
-          {(!remoteStream || !cameraOn) && (
+
+          {/* Big-screen placeholder while the peer's video isn't flowing
+              (ringing / connecting / peer camera off) */}
+          {!mainHasVideo && !mainIsSelf && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-0">
               {peer.avatarUrl ? (
                 <img
@@ -135,7 +158,15 @@ const CallScreen = ({ isVideo }) => {
                 </div>
               )}
               <p className="text-white/70 text-sm tracking-widest">
-                WAITING FOR VIDEO...
+                {callState === "connected" ? "" : "WAITING FOR VIDEO..."}
+              </p>
+            </div>
+          )}
+          {!mainHasVideo && mainIsSelf && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-0 bg-gray-900">
+              <VideoOff className="text-white/40" />
+              <p className="text-white/70 text-sm tracking-widest">
+                YOUR CAMERA IS OFF
               </p>
             </div>
           )}
@@ -172,7 +203,7 @@ const CallScreen = ({ isVideo }) => {
             <span className="flex items-center gap-2 text-teal-600 text-sm tracking-wider font-medium">
               <Volume2 size={16} />
               <span className="text-3xl font-light text-gray-600 tracking-widest">
-                {formatTime()}
+                {formatClock(callDuration) || "00:00"}
               </span>
             </span>
           )}
@@ -192,10 +223,10 @@ const CallScreen = ({ isVideo }) => {
           }`}
         >
           {callState === "connected" ? (
-            !isVideo ? (
-              "CONNECTED"
+            isVideo ? (
+              formatClock(callDuration) || "00:00"
             ) : (
-              formatTime()
+              "CONNECTED"
             )
           ) : (
             statusLabel
@@ -205,7 +236,24 @@ const CallScreen = ({ isVideo }) => {
 
       {/* CONTROLS */}
       <div className="absolute bottom-8 left-0 right-0 z-20">
-        <div className="flex justify-center gap-8 md:gap-10">
+        <div className="flex justify-center gap-6 md:gap-8">
+          {/* SWITCH BETWEEN AUDIO AND VIDEO (WhatsApp-style mid-call switch) */}
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={isVideo ? switchToAudio : switchToVideo}
+              aria-label={isVideo ? "Switch to voice call" : "Switch to video call"}
+              className="w-14 h-14 rounded-full flex items-center justify-center bg-white text-gray-800 border border-gray-200 shadow hover:bg-gray-50 transition"
+            >
+              {isVideo ? <Phone /> : <VideoIcon />}
+            </button>
+            <span
+              className={`text-xs ${isVideo ? "text-gray-300" : "text-gray-500"}`}
+            >
+              {isVideo ? "Voice" : "Video"}
+            </span>
+          </div>
+
           {/* MUTE */}
           <div className="flex flex-col items-center gap-2">
             <button

@@ -12,6 +12,7 @@ const shapeCall = (row, meId) => ({
   startedAt: row.startedAt,
   answeredAt: row.answeredAt,
   endedAt: row.endedAt,
+  durationSeconds: row.durationSeconds,
   peer: {
     id: row.peerId,
     name: row.peerName || row.peerPhone,

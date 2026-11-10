@@ -62,21 +62,75 @@ class CallsRepository {
 
   // Terminal states: missed (never answered), rejected (callee declined),
   // cancelled (caller hung up while ringing). For calls that were answered
-  // passing status = 'answered' just stamps ended_at.
-  async markCallEnded(callId, status = "answered") {
+  // passing status = 'answered' stamps ended_at and the duration. The caller
+  // reports `durationSeconds` (time from connection to hangup); when absent
+  // the server falls back to answered_at -> now.
+  async markCallEnded(callId, status = "answered", durationSeconds = null) {
     const query = `
       UPDATE calls
       SET status = $2,
           answered_at = COALESCE(answered_at, CASE WHEN $2 = 'answered' THEN NOW() ELSE answered_at END),
           ended_at = NOW(),
+          duration_seconds = CASE
+            WHEN $2 = 'answered' THEN COALESCE(
+              $3::int,
+              EXTRACT(EPOCH FROM (NOW() - COALESCE(answered_at, NOW())))::int
+            )
+            ELSE duration_seconds
+          END,
           updated_at = NOW()
       WHERE id = $1
       AND ended_at IS NULL
-      RETURNING id, status, started_at AS "startedAt", answered_at AS "answeredAt", ended_at AS "endedAt";
+      RETURNING id, status, started_at AS "startedAt", answered_at AS "answeredAt", ended_at AS "endedAt", duration_seconds AS "durationSeconds";
     `;
 
-    const result = await db.query(query, [callId, status]);
+    const result = await db.query(query, [
+      callId,
+      status,
+      durationSeconds === null || Number.isNaN(durationSeconds)
+        ? null
+        : Math.max(0, Math.round(durationSeconds)),
+    ]);
     return result.rows[0] || null;
+  }
+
+  // Sweep calls whose sockets never delivered a clean hangup (server restart
+  // mid-call, dropped connections). Protects history from rows that can never
+  // report a duration. Calls orphaned within the last 5 minutes are left
+  // alone so a quick nodemon restart doesn't stamp a live P2P call.
+  async endOrphanedCalls() {
+    const query = `
+      WITH orphans AS (
+        UPDATE calls
+        SET ended_at = updated_at,
+            duration_seconds = CASE
+              WHEN status = 'answered' AND answered_at IS NOT NULL THEN
+                GREATEST(0, EXTRACT(EPOCH FROM (updated_at - answered_at))::int)
+              ELSE duration_seconds
+            END,
+            status = CASE WHEN status = 'ringing' THEN 'missed' ELSE status END,
+            updated_at = NOW()
+        WHERE ended_at IS NULL
+          AND updated_at < NOW() - INTERVAL '5 minutes'
+        RETURNING 1
+      )
+      SELECT count(*) AS ended FROM orphans;
+    `;
+
+    const result = await db.query(query);
+    return result.rows[0]?.ended ?? 0;
+  }
+
+  // Mid-call mode switch (audio <-> video): keep history truthful.
+  async updateCallType(callId, callType) {
+    const query = `
+      UPDATE calls
+      SET call_type = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      AND ended_at IS NULL;
+    `;
+    await db.query(query, [callId, callType]);
   }
 
   async getCallHistory(userId, limit = 100) {
@@ -91,6 +145,7 @@ class CallsRepository {
         c.started_at AS "startedAt",
         c.answered_at AS "answeredAt",
         c.ended_at AS "endedAt",
+        c.duration_seconds AS "durationSeconds",
         u.id AS "peerId",
         u.display_name AS "peerName",
         u.phone_number AS "peerPhone",

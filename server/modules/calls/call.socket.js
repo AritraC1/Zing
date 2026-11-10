@@ -41,14 +41,15 @@ function clearRingTimeout(call) {
 
 // Terminal cleanup: forget the call, stamp the DB row, notify both sides.
 // `status` is the persisted outcome; `notifyEvent`/reason drive the client.
-async function terminateCall(io, call, status, notifyEvent, reason) {
+// `durationSeconds` is the duration reported by the hangup client, if any.
+async function terminateCall(io, call, status, notifyEvent, reason, durationSeconds = null) {
   if (activeCalls.get(call.callId) === call) {
     activeCalls.delete(call.callId);
   }
   clearRingTimeout(call);
 
   try {
-    await callsRepo.markCallEnded(call.callId, status);
+    await callsRepo.markCallEnded(call.callId, status, durationSeconds);
   } catch (err) {
     console.error("markCallEnded error:", err.message);
   }
@@ -72,7 +73,22 @@ async function acceptRingingCall(call) {
   return null;
 }
 
+// Relay a signaling payload from one validated participant to the other.
+function relayCallEvent(io, call, userId, event, payload) {
+  if (call.callerId === userId) {
+    emitToUser(io, call.calleeId, event, payload);
+  } else {
+    emitToUser(io, call.callerId, event, payload);
+  }
+}
+
 module.exports = (io) => {
+  // Repair call rows orphaned by previous server lifetimes (restarts leave
+  // calls with no ended_at, so history could never show a duration).
+  callsRepo.endOrphanedCalls().catch((err) => {
+    console.error("endOrphanedCalls error:", err.message);
+  });
+
   io.on("connection", (socket) => {
     const userId = socket.user.id;
 
@@ -214,13 +230,80 @@ module.exports = (io) => {
     // ---------------------------------------------------------------
     // Either side hangs up after answering
     // ---------------------------------------------------------------
-    socket.on("call:end", ({ callId }) => {
+    socket.on("call:end", ({ callId, durationSeconds }) => {
       const call = activeCalls.get(callId);
       if (!call || (call.callerId !== userId && call.calleeId !== userId)) {
         return;
       }
 
-      terminateCall(io, call, "answered", "call:ended", "ended");
+      const reported = Number(durationSeconds);
+      terminateCall(
+        io,
+        call,
+        "answered",
+        "call:ended",
+        "ended",
+        Number.isFinite(reported) && reported >= 0 ? reported : null,
+      );
+    });
+
+    // ---------------------------------------------------------------
+    // Mid-call renegotiation (e.g. switching an audio call to video).
+    // Unlike the initial offer/answer, either side may initiate these.
+    // ---------------------------------------------------------------
+    socket.on("call:renegotiate", ({ callId, offer }) => {
+      if (!callId || !offer) return;
+      const call = activeCalls.get(callId);
+      if (
+        !call ||
+        (call.callerId !== userId && call.calleeId !== userId) ||
+        call.status !== "active"
+      ) {
+        return;
+      }
+
+      relayCallEvent(io, call, userId, "call:renegotiate", { callId, offer });
+    });
+
+    socket.on("call:renegotiate-answer", ({ callId, answer }) => {
+      if (!callId || !answer) return;
+      const call = activeCalls.get(callId);
+      if (
+        !call ||
+        (call.callerId !== userId && call.calleeId !== userId) ||
+        call.status !== "active"
+      ) {
+        return;
+      }
+
+      relayCallEvent(io, call, userId, "call:renegotiate-answer", {
+        callId,
+        answer,
+      });
+    });
+
+    // Either side flipped the call's mode (audio <-> video); keep the peer's
+    // UI in sync and remember it for history.
+    socket.on("call:type-changed", ({ callId, callType: newType }) => {
+      if (!callId || !["audio", "video"].includes(newType)) return;
+      const call = activeCalls.get(callId);
+      if (
+        !call ||
+        (call.callerId !== userId && call.calleeId !== userId) ||
+        call.status !== "active" ||
+        call.callType === newType
+      ) {
+        return;
+      }
+
+      call.callType = newType;
+      relayCallEvent(io, call, userId, "call:type-changed", {
+        callId,
+        callType: newType,
+      });
+      callsRepo.updateCallType(call.callId, newType).catch((err) => {
+        console.error("updateCallType error:", err.message);
+      });
     });
 
     // ---------------------------------------------------------------

@@ -39,6 +39,7 @@ export function CallProvider({ children }) {
   const [remoteStream, setRemoteStream] = useState(null);
   const [muted, setMuted] = useState(false);
   const [cameraOn, setCameraOn] = useState(true);
+  const [callDuration, setCallDuration] = useState(0); // connected seconds
 
   // --- Refs (stable across renders, used inside socket handlers) ---
   const pcRef = useRef(null);
@@ -48,9 +49,27 @@ export function CallProvider({ children }) {
   const pendingCandidatesRef = useRef([]);
   const connectedAtRef = useRef(null);
   const callStateRef = useRef(callState);
+  // True while WE are mid-renegotiation (audio -> video switch): lets the
+  // renegotiate-answer handler know the incoming answer is for us.
+  const switchingRef = useRef(false);
 
   useEffect(() => {
     callStateRef.current = callState;
+  }, [callState]);
+
+  // Call timer — only ticks while connected. Lives here (not in CallScreen)
+  // so switching audio <-> video — which remounts the call screen — never
+  // resets the visible duration. Cleanup resets the counter when the call
+  // drops back out of the connected state.
+  useEffect(() => {
+    if (callState !== "connected") return undefined;
+
+    const timer = setInterval(() => setCallDuration((s) => s + 1), 1000);
+
+    return () => {
+      clearInterval(timer);
+      setCallDuration(0);
+    };
   }, [callState]);
 
   const emit = useCallback(
@@ -98,11 +117,20 @@ export function CallProvider({ children }) {
     pendingCandidatesRef.current = [];
     connectedAtRef.current = null;
     currentCallRef.current = null;
+    switchingRef.current = false;
 
     setLocalStream(null);
     setRemoteStream(null);
     setMuted(false);
     setCameraOn(true);
+    setCallDuration(0);
+  }, []);
+
+  // Seconds the call has been connected, for hangup reporting.
+  const currentDurationSeconds = useCallback(() => {
+    return connectedAtRef.current
+      ? Math.max(0, Math.round((Date.now() - connectedAtRef.current) / 1000))
+      : null;
   }, []);
 
   // Terminate locally: log to the calls list, reset state, and steer the
@@ -146,6 +174,18 @@ export function CallProvider({ children }) {
   );
 
   // --- Peer connection ---------------------------------------------
+
+  // ICE candidates can arrive before the remote description — queue, then
+  // replay them in order once the SDP is in place.
+  const flushPendingCandidates = useCallback(async (pc) => {
+    if (!pc || pendingCandidatesRef.current.length === 0) return;
+
+    const pending = pendingCandidatesRef.current;
+    pendingCandidatesRef.current = [];
+    pending.forEach((candidate) => {
+      pc.addIceCandidate(candidate).catch(() => {});
+    });
+  }, []);
 
   const ensurePeerConnection = useCallback(() => {
     if (pcRef.current) return pcRef.current;
@@ -219,13 +259,8 @@ export function CallProvider({ children }) {
           stream.getTracks().forEach((track) => pc.addTrack(track, stream));
         }
 
-        // Candidates can arrive before the SDP offer — queue them.
         await pc.setRemoteDescription(offer);
-        const pending = pendingCandidatesRef.current;
-        pendingCandidatesRef.current = [];
-        pending.forEach((candidate) => {
-          pc.addIceCandidate(candidate).catch(() => {});
-        });
+        await flushPendingCandidates(pc);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -235,7 +270,7 @@ export function CallProvider({ children }) {
         finishCall("failed");
       }
     },
-    [emit, ensurePeerConnection, finishCall],
+    [emit, ensurePeerConnection, finishCall, flushPendingCandidates],
   );
 
   const handleAnswer = useCallback(
@@ -248,17 +283,76 @@ export function CallProvider({ children }) {
 
       try {
         await pc.setRemoteDescription(answer);
-        const pending = pendingCandidatesRef.current;
-        pendingCandidatesRef.current = [];
-        pending.forEach((candidate) => {
-          pc.addIceCandidate(candidate).catch(() => {});
-        });
+        await flushPendingCandidates(pc);
       } catch (err) {
         console.error("[call] apply answer failed:", err);
         finishCall("failed");
       }
     },
-    [finishCall],
+    [finishCall, flushPendingCandidates],
+  );
+
+  // Renegotiation triggered by the PEER (they switched their mode).
+  const handleRenegotiateOffer = useCallback(
+    async ({ callId, offer }) => {
+      const call = currentCallRef.current;
+      if (!call || call.callId !== callId) return;
+
+      const pc = pcRef.current;
+      if (!pc || switchingRef.current) return; // we drive our own renegotiation
+
+      try {
+        await pc.setRemoteDescription(offer);
+        await flushPendingCandidates(pc);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        emit("call:renegotiate-answer", { callId, answer: pc.localDescription });
+      } catch (err) {
+        console.error("[call] renegotiation answer failed:", err);
+      }
+    },
+    [emit, flushPendingCandidates],
+  );
+
+  // Answer to OUR renegotiation (we switched our mode).
+  const handleRenegotiateAnswer = useCallback(async ({ callId, answer }) => {
+    const call = currentCallRef.current;
+    if (!call || call.callId !== callId) return;
+
+    const pc = pcRef.current;
+    if (!pc || !switchingRef.current) return;
+
+    switchingRef.current = false;
+    try {
+      await pc.setRemoteDescription(answer);
+      await flushPendingCandidates(pc);
+    } catch (err) {
+      console.error("[call] apply renegotiation failed:", err);
+    }
+  }, [flushPendingCandidates]);
+
+  // Peer flipped the call's mode: mirror it so both UIs stay in sync.
+  const handleTypeChanged = useCallback(
+    ({ callId, callType: newType }) => {
+      const call = currentCallRef.current;
+      if (!call || call.callId !== callId || call.callType === newType) return;
+
+      call.callType = newType;
+      setCallType(newType);
+      if (newType === "video") {
+        setCameraOn(
+          !!localStreamRef.current?.getVideoTracks()[0]?.enabled,
+        );
+      }
+
+      if (CALL_PAGES.includes(location.pathname)) {
+        navigate(newType === "video" ? "/video-call" : "/audio-call", {
+          replace: true,
+        });
+      }
+    },
+    [location.pathname, navigate],
   );
 
   const handleCandidate = useCallback(async ({ callId, candidate }) => {
@@ -324,6 +418,9 @@ export function CallProvider({ children }) {
       "call:offer": handleOffer,
       "call:answer": handleAnswer,
       "call:ice-candidate": handleCandidate,
+      "call:renegotiate": handleRenegotiateOffer,
+      "call:renegotiate-answer": handleRenegotiateAnswer,
+      "call:type-changed": handleTypeChanged,
 
       "call:rejected": ({ callId, reason }) => {
         if (!isCurrentCall(callId)) return;
@@ -375,6 +472,9 @@ export function CallProvider({ children }) {
     handleAnswer,
     handleCandidate,
     handleOffer,
+    handleRenegotiateAnswer,
+    handleRenegotiateOffer,
+    handleTypeChanged,
     isCurrentCall,
     sendOffer,
   ]);
@@ -503,11 +603,101 @@ export function CallProvider({ children }) {
     } else if (call.role === "callee" && state === "incoming") {
       emit("call:reject", { callId: call.callId });
     } else {
-      emit("call:end", { callId: call.callId });
+      // Tell the server how long the call was connected so history can show
+      // an accurate duration even when the fallback timestamp math drifts.
+      emit("call:end", {
+        callId: call.callId,
+        durationSeconds: currentDurationSeconds(),
+      });
     }
 
     finishCall(state === "connected" ? "ended" : "hangup");
-  }, [emit, finishCall]);
+  }, [currentDurationSeconds, emit, finishCall]);
+
+  // --- Audio <-> video switching (WhatsApp-style) --------------------
+
+  // Audio -> video. Either needs the negotiated-but-disabled camera track
+  // re-enabled, or a brand-new camera track that requires ICE renegotiation.
+  const switchToVideo = useCallback(async () => {
+    const call = currentCallRef.current;
+    const pc = pcRef.current;
+    if (!call || !pc || call.callType === "video") return;
+    if (callStateRef.current !== "connected") {
+      toast.info("You can switch to video once connected");
+      return;
+    }
+
+    try {
+      const stream = localStreamRef.current;
+      let videoTrack = stream?.getVideoTracks()[0];
+
+      if (videoTrack) {
+        videoTrack.enabled = true;
+        setCameraOn(true);
+      } else {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "user",
+          },
+        });
+        videoTrack = cameraStream.getVideoTracks()[0];
+
+        // Keep one MediaStream so existing attachments keep working.
+        if (stream) {
+          stream.addTrack(videoTrack);
+          setLocalStream(new MediaStream(stream.getTracks()));
+        } else {
+          localStreamRef.current = cameraStream;
+          setLocalStream(cameraStream);
+        }
+
+        // Renegotiate: the peer's answer adds our video both ways.
+        switchingRef.current = true;
+        await pc.addTrack(videoTrack, cameraStream);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        emit("call:renegotiate", {
+          callId: call.callId,
+          offer: pc.localDescription,
+        });
+      }
+
+      currentCallRef.current.callType = "video";
+      setCallType("video");
+      emit("call:type-changed", { callId: call.callId, callType: "video" });
+      navigate("/video-call", { replace: true });
+    } catch (err) {
+      console.error("[call] switch to video failed:", err);
+      switchingRef.current = false;
+      toast.error("Camera unavailable");
+    }
+  }, [emit, navigate]);
+
+  // Video -> audio. The video track stays negotiated, just disabled, so
+  // switching back does not need another renegotiation.
+  const switchToAudio = useCallback(() => {
+    const call = currentCallRef.current;
+    if (!call || call.callType === "audio") return;
+    if (callStateRef.current !== "connected") {
+      toast.info("You can switch modes once connected");
+      return;
+    }
+
+    call.callType = "audio";
+    setCallType("audio");
+
+    localStreamRef.current
+      ?.getVideoTracks()
+      .forEach((track) => {
+        track.enabled = false;
+      });
+    setCameraOn(false);
+
+    emit("call:type-changed", { callId: call.callId, callType: "audio" });
+    navigate("/audio-call", { replace: true });
+  }, [emit, navigate]);
 
   const toggleMute = useCallback(() => {
     const audioTrack = localStreamRef.current?.getAudioTracks()[0];
@@ -534,10 +724,13 @@ export function CallProvider({ children }) {
       remoteStream,
       muted,
       cameraOn,
+      callDuration,
       startCall,
       acceptCall,
       rejectCall,
       endCall,
+      switchToVideo,
+      switchToAudio,
       toggleMute,
       toggleCamera,
     }),
@@ -549,10 +742,13 @@ export function CallProvider({ children }) {
       remoteStream,
       muted,
       cameraOn,
+      callDuration,
       startCall,
       acceptCall,
       rejectCall,
       endCall,
+      switchToVideo,
+      switchToAudio,
       toggleMute,
       toggleCamera,
     ],
