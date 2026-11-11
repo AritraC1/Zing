@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { useChat } from "../hooks/useChat";
 import { useChatSocket } from "../context/ChatSocketContext";
@@ -6,14 +7,19 @@ import useAuth from "../../auth/hooks/useAuth";
 import MessageBubble from "./MessageBubble";
 import ForwardMessageModal from "./ForwardMessageModal";
 import { groupMessagesByDate } from "../../../shared/utils/dateSeparators";
+import { clearHighlightMessage } from "../store/chatReducer";
 
 const Messages = () => {
+  const dispatch = useDispatch();
   const {
     selectedChat,
     messages,
     getStatusForMessage,
     messagePagination,
   } = useChat();
+  const highlightMessage = useSelector(
+    (state) => state.chat.highlightMessage,
+  );
   const {
     markAsRead,
     loadOlderMessages,
@@ -79,6 +85,31 @@ const Messages = () => {
       container.scrollTop = heightDiff;
     }
   }, [messages.length, messagePagination.loadingOlder]);
+
+  // Jump-to-message (opened from the starred list): scroll the target
+  // bubble into view and flash it, then clear the highlight. The short
+  // delay lets the conversation render first (and the mobile slide-over
+  // start opening) before we measure positions.
+  useEffect(() => {
+    if (!highlightMessage?.messageId) return;
+    if (highlightMessage.conversationId !== selectedChat?.id) return;
+
+    const scrollTimer = setTimeout(() => {
+      const el = document.querySelector(
+        `[data-message-id="${highlightMessage.messageId}"]`,
+      );
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 300);
+
+    const clearTimer = setTimeout(() => {
+      dispatch(clearHighlightMessage());
+    }, 2800);
+
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [highlightMessage, selectedChat?.id, dispatch]);
 
   if (!selectedChat) {
     return (
@@ -162,6 +193,7 @@ const Messages = () => {
                 onReact={reactToMessage}
                 onToggleStar={toggleStar}
                 currentUserId={user?.id}
+                isHighlighted={highlightMessage?.messageId === message.id}
               />
             );
           })}

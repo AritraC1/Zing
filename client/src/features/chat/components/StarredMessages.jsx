@@ -4,8 +4,21 @@ import { Star, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useChat } from "../hooks/useChat";
 import { useAppShell } from "../../../shared/layout/useAppShell";
-import { fetchStarredMessages, fetchMyChats } from "../api/chatThunk";
+import {
+  fetchStarredMessages,
+  fetchMyChats,
+  fetchMessages,
+} from "../api/chatThunk";
+import {
+  setMessages,
+  setHighlightMessage,
+} from "../store/chatReducer";
 import { formatChatTime } from "../../../shared/utils/formatChatTime";
+
+// Must match the server's PAGE_SIZE (50 messages per page).
+const PAGE_SIZE = 50;
+// Bound the history scan so a huge chat can't loop forever (500 msgs).
+const MAX_PAGES = 10;
 
 // Preview text mirrors the chat-list rules: media bubbles show a photo
 // placeholder, text shows the content.
@@ -17,7 +30,7 @@ const previewText = (message) =>
 
 const StarredMessages = () => {
   const dispatch = useDispatch();
-  const { chats, archivedChats, selectChat } = useChat();
+  const { chats, archivedChats, selectChat, setTab } = useChat();
   const starredMessages = useSelector((state) => state.chat.starredMessages);
   const loading = useSelector((state) => state.chat.loading);
   const { openConversation } = useAppShell();
@@ -27,31 +40,76 @@ const StarredMessages = () => {
     dispatch(fetchStarredMessages());
   }, [dispatch]);
 
-  // Jump into the conversation the starred message belongs to. The chat
-  // may live in the archived list too; refetch once if we can't find it.
+  // Open the chat scrolled to (and flashing) the starred message,
+  // WhatsApp-style. The starred message may sit in history beyond the
+  // loaded pages, so page through the conversation until we find it
+  // (bounded), then restore the store with the collected window in
+  // canonical order before jumping.
   const handleOpen = async (starred) => {
     const conversationId = starred.conversation_id;
     if (!conversationId || openingId) return;
 
-    const all = [...chats, ...archivedChats];
-    const chat = all.find((c) => c.id === conversationId);
-    if (chat) {
-      selectChat(chat);
-      openConversation();
-      return;
-    }
-
     setOpeningId(conversationId);
     try {
-      const refreshed = await dispatch(fetchMyChats()).unwrap();
-      const found = [...(refreshed?.conversations || [])].find(
-        (c) => c.id === conversationId,
-      );
-      if (found) {
-        selectChat(found);
-        openConversation();
-      } else {
+      const all = [...chats, ...archivedChats];
+      let chat = all.find((c) => c.id === conversationId);
+      if (!chat) {
+        const refreshed = await dispatch(fetchMyChats()).unwrap();
+        chat = (refreshed?.conversations || []).find(
+          (c) => c.id === conversationId,
+        );
+      }
+      if (!chat) {
         toast.info("That chat is no longer available");
+        return;
+      }
+
+      // Page through history (server pages oldest → newest) until the
+      // starred message is loaded or the conversation is exhausted.
+      const collected = [];
+      let found = false;
+      let hasMore = false;
+      let statuses;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const data = await dispatch(
+          fetchMessages({ conversationId, offset: page * PAGE_SIZE }),
+        ).unwrap();
+        collected.push(...(data.messages || []));
+        statuses = data.statuses;
+        hasMore = Boolean(data.hasMore);
+        if (collected.some((m) => m.id === starred.id)) {
+          found = true;
+          break;
+        }
+        if (!hasMore) break;
+      }
+
+      // Restore the loaded window as the conversation's canonical
+      // messages (offset 0 replaces; keeps ordering consistent).
+      dispatch(
+        setMessages({
+          conversationId,
+          messages: collected,
+          statuses,
+          offset: 0,
+          hasMore,
+        }),
+      );
+
+      // Open the conversation, then point Messages at the bubble.
+      selectChat(chat);
+      setTab("chats");
+      openConversation();
+
+      if (found) {
+        dispatch(
+          setHighlightMessage({
+            conversationId,
+            messageId: starred.id,
+          }),
+        );
+      } else {
+        toast.info("Message is too far back in history to show");
       }
     } catch {
       toast.error("Could not open that chat. Try again.");

@@ -212,6 +212,7 @@ const MessageBubble = memo(function MessageBubble({
   onReact,
   onToggleStar,
   currentUserId,
+  isHighlighted = false,
 }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -351,9 +352,10 @@ const MessageBubble = memo(function MessageBubble({
   return (
     <>
       <div
+        data-message-id={message.id}
         className={`group/bubble flex gap-1.5 items-start ${
           isOwnMessage ? "justify-end" : "justify-start"
-        }`}
+        } ${isHighlighted ? "message-flash rounded-2xl" : ""}`}
       >
         {isOwnMessage && hasActions && (
           <BubbleActions

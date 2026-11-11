@@ -66,6 +66,9 @@ const initialState = {
   // Starred messages across all conversations (server-backed list,
   // loaded when the starred tab opens).
   starredMessages: [],
+  // Jump-to-message: set when opening a chat from the starred list so
+  // Messages scrolls to and flashes the target bubble.
+  highlightMessage: null,
   presence: {
     online: {},
     lastSeenAt: {},
@@ -492,6 +495,15 @@ const chatSlice = createSlice({
       state.starredMessages = action.payload || [];
     },
 
+    // Scroll target for "jump to message" (starred list → chat bubble).
+    setHighlightMessage: (state, action) => {
+      state.highlightMessage = action.payload || null;
+    },
+
+    clearHighlightMessage: (state) => {
+      state.highlightMessage = null;
+    },
+
     addBlockedUser: (state, action) => {
       const userId = action.payload;
       if (userId && !state.blockedUserIds.includes(userId)) {
@@ -658,6 +670,8 @@ export const {
   applyReaction,
   applyStar,
   setStarredMessages,
+  setHighlightMessage,
+  clearHighlightMessage,
   setMessages,
   setLoadingOlderMessages,
   setPresence,

@@ -12,12 +12,12 @@ const ForwardMessageModal = ({ message, onClose, onForward }) => {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // All conversations are forward targets except the one the message
-  // came from (forwarding back into the same chat is just a resend).
-  const targetChats = useMemo(() => {
-    const all = [...chats, ...archivedChats];
-    return all.filter((chat) => chat.id !== message?.conversation_id);
-  }, [chats, archivedChats, message?.conversation_id]);
+  // All conversations are forward targets, including the current one —
+  // forwarding into the same chat is WhatsApp-style "send a copy here".
+  const targetChats = useMemo(() => [...chats, ...archivedChats], [
+    chats,
+    archivedChats,
+  ]);
 
   const filteredChats = targetChats.filter((chat) =>
     (chat.name || "").toLowerCase().includes(search.toLowerCase()),
@@ -63,6 +63,21 @@ const ForwardMessageModal = ({ message, onClose, onForward }) => {
           </button>
         </div>
 
+        {/* Forwarded message preview */}
+        <div className="mx-4 mt-3 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+            Forwarding
+          </p>
+          <p className="text-sm text-gray-700 truncate mt-0.5">
+            {message?.is_deleted
+              ? "This message was deleted"
+              : message?.content?.trim() ||
+                (message?.msg_type === "media" || message?.mime_type
+                  ? "📷 Photo / attachment"
+                  : "Message")}
+          </p>
+        </div>
+
         {/* Search */}
         <div className="px-4 pt-3 pb-2">
           <div className="relative">
@@ -82,7 +97,7 @@ const ForwardMessageModal = ({ message, onClose, onForward }) => {
         </div>
 
         {/* Chat list */}
-        <div className="flex-1 overflow-y-auto px-2 py-1">
+        <div className="flex-1 overflow-y-auto px-2 py-1 mt-2">
           {filteredChats.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-gray-400">
               <p className="text-sm font-medium">No chats found</p>
