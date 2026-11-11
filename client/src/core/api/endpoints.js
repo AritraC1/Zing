@@ -21,7 +21,8 @@ const ENDPOINTS = {
     SEND_MESSAGE: "/chats/conversation/:conversationId/messages",
     EDIT_MESSAGE: "/chats/conversation/:conversationId/messages/:messageId",
     DELETE_MESSAGE: "/chats/conversation/:conversationId/messages/:messageId",
-    REACTION: "/chats/conversation/:conversationId/messages/:messageId/reaction",
+    REACTION:
+      "/chats/conversation/:conversationId/messages/:messageId/reaction",
     STAR: "/chats/conversation/:conversationId/messages/:messageId/star",
     STARRED: "/chats/starred-messages",
     ARCHIVE: "/chats/conversation/:conversationId/archive",

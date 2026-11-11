@@ -55,13 +55,7 @@ const GroupInfoPane = ({ chat, onClose }) => {
   const dispatch = useDispatch();
   const { user: me } = useAuth();
   const { startGroupCall } = useGroupCall();
-  const {
-    archiveChat,
-    unarchiveChat,
-    setMuted,
-    tab,
-    messages,
-  } = useChat();
+  const { archiveChat, unarchiveChat, setMuted, tab, messages } = useChat();
 
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +99,9 @@ const GroupInfoPane = ({ chat, onClose }) => {
       setInfo(data);
     } catch (err) {
       toast.error(
-        typeof err === "string" ? err : err?.message || "Could not load group info",
+        typeof err === "string"
+          ? err
+          : err?.message || "Could not load group info",
       );
       onClose();
     } finally {
@@ -153,7 +149,9 @@ const GroupInfoPane = ({ chat, onClose }) => {
       toast.success("Group renamed");
     } catch (err) {
       toast.error(
-        typeof err === "string" ? err : err?.message || "Could not rename group",
+        typeof err === "string"
+          ? err
+          : err?.message || "Could not rename group",
       );
     }
   };
@@ -175,7 +173,9 @@ const GroupInfoPane = ({ chat, onClose }) => {
       load();
     } catch (err) {
       toast.error(
-        typeof err === "string" ? err : err?.message || "Could not remove member",
+        typeof err === "string"
+          ? err
+          : err?.message || "Could not remove member",
       );
     }
   };
@@ -232,14 +232,16 @@ const GroupInfoPane = ({ chat, onClose }) => {
 
   const creatorDisplayName = useMemo(() => {
     if (!creator) return null;
-    return String(creator.userId) === String(me?.id) ? "you" : creator.displayName;
+    return String(creator.userId) === String(me?.id)
+      ? "you"
+      : creator.displayName;
   }, [creator, me?.id]);
 
   const isAlreadyMember = Boolean(
     searchResult &&
-      (info?.members || []).some(
-        (m) => String(m.userId) === String(searchResult.id),
-      ),
+    (info?.members || []).some(
+      (m) => String(m.userId) === String(searchResult.id),
+    ),
   );
 
   const memberCount = info?.members?.length ?? chat?.memberCount ?? 0;
@@ -247,9 +249,7 @@ const GroupInfoPane = ({ chat, onClose }) => {
   if (!chat) return null;
 
   return (
-    <div
-      className="h-dvh flex flex-col shadow-2xl bg-[#f0f2f5] border-l border-gray-200 w-full sm:w-[360px] md:w-[380px] max-w-[100vw]"
-    >
+    <div className="h-dvh flex flex-col shadow-2xl bg-[#f0f2f5] border-l border-gray-200 w-full sm:w-90 md:w-95 max-w-[100vw]">
       {/* Header */}
       <div className="flex items-center justify-between px-5 h-16 shrink-0 bg-white border-b border-gray-100">
         <h2 className="font-bold text-gray-900 text-[15px]">Group Info</h2>
@@ -345,7 +345,7 @@ const GroupInfoPane = ({ chat, onClose }) => {
             ) : (
               <div className="flex items-center justify-center gap-1.5 mt-4 max-w-full">
                 <h3
-                  className="font-bold text-gray-900 text-center truncate max-w-[220px]"
+                  className="font-bold text-gray-900 text-center truncate max-w-55"
                   style={{ fontSize: 18 }}
                   title={info?.name || chat?.name}
                 >
@@ -373,7 +373,8 @@ const GroupInfoPane = ({ chat, onClose }) => {
               <span className="font-medium">Group</span>
               <span>•</span>
               <span>
-                {memberCount} {memberCount === 1 ? "member" : "members"} (max 10)
+                {memberCount} {memberCount === 1 ? "member" : "members"} (max
+                10)
               </span>
             </div>
 
@@ -382,7 +383,8 @@ const GroupInfoPane = ({ chat, onClose }) => {
               <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1 text-center justify-center">
                 <Calendar size={12} className="shrink-0" />
                 <span>
-                  {info?.createdAt && `Created ${formatCreatedDate(info.createdAt)}`}
+                  {info?.createdAt &&
+                    `Created ${formatCreatedDate(info.createdAt)}`}
                   {creatorDisplayName && ` by ${creatorDisplayName}`}
                 </span>
               </p>
@@ -607,7 +609,9 @@ const GroupInfoPane = ({ chat, onClose }) => {
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold overflow-hidden shrink-0"
                         style={{
-                          background: getAvatarGradient(String(searchResult.id)),
+                          background: getAvatarGradient(
+                            String(searchResult.id),
+                          ),
                         }}
                       >
                         {searchResult.profilePic ? (
@@ -647,11 +651,13 @@ const GroupInfoPane = ({ chat, onClose }) => {
                   </div>
                 )}
 
-                {search.trim().length >= 6 && !searchLoading && !searchResult && (
-                  <p className="text-[11px] text-gray-400 text-center py-1">
-                    No user found with this phone number
-                  </p>
-                )}
+                {search.trim().length >= 6 &&
+                  !searchLoading &&
+                  !searchResult && (
+                    <p className="text-[11px] text-gray-400 text-center py-1">
+                      No user found with this phone number
+                    </p>
+                  )}
               </div>
             )}
 
@@ -834,7 +840,8 @@ const GroupInfoPane = ({ chat, onClose }) => {
                 Leave Group?
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                You will no longer be able to send or receive messages in this group.
+                You will no longer be able to send or receive messages in this
+                group.
               </p>
             </div>
             <div className="flex gap-2.5 mt-2">

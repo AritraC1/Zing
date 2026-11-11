@@ -114,13 +114,13 @@ axiosInstance.interceptors.response.use(
 
       if (isTokenInvalidated) {
         // Lazy import
-        const { logout } = await import("../../features/auth/store/authReducer");
+        const { logout } =
+          await import("../../features/auth/store/authReducer");
         const { resetChat } =
           await import("../../features/chat/store/chatReducer");
         const { persistor } = await import("../../store/store");
-        const { clearAll: clearLocalMessages } = await import(
-          "../../features/chat/local/messageDb"
-        );
+        const { clearAll: clearLocalMessages } =
+          await import("../../features/chat/local/messageDb");
 
         // Log the user out
         _store.dispatch(logout());

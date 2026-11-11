@@ -60,9 +60,7 @@ const AddNewChatPopup = ({ isOpen, onClose, onNewGroup }) => {
       handleClose();
     } catch (err) {
       toast.error(
-        typeof err === "string"
-          ? err
-          : err?.message || "Unable to open chat",
+        typeof err === "string" ? err : err?.message || "Unable to open chat",
       );
     } finally {
       setOpeningChat(false);
@@ -134,9 +132,7 @@ const AddNewChatPopup = ({ isOpen, onClose, onNewGroup }) => {
               </div>
               <div>
                 <p className="font-semibold text-gray-900 text-sm">New Group</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Up to 10 members
-                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Up to 10 members</p>
               </div>
             </button>
           </div>
