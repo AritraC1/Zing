@@ -1,5 +1,6 @@
 const ChatService = require("./chat.service");
 const { notifyNewMessage, notifyEvent } = require("./chat.events");
+const pushService = require("../notifications/push.service");
 const { validate: uuidValidate } = require("uuid");
 
 class ChatController {
@@ -97,6 +98,15 @@ class ChatController {
       if (created) {
         const participantIds = participants.map(({ user_id }) => user_id);
         notifyNewMessage(message, participantIds);
+
+        // Wake offline devices (best-effort; skips online + muted users).
+        pushService
+          .notifyNewMessage({
+            message,
+            recipientIds: participantIds,
+            senderId: userId,
+          })
+          .catch(() => {});
       }
 
       return res.status(200).json({ message, created });
@@ -204,6 +214,39 @@ class ChatController {
       notifyEvent(
         "chat_archived",
         { conversationId, archived: result.archived },
+        [userId],
+      );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // POST /api/chats/conversation/:conversationId/mute
+  setMute = async (req, res, next) => {
+    try {
+      const { conversationId } = req.params;
+      const userId = req.user.id;
+      const { muted } = req.body || {};
+
+      if (!uuidValidate(conversationId) || typeof muted !== "boolean") {
+        return res.status(400).json({
+          message: "conversationId and muted (boolean) are required",
+        });
+      }
+
+      const result = await this.chatService.setMuted(
+        conversationId,
+        userId,
+        muted,
+      );
+
+      // Sync the sender's other devices; mute is per-user and does not
+      // affect the other participant.
+      notifyEvent(
+        "chat_muted",
+        { conversationId, muted: result.muted },
         [userId],
       );
 

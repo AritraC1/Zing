@@ -285,7 +285,7 @@ ${REPLY_REACTION_JOINS}
 ${REPLY_REACTION_JOINS}
       WHERE m.conversation_id = $1
 
-      ORDER BY m.sequence_no ASC
+      ORDER BY m.sequence_no DESC
 
       LIMIT $2
       OFFSET $3;
@@ -295,7 +295,12 @@ ${REPLY_REACTION_JOINS}
       ? [conversationId, limit, offset, viewerId]
       : [conversationId, limit, offset];
     const result = await db.query(query, params);
-    return result.rows.map(enrichMediaMessage);
+
+    // Newest-window pagination: offset counts back from the newest
+    // message (offset 0 = the latest `limit` messages, matching the
+    // client's open-chat + scroll-up-for-older flow). Reverse so each
+    // page is still chronological (oldest -> newest) for rendering.
+    return result.rows.reverse().map(enrichMediaMessage);
   }
 
   // Fetch a single message scoped to a conversation — used to validate

@@ -1,5 +1,6 @@
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useSelector } from "react-redux";
+import { BellOff } from "lucide-react";
 
 const ChatListItem = ({ chat, isSelected, onSelect }) => {
   if (!chat || !chat.id) {
@@ -27,6 +28,7 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
   );
 
   const hasUnread = (chat.unreadCount ?? 0) > 0;
+  const isMuted = Boolean(chat.isMuted ?? chat.is_muted);
 
   return (
     <div
@@ -107,6 +109,12 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
         <span className="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
           {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
         </span>
+      )}
+
+      {/* Muted conversations swap the badge for a small bell — WhatsApp
+          keeps counting silently instead of shouting. */}
+      {isMuted && (
+        <BellOff size={14} className="shrink-0 text-gray-400" />
       )}
     </div>
   );

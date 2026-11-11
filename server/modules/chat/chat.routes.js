@@ -7,6 +7,7 @@ const {
   sendMessageSchema,
   editMessageSchema,
   archiveSchema,
+  muteSchema,
   reactionSchema,
   starSchema,
 } = require("../../core/validation/schemas");
@@ -74,6 +75,12 @@ router.post(
   checkForJwt(),
   validateBody(archiveSchema),
   chatController.setArchive,
+);
+router.post(
+  "/conversation/:conversationId/mute",
+  checkForJwt(),
+  validateBody(muteSchema),
+  chatController.setMute,
 );
 
 module.exports = router;

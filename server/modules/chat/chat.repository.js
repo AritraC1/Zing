@@ -45,6 +45,7 @@ class ChatRepository {
       lm.content AS "lastMessageContent",
       lm.created_at AS "lastMessageCreatedAt",
       cp.is_archived AS "isArchived",
+      cp.is_muted AS "isMuted",
       (
         SELECT COUNT(*)::int
         FROM message_status ms
@@ -115,6 +116,37 @@ class ChatRepository {
   `;
     const result = await db.query(query, [conversationId]);
     return result.rows;
+  }
+
+  // Set the per-user mute flag on a conversation participant row.
+  async setParticipantMuted(conversationId, userId, muted) {
+    const query = `
+    UPDATE conversation_participants
+    SET is_muted = $3
+    WHERE conversation_id = $1
+      AND user_id = $2
+    RETURNING is_muted;
+  `;
+
+    const result = await db.query(query, [
+      conversationId,
+      userId,
+      Boolean(muted),
+    ]);
+    return result.rows[0] || null;
+  }
+
+  // Mute check for the push pipeline: should this user be woken up for
+  // activity in this conversation?
+  async isParticipantMuted(conversationId, userId) {
+    const query = `
+    SELECT is_muted FROM conversation_participants
+    WHERE conversation_id = $1
+      AND user_id = $2;
+  `;
+
+    const result = await db.query(query, [conversationId, userId]);
+    return Boolean(result.rows[0]?.is_muted);
   }
 }
 

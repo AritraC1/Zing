@@ -258,6 +258,7 @@ const chatSlice = createSlice({
         statuses,
         offset = 0,
         hasMore,
+        isLocal,
       } = action.payload;
 
       if (!conversationId || !Array.isArray(messages)) {
@@ -276,8 +277,14 @@ const chatSlice = createSlice({
           state.messages[conversationId],
         );
       } else {
+        // Prepend only messages not already in the list — server pages
+        // can overlap messages served earlier from the local cache.
+        const existingIds = new Set(
+          state.messages[conversationId].map((m) => m.id),
+        );
+        const fresh = filtered.filter((m) => !existingIds.has(m.id));
         state.messages[conversationId] = [
-          ...filtered,
+          ...fresh,
           ...state.messages[conversationId],
         ];
       }
@@ -297,6 +304,25 @@ const chatSlice = createSlice({
         state.messagePagination[conversationId].hasMore = hasMore;
       }
       state.messagePagination[conversationId].loadingOlder = false;
+
+      // serverCount tracks how many messages have been loaded from the
+      // server (as opposed to the local IndexedDB cache) and is used as
+      // the offset for the next older-page fetch. Local (IndexedDB)
+      // pages don't change it. This mirrors the reducer-side math of
+      // the fetch callers: offset + returned messages.
+      if (!isLocal) {
+        state.messagePagination[conversationId].serverCount =
+          offset === 0
+            ? filtered.length
+            : (state.messagePagination[conversationId].serverCount || 0) +
+              filtered.length;
+      } else if (action.payload.serverCount !== undefined) {
+        // Local hydration replaces the list wholesale — callers pass
+        // serverCount explicitly (usually 0, until the fresh server
+        // page-0 response re-anchors it).
+        state.messagePagination[conversationId].serverCount =
+          action.payload.serverCount;
+      }
     },
 
     setLoadingOlderMessages: (state, action) => {
@@ -322,6 +348,14 @@ const chatSlice = createSlice({
           state.presence.lastSeenAt[userId] = lastSeenAt;
         }
       }
+    },
+
+    // Restore a per-conversation status map straight from the local
+    // (IndexedDB) cache — already in map form, no array conversion.
+    setConversationStatuses: (state, action) => {
+      const { conversationId, statuses } = action.payload;
+      if (!conversationId || !statuses) return;
+      state.statuses[conversationId] = statuses;
     },
 
     addCall: (state, action) => {
@@ -361,6 +395,22 @@ const chatSlice = createSlice({
           state.tab = "chats";
           state.selectedChat = chat;
         }
+      }
+    },
+
+    // Per-user mute flag (server-backed like archive). The chat may
+    // live in either list; update wherever it is.
+    setChatMuted: (state, action) => {
+      const { conversationId, muted } = action.payload;
+      if (!conversationId) return;
+
+      const chat =
+        state.chats.find((c) => c.id === conversationId) ||
+        state.archivedChats.find((c) => c.id === conversationId);
+
+      if (chat) {
+        chat.isMuted = Boolean(muted);
+        chat.is_muted = Boolean(muted);
       }
     },
 
@@ -616,8 +666,14 @@ const chatSlice = createSlice({
             state.messages[conversationId],
           );
         } else {
+          // Same overlap guard as setMessages: server pages can repeat
+          // messages the local cache already provided.
+          const existingIds = new Set(
+            state.messages[conversationId].map((m) => m.id),
+          );
+          const fresh = filtered.filter((m) => !existingIds.has(m.id));
           state.messages[conversationId] = [
-            ...filtered,
+            ...fresh,
             ...state.messages[conversationId],
           ];
         }
@@ -634,6 +690,14 @@ const chatSlice = createSlice({
         }
         state.messagePagination[conversationId].hasMore = hasMore ?? false;
         state.messagePagination[conversationId].loadingOlder = false;
+
+        // Track how many messages came from the server (used as the
+        // offset for the next older-page fetch; see setMessages).
+        state.messagePagination[conversationId].serverCount =
+          offset === 0
+            ? filtered.length
+            : (state.messagePagination[conversationId].serverCount || 0) +
+              filtered.length;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.loading = false;
@@ -661,6 +725,7 @@ export const {
   markMessagesRead,
   archiveChat,
   unarchiveChat,
+  setChatMuted,
   setTyping,
   applyMessageEdit,
   applyMessageDelete,
@@ -674,6 +739,7 @@ export const {
   clearHighlightMessage,
   setMessages,
   setLoadingOlderMessages,
+  setConversationStatuses,
   setPresence,
   addCall,
   clearCalls,

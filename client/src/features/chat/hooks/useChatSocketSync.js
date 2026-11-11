@@ -20,6 +20,8 @@ import {
   applyStar,
   archiveChat,
   unarchiveChat,
+  setChatMuted,
+  setConversationStatuses,
 } from "../store/chatReducer";
 import {
   fetchMyChats,
@@ -33,6 +35,9 @@ import {
 } from "../api/chatThunk";
 import { useSocketContext } from "../../../core/socket/useSocketContext";
 import useAuth from "../../auth/hooks/useAuth";
+import * as messageDb from "../local/messageDb";
+import { LOCAL_PAGE_SIZE } from "../local/messageDb";
+import { statusesArrayToMap } from "../store/statusUtils";
 
 const PAGE_SIZE = 50;
 
@@ -182,6 +187,7 @@ export const useChatSocketSync = ({
     const handleNewMessage = (message) => {
       if (!message?.id) return;
       dispatch(addMessage(message));
+      messageDb.saveMessages(message.conversation_id, [message]);
 
       const chatExists = chatsRef.current.some(
         (c) => c.id === message.conversation_id,
@@ -204,6 +210,7 @@ export const useChatSocketSync = ({
           serverMessage: message,
         }),
       );
+      messageDb.saveMessages(message.conversation_id, [message]);
     };
 
     const handleMessageHistory = (data) => {
@@ -219,6 +226,15 @@ export const useChatSocketSync = ({
           hasMore: data.hasMore ?? historyMessages.length === PAGE_SIZE,
         }),
       );
+
+      // Persist the fresh server page into local history.
+      messageDb.saveMessages(data.conversationId, historyMessages);
+      if (historyStatuses.length) {
+        messageDb.saveStatuses(
+          data.conversationId,
+          statusesArrayToMap(historyStatuses),
+        );
+      }
     };
 
     const handleMessageDelivered = (data) => {
@@ -231,6 +247,7 @@ export const useChatSocketSync = ({
           conversationId: convId,
         }),
       );
+      messageDb.saveStatus(convId, messageId, deliveredTo, "delivered");
     };
 
     const handleMessagesRead = (data) => {
@@ -245,6 +262,7 @@ export const useChatSocketSync = ({
             conversationId: convId,
           }),
         );
+        messageDb.saveStatus(convId, messageId, readBy, "seen");
       });
     };
 
@@ -261,11 +279,21 @@ export const useChatSocketSync = ({
     const handleMessageEdited = (data) => {
       if (!data?.messageId || !data?.conversationId) return;
       dispatch(applyMessageEdit(data));
+      messageDb.patchMessage(data.conversationId, data.messageId, {
+        content: data.content,
+        edited_at: data.editedAt || new Date().toISOString(),
+      });
     };
 
     const handleMessageDeleted = (data) => {
       if (!data?.messageId || !data?.conversationId) return;
       dispatch(applyMessageDelete(data));
+      messageDb.patchMessage(data.conversationId, data.messageId, {
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        content: null,
+        secure_url: null,
+      });
     };
 
     // Another device of this user changed the archive flag — keep
@@ -280,6 +308,13 @@ export const useChatSocketSync = ({
       }
     };
 
+    // Another device toggled this conversation's mute flag.
+    const handleChatMuted = (data) => {
+      const { conversationId, muted } = data;
+      if (!conversationId) return;
+      dispatch(setChatMuted({ conversationId, muted }));
+    };
+
     // Reaction list broadcast: the server sends the message's complete,
     // ordered reaction list — replace wholesale.
     const handleMessageReactionUpdated = (data) => {
@@ -291,6 +326,9 @@ export const useChatSocketSync = ({
           reactions: data.reactions,
         }),
       );
+      messageDb.patchMessage(data.conversationId, data.messageId, {
+        reactions: data.reactions,
+      });
     };
 
     // Star state is per-user; the server echoes to this user's devices
@@ -304,6 +342,9 @@ export const useChatSocketSync = ({
           starred: true,
         }),
       );
+      messageDb.patchMessage(data.conversationId, data.messageId, {
+        starred_by_me: true,
+      });
     };
 
     const handleMessageUnstarred = (data) => {
@@ -315,6 +356,9 @@ export const useChatSocketSync = ({
           starred: false,
         }),
       );
+      messageDb.patchMessage(data.conversationId, data.messageId, {
+        starred_by_me: false,
+      });
     };
 
     const handleSocketError = (data) => {
@@ -343,6 +387,7 @@ export const useChatSocketSync = ({
     socket.on("message_starred", handleMessageStarred);
     socket.on("message_unstarred", handleMessageUnstarred);
     socket.on("chat_archived", handleChatArchived);
+    socket.on("chat_muted", handleChatMuted);
     socket.on("error", handleSocketError);
 
     // Ask the server who is already online right now — otherwise users
@@ -364,20 +409,71 @@ export const useChatSocketSync = ({
       socket.off("message_starred", handleMessageStarred);
       socket.off("message_unstarred", handleMessageUnstarred);
       socket.off("chat_archived", handleChatArchived);
+      socket.off("chat_muted", handleChatMuted);
       socket.off("error", handleSocketError);
     };
   }, [socket, dispatch, emit]);
 
+  // Opening a chat: paint instantly from local history (IndexedDB),
+  // then sync the newest page from the server on top (covers messages
+  // missed while offline and refreshes pagination state).
   useEffect(() => {
     if (!selectedChat) return;
 
-    if (isConnected) {
-      emit("fetch_messages", { conversationId: selectedChat.id, offset: 0 });
-    } else {
-      dispatch(
-        fetchMessages({ conversationId: selectedChat.id, offset: 0 }),
-      );
-    }
+    let cancelled = false;
+
+    const openConversation = async () => {
+      const conversationId = selectedChat.id;
+
+      try {
+        const [localMessages, localStatuses] = await Promise.all([
+          messageDb.loadRecentMessages(conversationId, LOCAL_PAGE_SIZE),
+          messageDb.loadStatuses(conversationId),
+        ]);
+
+        if (!cancelled && localMessages.length > 0) {
+          dispatch(
+            setMessages({
+              conversationId,
+              messages: localMessages,
+              statuses: undefined,
+              offset: 0,
+              hasMore: localMessages.length === LOCAL_PAGE_SIZE,
+              isLocal: true,
+              // Hydration replaces the list; the imminent server
+              // page-0 response re-anchors this count.
+              serverCount: 0,
+            }),
+          );
+          if (localStatuses) {
+            dispatch(
+              setConversationStatuses({ conversationId, statuses: localStatuses }),
+            );
+          }
+        }
+      } catch {
+        // Local cache is an optimization — never block the server sync.
+      }
+
+      if (cancelled) return;
+
+      if (isConnected) {
+        emit("fetch_messages", { conversationId, offset: 0 });
+      } else {
+        dispatch(fetchMessages({ conversationId, offset: 0 }))
+          .unwrap()
+          .then((payload) => {
+            messageDb.saveMessages(conversationId, payload?.messages);
+          })
+          .catch(() => {});
+      }
+    };
+
+    openConversation();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedChat?.id, isConnected, emit, dispatch]);
 
   // An edit session belongs to one conversation — switching chats
@@ -767,35 +863,79 @@ export const useChatSocketSync = ({
     dispatch(markMessagesRead({ conversationId: selectedChat.id }));
   }, [selectedChat, isConnected, emit, dispatch]);
 
+  // Scroll-up pagination: IndexedDB first (instant, offline-friendly),
+  // then the server for anything the local cache doesn't hold. The
+  // server offset is `serverCount` — the number of messages already
+  // loaded from the server — not the list length, since the list may
+  // also contain locally-cached pages.
   const loadOlderMessages = useCallback(() => {
     if (!selectedChat || messagePagination.loadingOlder) return;
     if (!messagePagination.hasMore) return;
 
+    const conversationId = selectedChat.id;
+
     dispatch(
       setLoadingOlderMessages({
-        conversationId: selectedChat.id,
+        conversationId,
         loading: true,
       }),
     );
 
-    if (isConnected) {
-      emit("fetch_messages", {
-        conversationId: selectedChat.id,
-        offset: messages.length,
-      });
-    } else {
-      dispatch(
-        fetchMessages({
-          conversationId: selectedChat.id,
-          offset: messages.length,
-        }),
-      );
-    }
+    const load = async () => {
+      // Oldest server-loaded message (optimistic echoes have no
+      // sequence_no and are skipped by the query).
+      const oldest = (messages || []).find((m) => m?.sequence_no != null);
+
+      try {
+        if (oldest) {
+          const localOlder = await messageDb.loadOlderMessages(
+            conversationId,
+            oldest.sequence_no,
+            PAGE_SIZE,
+          );
+
+          if (localOlder.length > 0) {
+            dispatch(
+              setMessages({
+                conversationId,
+                messages: localOlder,
+                offset: 1,
+                hasMore: true,
+                isLocal: true,
+              }),
+            );
+            // A full local page was found — more may exist; done for
+            // this scroll. A partial page falls through to the server
+            // so history never silently stops early.
+            if (localOlder.length === PAGE_SIZE) return;
+          }
+        }
+      } catch {
+        // fall through to the server
+      }
+
+      const serverOffset = messagePagination.serverCount || 0;
+
+      if (isConnected) {
+        emit("fetch_messages", { conversationId, offset: serverOffset });
+      } else {
+        dispatch(
+          fetchMessages({ conversationId, offset: serverOffset }),
+        )
+          .unwrap()
+          .then((payload) => {
+            messageDb.saveMessages(conversationId, payload?.messages);
+          })
+          .catch(() => {});
+      }
+    };
+
+    load();
   }, [
     selectedChat,
     isConnected,
     messagePagination,
-    messages.length,
+    messages,
     emit,
     dispatch,
   ]);

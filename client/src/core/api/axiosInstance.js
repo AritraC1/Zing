@@ -118,10 +118,15 @@ axiosInstance.interceptors.response.use(
         const { resetChat } =
           await import("../../features/chat/store/chatReducer");
         const { persistor } = await import("../../store/store");
+        const { clearAll: clearLocalMessages } = await import(
+          "../../features/chat/local/messageDb"
+        );
 
         // Log the user out
         _store.dispatch(logout());
         _store.dispatch(resetChat());
+        // Local message history lives outside Redux — wipe it too.
+        clearLocalMessages();
         await persistor.purge();
       }
 

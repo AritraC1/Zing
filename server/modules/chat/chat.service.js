@@ -237,6 +237,25 @@ class ChatService {
     return { conversationId, archived: updated.is_archived };
   }
 
+  // Toggle this user's personal mute flag for a conversation. Muted
+  // conversations no longer wake the user via push (Part of the
+  // notifications pipeline).
+  async setMuted(conversationId, userId, muted) {
+    await assertConversationParticipant(conversationId, userId);
+
+    const updated = await this.chatRepo.setParticipantMuted(
+      conversationId,
+      userId,
+      muted,
+    );
+
+    if (!updated) {
+      throw new AppError("Conversation not found", 404);
+    }
+
+    return { conversationId, muted: updated.is_muted };
+  }
+
   // -------------------------------------------------------------
   // Reactions
   // -------------------------------------------------------------

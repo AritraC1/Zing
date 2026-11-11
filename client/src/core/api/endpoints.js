@@ -25,12 +25,16 @@ const ENDPOINTS = {
     STAR: "/chats/conversation/:conversationId/messages/:messageId/star",
     STARRED: "/chats/starred-messages",
     ARCHIVE: "/chats/conversation/:conversationId/archive",
+    MUTE: "/chats/conversation/:conversationId/mute",
   },
   CALLS: {
     HISTORY: "/calls/history",
   },
   MEDIA: {
     UPLOAD_MEDIA: "/media/upload",
+  },
+  NOTIFICATIONS: {
+    REGISTER: "/notifications/register",
   },
   BLOCKS: {
     BLOCK: "/blocks/block",

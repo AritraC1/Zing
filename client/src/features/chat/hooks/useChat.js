@@ -7,6 +7,7 @@ import {
   setTab,
   archiveChat,
   unarchiveChat,
+  setChatMuted,
   markMessagesRead,
   clearCalls,
   setLoadingOlderMessages,
@@ -25,6 +26,7 @@ import {
 import { getMessageStatus } from "../store/statusUtils";
 import {
   archiveChatApi,
+  setMuteApi,
   blockUserApi,
   unblockUserApi,
 } from "../api/chatThunk";
@@ -95,6 +97,21 @@ export const useChat = () => {
     [dispatch],
   );
 
+  // Mute is persisted per-user server-side (push suppression is
+  // enforced there); local state moves first, API reconciles failures.
+  const setChatMutedWithApi = useCallback(
+    (id, muted) => {
+      dispatch(setChatMuted({ conversationId: id, muted }));
+      dispatch(setMuteApi({ conversationId: id, muted }))
+        .unwrap()
+        .catch(() => {
+          dispatch(setChatMuted({ conversationId: id, muted: !muted }));
+          toast.error("Could not update notification settings. Try again.");
+        });
+    },
+    [dispatch],
+  );
+
   // Optimistic block/unblock with rollback if the server rejects it.
   const blockUserWithApi = useCallback(
     (userId) => {
@@ -140,6 +157,7 @@ export const useChat = () => {
     selectChat: (chat) => dispatch(selectChat(chat)),
     archiveChat: archiveChatWithApi,
     unarchiveChat: unarchiveChatWithApi,
+    setMuted: setChatMutedWithApi,
     blockUser: blockUserWithApi,
     unblockUser: unblockUserWithApi,
     markAsRead: () => {

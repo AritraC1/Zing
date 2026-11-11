@@ -21,6 +21,7 @@ const {
   getOnlineUserIds,
   userRoom,
 } = require("../../core/sockets/presence");
+const pushService = require("../notifications/push.service");
 
 const PAGE_SIZE = 50;
 const userRepo = new UserRepository();
@@ -283,6 +284,14 @@ module.exports = (io) => {
           });
 
           socket.emit("message_sent", message);
+
+          // Wake devices with no live socket (best-effort, skips online
+          // and muted recipients). Never blocks the send path.
+          pushService.notifyNewMessage({
+            message,
+            recipientIds: recipientIds,
+            senderId: userId,
+          }).catch(() => {});
         } catch (err) {
           console.error("send_message error:", err.message);
           socket.emit("error", {

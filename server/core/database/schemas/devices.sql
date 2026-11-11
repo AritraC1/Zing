@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS devices (
     identity_public_key TEXT NOT NULL,
     signed_prekey_public TEXT,
     signed_prekey_signature TEXT,
+    push_token TEXT,
+    push_type TEXT,
     last_seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     revoked BOOLEAN DEFAULT FALSE

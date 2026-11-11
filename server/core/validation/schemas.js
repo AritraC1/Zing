@@ -41,6 +41,10 @@ const archiveSchema = z.object({
   archived: z.boolean(),
 });
 
+const muteSchema = z.object({
+  muted: z.boolean(),
+});
+
 const blockUserSchema = z.object({
   userId: z.string().uuid("userId must be a valid UUID"),
 });
@@ -60,6 +64,12 @@ const starSchema = z.object({
   starred: z.boolean(),
 });
 
+const registerTokenSchema = z.object({
+  token: z.string().min(1, "token is required").max(4096),
+  deviceId: z.string().uuid("deviceId must be a valid UUID"),
+  platform: z.enum(["fcm", "webpush"]).optional(),
+});
+
 module.exports = {
   verifyOtpSchema,
   onboardSchema,
@@ -67,7 +77,9 @@ module.exports = {
   sendMessageSchema,
   editMessageSchema,
   archiveSchema,
+  muteSchema,
   blockUserSchema,
   reactionSchema,
   starSchema,
+  registerTokenSchema,
 };

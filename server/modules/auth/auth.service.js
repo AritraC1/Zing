@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const admin = require("../../core/config/firebase.config");
+const { getFirebaseAdmin } = require("../../core/config/firebase.config");
 const UserRepository = require("../users/users.repository");
 const SessionRepository = require("../sessions/sessions.repository");
 const DeviceRepository = require("../device/device.repository");
@@ -21,6 +21,15 @@ class AuthService {
 
   // Verify the Firebase OTP token, create the user if new, and issue tokens
   async verifyOtp({ idToken, deviceId, deviceType }) {
+    const admin = getFirebaseAdmin();
+
+    if (!admin) {
+      throw new AppError(
+        "Authentication is not configured on this server (missing Firebase service account)",
+        503,
+      );
+    }
+
     let phoneNumber;
 
     try {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
+import { useCall } from "../../calls/hooks/useCall";
 import PresenceLabel from "./PresenceLabel";
 import MediaViewer from "./MediaViewer";
 import {
@@ -8,6 +10,7 @@ import {
   Phone,
   Video,
   BellOff,
+  Bell,
   Archive,
   ArrowUpCircle,
   Ban,
@@ -25,13 +28,16 @@ const UserProfileDetails = ({ chat, onClose }) => {
   const {
     archiveChat,
     unarchiveChat,
+    setMuted,
     tab,
     otherUserPresence,
     messages,
     blockedUserIds,
     blockUser,
     unblockUser,
+    isChatBlocked,
   } = useChat();
+  const { callState, startCall } = useCall();
 
   const avatarUrl = chat?.profilePic || chat?.avatarUrl;
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -40,6 +46,40 @@ const UserProfileDetails = ({ chat, onClose }) => {
   const isBlocked = Boolean(
     chat?.otherUserId && blockedUserIds.includes(chat.otherUserId),
   );
+  const isMuted = Boolean(chat?.isMuted ?? chat?.is_muted);
+
+  // Calling is unavailable while blocked (server rejects it too) or
+  // while already inside another call.
+  const canCall = Boolean(
+    chat?.otherUserId && chat?.id && !isBlocked && !isChatBlocked,
+  );
+  const isCallActive = callState !== "idle";
+
+  const handleStartCall = (callType) => {
+    if (!canCall) {
+      toast.error("You can't call this contact.");
+      return;
+    }
+    if (isCallActive) {
+      toast.info("Finish the current call first.");
+      return;
+    }
+
+    startCall({
+      peerId: chat.otherUserId,
+      conversationId: chat.id,
+      callType,
+      name: chat.name,
+      avatarUrl: avatarUrl,
+    });
+    onClose();
+  };
+
+  const handleToggleMute = () => {
+    if (!chat?.id) return;
+    setMuted(chat.id, !isMuted);
+    // The pane stays open so the label flips in place.
+  };
 
   // Reset transient state when switching to a different chat.
   useEffect(() => {
@@ -210,18 +250,21 @@ const UserProfileDetails = ({ chat, onClose }) => {
               label="Voice Call"
               iconBg="bg-green-100"
               iconColor="text-green-600"
+              onClick={() => handleStartCall("audio")}
             />
             <ActionItem
               icon={<Video size={16} />}
               label="Video Call"
               iconBg="bg-blue-100"
               iconColor="text-blue-600"
+              onClick={() => handleStartCall("video")}
             />
             <ActionItem
-              icon={<BellOff size={16} />}
-              label="Mute Notifications"
+              icon={isMuted ? <Bell size={16} /> : <BellOff size={16} />}
+              label={isMuted ? "Unmute Notifications" : "Mute Notifications"}
               iconBg="bg-yellow-100"
               iconColor="text-yellow-600"
+              onClick={handleToggleMute}
             />
 
             {tab === "chats" ? (

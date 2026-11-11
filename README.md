@@ -17,8 +17,10 @@ The project is organized into two main parts:
 
 - Firebase phone (OTP) authentication; server issues JWT access + refresh cookies
 - Real-time one-to-one chat via Socket.IO with delivery and read-state updates
-- Message history with pagination and clientMsgId-based dedupe/idempotency
+- Message history with WhatsApp-style pagination (newest page first, scroll up for older), clientMsgId-based dedupe/idempotency, and an offline IndexedDB message cache that survives reloads
 - Media upload support via Multer and Cloudinary
+- Web Push (FCM) notifications: offline devices are woken for new messages, with per-conversation mute respected server-side
+- Per-user conversation actions: archive and mute notifications (synced across devices), block/unblock, voice/video call from the contact pane
 - Redux state persistence for a smoother session experience
 - Account deletion with full session revocation
 - Landing page, onboarding, profile setup, settings, and archived chats UI
@@ -102,7 +104,10 @@ VITE_FIREBASE_STORAGE_BUCKET=your-bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
+VITE_FIREBASE_VAPID_KEY=your-web-push-certificate-key
 ```
+
+`VITE_FIREBASE_VAPID_KEY` enables Web Push notifications — generate it in the Firebase console under Project settings → Cloud Messaging → Web Push certificates. Without it the app works normally but never registers for push. The Firebase Messaging service worker (`client/public/firebase-messaging-sw.js`) is generated automatically from these env vars by `npm run dev`/`npm run build` (see `client/scripts/`).
 
 ## Running the Project
 
@@ -193,7 +198,7 @@ This workflow is a helpful reference for the expected validation steps before op
 
 ## API and Real-Time Notes
 
-- API routes are mounted under `/api` (auth, users, chats, media).
+- API routes are mounted under `/api` (auth, users, chats, media, calls, blocks, notifications).
 - Swagger docs are generated from JSDoc annotations in `server/docs/` and served at `/api-docs`.
 - Socket.IO is configured for real-time messaging and uses CORS settings that allow the Vite frontend and Docker origins.
 - Authentication tokens are attached through Axios interceptors and socket auth middleware; refresh tokens are verified against hashed DB sessions.

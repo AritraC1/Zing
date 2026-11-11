@@ -142,6 +142,23 @@ export const archiveChatApi = createAsyncThunk(
   },
 );
 
+// Persist this user's per-conversation mute flag (push suppression is
+// enforced server-side).
+export const setMuteApi = createAsyncThunk(
+  "chat/setMuteApi",
+  async ({ conversationId, muted }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.post(
+        ENDPOINTS.CHAT.MUTE.replace(":conversationId", conversationId),
+        { muted },
+      );
+      return { conversationId, muted: res.data?.muted ?? muted };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
 // Set or remove an emoji reaction over HTTP (socket fallback). The
 // server returns the message's full reaction list.
 export const setReactionRest = createAsyncThunk(

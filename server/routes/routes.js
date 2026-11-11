@@ -6,6 +6,7 @@ const chatRoutes = require("../modules/chat/chat.routes");
 const mediaRoutes = require("../modules/media/media.routes");
 const callsRoutes = require("../modules/calls/calls.routes");
 const blocksRoutes = require("../modules/blocks/blocks.routes");
+const notificationsRoutes = require("../modules/notifications/notifications.routes");
 
 const router = express.Router();
 
@@ -15,5 +16,6 @@ router.use("/chats", chatRoutes);
 router.use("/media", mediaRoutes);
 router.use("/calls", callsRoutes);
 router.use("/blocks", blocksRoutes);
+router.use("/notifications", notificationsRoutes);
 
 module.exports = router;

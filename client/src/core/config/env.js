@@ -13,6 +13,10 @@ class ENV {
   static firebaseMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
   static firebaseAppId = import.meta.env.VITE_FIREBASE_APP_ID;
   static firebaseMeasurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
+
+  // Web Push certificate key for FCM getToken() (Firebase console →
+  // Project settings → Cloud Messaging → Web Push certificates).
+  static vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 }
 
 export default ENV;

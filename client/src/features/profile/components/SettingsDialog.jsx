@@ -3,6 +3,7 @@ import { X, LogOut, User } from "lucide-react";
 import { logout } from "../../auth/store/authReducer";
 import { logoutThunk } from "../../auth/api/authThunk";
 import { resetChat } from "../../chat/store/chatReducer";
+import { clearAll as clearLocalMessages } from "../../chat/local/messageDb";
 import { persistor } from "../../../store/store";
 import { useNavigate } from "react-router-dom";
 import UpdateProfileModal from "./UpdateProfileModal";
@@ -33,6 +34,8 @@ const SettingsDialog = ({ open, onClose }) => {
     } finally {
       dispatch(logout());
       dispatch(resetChat());
+      // Local message history lives outside Redux — wipe it too.
+      clearLocalMessages();
       await persistor.purge();
       navigate("/");
     }
