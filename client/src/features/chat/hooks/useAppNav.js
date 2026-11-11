@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { MessageCircle, Archive, Phone } from "lucide-react";
+import { MessageCircle, Archive, Phone, Star } from "lucide-react";
 import { useChat } from "./useChat";
 
 /**
@@ -44,6 +44,18 @@ export const useAppNav = () => {
       },
     });
   }
+
+  items.push({
+    id: "starred",
+    label: "Starred",
+    icon: Star,
+    badge: 0,
+    active: pathname === "/chat" && tab === "starred",
+    onClick: () => {
+      setTab("starred");
+      navigate("/chat");
+    },
+  });
 
   items.push({
     id: "calls",

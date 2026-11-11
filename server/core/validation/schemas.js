@@ -26,6 +26,38 @@ const sendMessageSchema = z.object({
   msgType: z.enum(["text", "media"]).optional(),
   mediaId: z.string().uuid().nullish(),
   forwardedFromId: z.string().uuid().nullish(),
+  replyToId: z.string().uuid().nullish(),
+});
+
+const editMessageSchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(1, "content is required")
+    .max(4096, "content must be at most 4096 characters"),
+});
+
+const archiveSchema = z.object({
+  archived: z.boolean(),
+});
+
+const blockUserSchema = z.object({
+  userId: z.string().uuid("userId must be a valid UUID"),
+});
+
+// Emoji reactions: fixed palette enforced server-side too.
+const reactionSchema = z.object({
+  emoji: z.enum(["👍", "❤️", "😂", "😮", "😢", "🙏"], {
+    errorMap: () => ({
+      message: "emoji must be one of 👍 ❤️ 😂 😮 😢 🙏",
+    }),
+  }),
+  action: z.enum(["add", "remove"]),
+});
+
+// Star/unstar a message (per-user bookmark).
+const starSchema = z.object({
+  starred: z.boolean(),
 });
 
 module.exports = {
@@ -33,4 +65,9 @@ module.exports = {
   onboardSchema,
   createConversationSchema,
   sendMessageSchema,
+  editMessageSchema,
+  archiveSchema,
+  blockUserSchema,
+  reactionSchema,
+  starSchema,
 };

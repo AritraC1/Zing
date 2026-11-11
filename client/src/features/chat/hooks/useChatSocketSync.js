@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
@@ -13,8 +13,24 @@ import {
   markMessagesRead,
   setPresence,
   setLoadingOlderMessages,
+  setTyping,
+  applyMessageEdit,
+  applyMessageDelete,
+  applyReaction,
+  applyStar,
+  archiveChat,
+  unarchiveChat,
 } from "../store/chatReducer";
-import { fetchMyChats, fetchMessages, sendMessageRest } from "../api/chatThunk";
+import {
+  fetchMyChats,
+  fetchMessages,
+  sendMessageRest,
+  editMessageRest,
+  deleteMessageRest,
+  setReactionRest,
+  setStarredRest,
+  fetchBlockedUsers,
+} from "../api/chatThunk";
 import { useSocketContext } from "../../../core/socket/useSocketContext";
 import useAuth from "../../auth/hooks/useAuth";
 
@@ -52,6 +68,12 @@ export const useChatSocketSync = ({
   const chatsRef = useRef(chats);
   const wasConnectedRef = useRef(isConnected);
 
+  // In-progress message edit (shown as a banner in the composer).
+  const [editingMessage, setEditingMessage] = useState(null);
+
+  // Message being replied to (quoted above the composer).
+  const [replyingMessage, setReplyingMessage] = useState(null);
+
   useEffect(() => {
     chatsRef.current = chats;
   }, [chats]);
@@ -59,6 +81,9 @@ export const useChatSocketSync = ({
   useEffect(() => {
     if (isAuthenticated) {
       dispatch(fetchMyChats());
+      // Mirror the server's block list so sending UI can be disabled
+      // and profile actions show the right label.
+      dispatch(fetchBlockedUsers());
     }
   }, [dispatch, isAuthenticated]);
 
@@ -70,6 +95,9 @@ export const useChatSocketSync = ({
         content: msg.content?.trim() || "",
         mediaId: msg.media_id || msg.mediaId || null,
         msgType: msg.msg_type || msg.msgType || "text",
+        forwardedFromId:
+          msg.forwarded_from_id || msg.forwardedFromId || null,
+        replyToId: msg.reply_to_id || msg.replyToId || null,
       });
     },
     [emit],
@@ -90,6 +118,9 @@ export const useChatSocketSync = ({
               content: msg.content?.trim() || "",
               mediaId: msg.media_id || msg.mediaId || null,
               msgType: msg.msg_type || msg.msgType || "text",
+              forwardedFromId:
+                msg.forwarded_from_id || msg.forwardedFromId || null,
+              replyToId: msg.reply_to_id || msg.replyToId || null,
             }),
           ).unwrap();
 
@@ -101,11 +132,15 @@ export const useChatSocketSync = ({
               }),
             );
           }
-        } catch {
+        } catch (errPayload) {
           dispatch(
             markMessageFailed({ clientMsgId, conversationId }),
           );
-          toast.error("Message not delivered yet. Tap to retry.");
+          // Surface the server's reason (e.g. "You blocked this
+          // contact.") instead of a generic retry prompt when we have it.
+          toast.error(
+            errPayload?.message || "Message not delivered yet. Tap to retry.",
+          );
         }
       };
       run();
@@ -218,6 +253,70 @@ export const useChatSocketSync = ({
       dispatch(setPresence({ userId, online, lastSeenAt }));
     };
 
+    const handleTypingUpdate = (data) => {
+      const { conversationId, userId: typingUserId, isTyping } = data;
+      dispatch(setTyping({ conversationId, userId: typingUserId, isTyping }));
+    };
+
+    const handleMessageEdited = (data) => {
+      if (!data?.messageId || !data?.conversationId) return;
+      dispatch(applyMessageEdit(data));
+    };
+
+    const handleMessageDeleted = (data) => {
+      if (!data?.messageId || !data?.conversationId) return;
+      dispatch(applyMessageDelete(data));
+    };
+
+    // Another device of this user changed the archive flag — keep
+    // local lists in step instead of waiting for the next refetch.
+    const handleChatArchived = (data) => {
+      const { conversationId, archived } = data;
+      if (!conversationId) return;
+      if (archived) {
+        dispatch(archiveChat(conversationId));
+      } else {
+        dispatch(unarchiveChat(conversationId));
+      }
+    };
+
+    // Reaction list broadcast: the server sends the message's complete,
+    // ordered reaction list — replace wholesale.
+    const handleMessageReactionUpdated = (data) => {
+      if (!data?.messageId || !data?.conversationId) return;
+      dispatch(
+        applyReaction({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+          reactions: data.reactions,
+        }),
+      );
+    };
+
+    // Star state is per-user; the server echoes to this user's devices
+    // only. Other users' stars are never seen here.
+    const handleMessageStarred = (data) => {
+      if (!data?.messageId || !data?.conversationId) return;
+      dispatch(
+        applyStar({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+          starred: true,
+        }),
+      );
+    };
+
+    const handleMessageUnstarred = (data) => {
+      if (!data?.messageId || !data?.conversationId) return;
+      dispatch(
+        applyStar({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+          starred: false,
+        }),
+      );
+    };
+
     const handleSocketError = (data) => {
       const message = data?.message || "Something went wrong";
       if (data?.clientMsgId && data?.conversationId) {
@@ -237,6 +336,13 @@ export const useChatSocketSync = ({
     socket.on("message_delivered", handleMessageDelivered);
     socket.on("messages_read", handleMessagesRead);
     socket.on("presence_update", handlePresenceUpdate);
+    socket.on("typing_update", handleTypingUpdate);
+    socket.on("message_edited", handleMessageEdited);
+    socket.on("message_deleted", handleMessageDeleted);
+    socket.on("message_reaction_updated", handleMessageReactionUpdated);
+    socket.on("message_starred", handleMessageStarred);
+    socket.on("message_unstarred", handleMessageUnstarred);
+    socket.on("chat_archived", handleChatArchived);
     socket.on("error", handleSocketError);
 
     // Ask the server who is already online right now — otherwise users
@@ -251,6 +357,13 @@ export const useChatSocketSync = ({
       socket.off("message_delivered", handleMessageDelivered);
       socket.off("messages_read", handleMessagesRead);
       socket.off("presence_update", handlePresenceUpdate);
+      socket.off("typing_update", handleTypingUpdate);
+      socket.off("message_edited", handleMessageEdited);
+      socket.off("message_deleted", handleMessageDeleted);
+      socket.off("message_reaction_updated", handleMessageReactionUpdated);
+      socket.off("message_starred", handleMessageStarred);
+      socket.off("message_unstarred", handleMessageUnstarred);
+      socket.off("chat_archived", handleChatArchived);
       socket.off("error", handleSocketError);
     };
   }, [socket, dispatch, emit]);
@@ -266,6 +379,19 @@ export const useChatSocketSync = ({
       );
     }
   }, [selectedChat?.id, isConnected, emit, dispatch]);
+
+  // An edit session belongs to one conversation — switching chats
+  // cancels it so the composer banner never points at stale content.
+  // (Derived in MessageInput from the selected chat instead of a
+  // setState-in-effect, which cascades renders.)
+
+  // Don't leak a pending "stopped typing" timer across mounts.
+  useEffect(
+    () => () => {
+      clearTimeout(typingStopTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectedChat || !isConnected) return;
@@ -304,11 +430,22 @@ export const useChatSocketSync = ({
       const msgType = payload?.msgType || (mediaId ? "media" : "text");
       const mimeType = typeof payload === "object" ? payload?.mimeType : null;
       const previewUrl = typeof payload === "object" ? payload?.previewUrl : null;
+      const forwardedFromId =
+        typeof payload === "object" ? payload?.forwardedFromId || null : null;
+      // Reply/quote: the hook owns the replying state (MessageInput shows
+      // the banner); it is cleared once the send is queued.
+      const replyToId =
+        (typeof payload === "object" ? payload?.replyToId || null : null) ||
+        (replyingMessage?.conversation_id === selectedChat?.id
+          ? replyingMessage.id
+          : null);
 
       if ((!content || !content.trim()) && !mediaId) return;
 
       const clientMsgId = uuidv4();
       const trimmedContent = content?.trim() || "";
+
+      setReplyingMessage(null);
 
       dispatch(
         addOptimisticMessage({
@@ -318,6 +455,8 @@ export const useChatSocketSync = ({
           content: trimmedContent,
           media_id: mediaId,
           msg_type: msgType,
+          forwarded_from_id: forwardedFromId,
+          reply_to_id: replyToId,
           // Local preview so the sender sees the image/audio immediately,
           // before the server echo brings the real secure_url.
           mime_type: mimeType,
@@ -333,6 +472,8 @@ export const useChatSocketSync = ({
           content: trimmedContent,
           mediaId,
           msgType,
+          forwardedFromId,
+          replyToId,
         });
       } else {
         // Socket unavailable — send over HTTP in the background. The
@@ -341,11 +482,281 @@ export const useChatSocketSync = ({
         sendViaRest(
           selectedChat.id,
           clientMsgId,
-          { content: trimmedContent, media_id: mediaId, msg_type: msgType },
+          {
+            content: trimmedContent,
+            media_id: mediaId,
+            msg_type: msgType,
+            forwarded_from_id: forwardedFromId,
+            reply_to_id: replyToId,
+          },
         );
       }
     },
-    [selectedChat, user, isConnected, dispatch, emit, sendViaRest],
+    [
+      selectedChat,
+      user,
+      isConnected,
+      dispatch,
+      emit,
+      sendViaRest,
+      replyingMessage,
+    ],
+  );
+
+  // Typing indicator: emit start on the first keystroke, then a stop
+  // after a short idle window (the server also relays these to peers).
+  const sendTyping = useCallback(
+    (isTyping) => {
+      if (!selectedChat || !isConnected) return;
+      emit("typing", { conversationId: selectedChat.id, isTyping });
+    },
+    [selectedChat, isConnected, emit],
+  );
+
+  // Keeps the "stopped typing" emit exactly once per idle window.
+  const typingStopTimerRef = useRef(null);
+
+  // ----- Message editing -----
+
+  const startEdit = useCallback((message) => {
+    if (!message?.id || message.is_deleted) return;
+    setEditingMessage(message);
+  }, []);
+
+  const cancelEdit = useCallback(() => setEditingMessage(null), []);
+
+  // ----- Replies / quoting -----
+
+  const startReply = useCallback((message) => {
+    if (!message?.id || message.is_deleted) return;
+    setReplyingMessage(message);
+  }, []);
+
+  const cancelReply = useCallback(() => setReplyingMessage(null), []);
+
+  // ----- Reactions -----
+  // Optimistic toggle; the server broadcast (or REST response) then
+  // replaces the list with the canonical ordered one.
+
+  const reactToMessage = useCallback(
+    (message, emoji) => {
+      if (!message?.id || !user?.id || !emoji) return;
+      const conversationId = message.conversation_id;
+      if (!conversationId) return;
+
+      const reactions = message.reactions || [];
+      const mine = reactions.some(
+        (r) => r.userId === user.id && r.emoji === emoji,
+      );
+      const action = mine ? "remove" : "add";
+
+      const optimistic = mine
+        ? reactions.filter(
+            (r) => !(r.userId === user.id && r.emoji === emoji),
+          )
+        : [
+            ...reactions,
+            { userId: user.id, emoji, createdAt: new Date().toISOString() },
+          ];
+
+      dispatch(
+        applyReaction({
+          conversationId,
+          messageId: message.id,
+          reactions: optimistic,
+        }),
+      );
+
+      const revert = () =>
+        dispatch(
+          applyReaction({
+            conversationId,
+            messageId: message.id,
+            reactions,
+          }),
+        );
+
+      if (isConnected) {
+        emit("react_to_message", {
+          conversationId,
+          messageId: message.id,
+          emoji,
+          action,
+        });
+      } else {
+        dispatch(
+          setReactionRest({
+            conversationId,
+            messageId: message.id,
+            emoji,
+            action,
+          }),
+        )
+          .unwrap()
+          .then((res) =>
+            dispatch(
+              applyReaction({
+                conversationId,
+                messageId: message.id,
+                reactions: res?.reactions,
+              }),
+            ),
+          )
+          .catch(() => {
+            revert();
+            toast.error("Could not update reaction. Try again.");
+          });
+      }
+    },
+    [user, isConnected, dispatch, emit],
+  );
+
+  // ----- Starred messages -----
+  // Per-user bookmark: optimistic flip, reconciled by the server echo.
+
+  const toggleStar = useCallback(
+    (message) => {
+      if (!message?.id) return;
+      const conversationId = message.conversation_id;
+      if (!conversationId) return;
+
+      const starred = !message.starred_by_me;
+
+      dispatch(
+        applyStar({
+          conversationId,
+          messageId: message.id,
+          starred,
+        }),
+      );
+
+      if (isConnected) {
+        emit("star_message", {
+          conversationId,
+          messageId: message.id,
+          starred,
+        });
+      } else {
+        dispatch(
+          setStarredRest({
+            conversationId,
+            messageId: message.id,
+            starred,
+          }),
+        ).unwrap().catch(() =>
+          toast.error("Could not update star. Try again."),
+        );
+      }
+    },
+    [isConnected, dispatch, emit],
+  );
+
+  const submitEdit = useCallback(
+    (newContent) => {
+      if (!editingMessage?.id || !newContent?.trim()) return;
+      const conversationId = editingMessage.conversation_id;
+      const messageId = editingMessage.id;
+
+      setEditingMessage(null);
+
+      if (isConnected) {
+        emit("edit_message", {
+          conversationId,
+          messageId,
+          content: newContent.trim(),
+        });
+        return;
+      }
+
+      dispatch(
+        editMessageRest({ conversationId, messageId, content: newContent }),
+      )
+        .unwrap()
+        .then((res) => {
+          dispatch(
+            applyMessageEdit({
+              conversationId,
+              messageId,
+              content: res?.content ?? newContent.trim(),
+              editedAt: res?.editedAt,
+            }),
+          );
+        })
+        .catch(() => toast.error("Could not edit message. Try again."));
+    },
+    [editingMessage, isConnected, emit, dispatch],
+  );
+
+  // Soft-delete for everyone in the conversation.
+  const deleteMessage = useCallback(
+    (message) => {
+      const conversationId = message?.conversation_id || selectedChat?.id;
+      const messageId = message?.id;
+      if (!conversationId || !messageId) return;
+
+      if (isConnected) {
+        emit("delete_message", { conversationId, messageId });
+        return;
+      }
+
+      dispatch(deleteMessageRest({ conversationId, messageId }))
+        .unwrap()
+        .then(() => {
+          dispatch(applyMessageDelete({ conversationId, messageId }));
+        })
+        .catch(() => toast.error("Could not delete message. Try again."));
+    },
+    [selectedChat, isConnected, emit, dispatch],
+  );
+
+  // Forward a message into a (possibly different) conversation. Uses
+  // the same send pipeline with forwardedFromId so the server stores
+  // the provenance and recipients see the "Forwarded" label.
+  const forwardMessageTo = useCallback(
+    (targetConversationId, message) => {
+      if (!targetConversationId || !message || !user?.id) return;
+
+      const content = message.content || "";
+      const mediaId = message.media_id || null;
+      const msgType = message.msg_type || (mediaId ? "media" : "text");
+      const clientMsgId = uuidv4();
+
+      dispatch(
+        addOptimisticMessage({
+          client_msg_id: clientMsgId,
+          conversation_id: targetConversationId,
+          sender_id: user.id,
+          content,
+          media_id: mediaId,
+          msg_type: msgType,
+          forwarded_from_id: message.id,
+          mime_type: message.mime_type || null,
+          secure_url: message.secure_url || null,
+          created_at: new Date().toISOString(),
+        }),
+      );
+
+      const restPayload = {
+        content,
+        media_id: mediaId,
+        msg_type: msgType,
+        forwarded_from_id: message.id,
+      };
+
+      if (isConnected) {
+        emit("send_message", {
+          conversationId: targetConversationId,
+          clientMsgId,
+          content,
+          mediaId,
+          msgType,
+          forwardedFromId: message.id,
+        });
+      } else {
+        sendViaRest(targetConversationId, clientMsgId, restPayload);
+      }
+    },
+    [user, isConnected, emit, dispatch, sendViaRest],
   );
 
   const markAsRead = useCallback(() => {
@@ -389,5 +800,22 @@ export const useChatSocketSync = ({
     dispatch,
   ]);
 
-  return { sendMessage, markAsRead, loadOlderMessages, retryMessage };
+  return {
+    sendMessage,
+    markAsRead,
+    loadOlderMessages,
+    retryMessage,
+    sendTyping,
+    editingMessage,
+    startEdit,
+    cancelEdit,
+    submitEdit,
+    deleteMessage,
+    forwardMessageTo,
+    replyToMessage: replyingMessage,
+    startReply,
+    cancelReply,
+    reactToMessage,
+    toggleStar,
+  };
 };

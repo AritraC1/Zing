@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ArchivedChats from "../components/ArchivedChats";
+import StarredMessages from "../components/StarredMessages";
 import ChatList from "../components/ChatList";
 import IconSidebar from "../components/IconSidebar";
 import { useChat } from "../hooks/useChat";
@@ -44,6 +45,7 @@ const ChatLayout = ({ children }) => {
 
           {tab === "chats" && <ChatList />}
           {tab === "archive" && <ArchivedChats />}
+          {tab === "starred" && <StarredMessages />}
 
           {children}
         </div>
@@ -58,6 +60,7 @@ const ChatLayout = ({ children }) => {
         <div className="absolute inset-0 bg-gray-100">
           {tab === "chats" && <ChatList />}
           {tab === "archive" && <ArchivedChats />}
+          {tab === "starred" && <StarredMessages />}
         </div>
 
         {/* Conversation slide-over */}

@@ -32,8 +32,10 @@ const corsOptions = {
 // For Socket
 const http = require("http");
 const { Server } = require("socket.io");
+const { createAdapter } = require("@socket.io/redis-adapter");
 const socketHandler = require("./core/config/socket");
 const checkSocketForJwt = require("./modules/auth/socketAuth.middleware");
+const redisConfig = require("./core/config/redis.config");
 
 // Declarations
 const app = express();
@@ -66,8 +68,23 @@ app.use("/api", routes);
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 app.use(errorHandler);
 
-// Socket Setup
+// Socket Setup. Handlers attach immediately so no early connection is
+// missed. When Redis is configured, the Redis adapter is swapped in
+// once connected so room fan-out (user:<id>) and io.emit reach sockets
+// on every Node instance — required once multiple api containers run
+// behind a load balancer. Failure to connect keeps the default
+// in-memory adapter.
 socketHandler(io);
+
+(async () => {
+  const ready = await redisConfig.whenReady();
+  if (ready) {
+    io.adapter(createAdapter(redisConfig.redisPub, redisConfig.redisSub));
+    console.log("Socket.IO Redis adapter enabled");
+  } else if (process.env.REDIS_URL) {
+    console.warn("Redis unavailable — running with in-memory adapter");
+  }
+})();
 
 // Graceful shutdown
 let isShuttingDown = false;
@@ -83,6 +100,8 @@ async function shutdown(signal) {
       // Close socket.io
       await new Promise((resolve) => io.close(resolve));
       console.log("Socket.IO closed");
+      // Close redis clients (no-op when Redis is disabled)
+      await redisConfig.close();
       // Close pg pool
       await dbPool.end();
       console.log("Database pool closed");

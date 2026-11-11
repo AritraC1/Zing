@@ -16,4 +16,13 @@ module.exports = {
       ioInstance.to(`user:${recipientId}`).emit("new_message", message);
     });
   },
+
+  // Generic fan-out for other chat events (edits, deletes, archive
+  // state) so REST endpoints behave the same as the socket path.
+  notifyEvent(event, payload, recipientIds) {
+    if (!ioInstance || !payload) return;
+    (recipientIds || []).forEach((recipientId) => {
+      ioInstance.to(`user:${recipientId}`).emit(event, payload);
+    });
+  },
 };

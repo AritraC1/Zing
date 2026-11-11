@@ -61,7 +61,7 @@ export const fetchMessages = createAsyncThunk(
 export const sendMessageRest = createAsyncThunk(
   "chat/sendMessageRest",
   async (
-    { conversationId, clientMsgId, content, mediaId, msgType },
+    { conversationId, clientMsgId, content, mediaId, msgType, forwardedFromId, replyToId },
     thunkAPI,
   ) => {
     try {
@@ -70,7 +70,7 @@ export const sendMessageRest = createAsyncThunk(
           ":conversationId",
           conversationId,
         ),
-        { clientMsgId, content, mediaId, msgType },
+        { clientMsgId, content, mediaId, msgType, forwardedFromId, replyToId },
       );
       return {
         conversationId,
@@ -83,6 +83,159 @@ export const sendMessageRest = createAsyncThunk(
         clientMsgId,
         error: err.response?.data || err.message,
       });
+    }
+  },
+);
+
+// Edit a text message over HTTP (socket fallback). Server authorizes
+// the sender and returns the updated timestamps.
+export const editMessageRest = createAsyncThunk(
+  "chat/editMessageRest",
+  async ({ conversationId, messageId, content }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.patch(
+        ENDPOINTS.CHAT.EDIT_MESSAGE.replace(
+          ":conversationId",
+          conversationId,
+        ).replace(":messageId", messageId),
+        { content },
+      );
+      return res.data;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Soft-delete a message over HTTP (socket fallback).
+export const deleteMessageRest = createAsyncThunk(
+  "chat/deleteMessageRest",
+  async ({ conversationId, messageId }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.delete(
+        ENDPOINTS.CHAT.DELETE_MESSAGE.replace(
+          ":conversationId",
+          conversationId,
+        ).replace(":messageId", messageId),
+      );
+      return { conversationId, messageId, ...res.data };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Persist this user's archive flag for a conversation so it syncs
+// across devices and survives re-logins.
+export const archiveChatApi = createAsyncThunk(
+  "chat/archiveChatApi",
+  async ({ conversationId, archived }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.post(
+        ENDPOINTS.CHAT.ARCHIVE.replace(":conversationId", conversationId),
+        { archived },
+      );
+      return { conversationId, archived: res.data?.archived ?? archived };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Set or remove an emoji reaction over HTTP (socket fallback). The
+// server returns the message's full reaction list.
+export const setReactionRest = createAsyncThunk(
+  "chat/setReactionRest",
+  async ({ conversationId, messageId, emoji, action }, thunkAPI) => {
+    try {
+      const res = await axiosInstance({
+        method: action === "add" ? "put" : "delete",
+        url: ENDPOINTS.CHAT.REACTION.replace(
+          ":conversationId",
+          conversationId,
+        ).replace(":messageId", messageId),
+        data: { emoji, action },
+      });
+      return {
+        conversationId,
+        messageId,
+        reactions: res.data?.reactions ?? [],
+      };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Star / unstar a message over HTTP (socket fallback). Per-user state.
+export const setStarredRest = createAsyncThunk(
+  "chat/setStarredRest",
+  async ({ conversationId, messageId, starred }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.post(
+        ENDPOINTS.CHAT.STAR.replace(":conversationId", conversationId).replace(
+          ":messageId",
+          messageId,
+        ),
+        { starred },
+      );
+      return {
+        conversationId,
+        messageId,
+        starred: res.data?.starred ?? starred,
+      };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// The user's starred messages across all conversations.
+export const fetchStarredMessages = createAsyncThunk(
+  "chat/fetchStarredMessages",
+  async (_, thunkAPI) => {
+    try {
+      const res = await axiosInstance.get(ENDPOINTS.CHAT.STARRED);
+      return res.data?.starredMessages ?? [];
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+// Blocking — the server enforces delivery; the client mirrors the list.
+export const fetchBlockedUsers = createAsyncThunk(
+  "chat/fetchBlockedUsers",
+  async (_, thunkAPI) => {
+    try {
+      const res = await axiosInstance.get(ENDPOINTS.BLOCKS.LIST);
+      return res.data.blockedUserIds ?? [];
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+export const blockUserApi = createAsyncThunk(
+  "chat/blockUserApi",
+  async (userId, thunkAPI) => {
+    try {
+      await axiosInstance.post(ENDPOINTS.BLOCKS.BLOCK, { userId });
+      return userId;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
+export const unblockUserApi = createAsyncThunk(
+  "chat/unblockUserApi",
+  async (userId, thunkAPI) => {
+    try {
+      await axiosInstance.post(ENDPOINTS.BLOCKS.UNBLOCK, { userId });
+      return userId;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
     }
   },
 );

@@ -8,6 +8,7 @@
 const ChatRepository = require("../chat/chat.repository");
 const { assertConversationParticipant } = require("../chat/chat.access");
 const CallsRepository = require("./calls.repository");
+const BlocksRepository = require("../blocks/blocks.repository");
 const { isUserOnline, userRoom } = require("../../core/sockets/presence");
 const UserRepository = require("../users/users.repository");
 const { buildMediaUrl } = require("../../utils/mediaUrl");
@@ -17,6 +18,7 @@ const RING_TIMEOUT_MS = 45 * 1000;
 const callsRepo = new CallsRepository();
 const chatRepo = new ChatRepository();
 const userRepo = new UserRepository();
+const blocksRepo = new BlocksRepository();
 
 // callId -> { callerId, calleeId, conversationId, callType, status, timeout }
 const activeCalls = new Map();
@@ -123,6 +125,20 @@ module.exports = (io) => {
           return;
         }
 
+        // A block in either direction stops calls for the pair, exactly
+        // like it stops messaging.
+        const blocked = await blocksRepo.findBlockedBetween(userId, [calleeId]);
+        if (blocked) {
+          const youBlocked = String(blocked.blocker_id) === String(userId);
+          respond({
+            error: youBlocked
+              ? "You blocked this contact. Unblock them to make calls."
+              : "You can't call this contact.",
+            reason: "blocked",
+          });
+          return;
+        }
+
         if (findActiveCallForUser(userId)) {
           respond({ error: "You are already in a call" });
           return;
@@ -133,7 +149,7 @@ module.exports = (io) => {
           return;
         }
 
-        if (!isUserOnline(calleeId)) {
+        if (!(await isUserOnline(calleeId))) {
           respond({ error: "User is not available", reason: "unavailable" });
           return;
         }

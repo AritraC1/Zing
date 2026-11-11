@@ -5,9 +5,6 @@ class ENV {
   // Socket url
   static socketUrl = import.meta.env.VITE_SOCKET_URL;
 
-  // QR Value
-  static qrValue = import.meta.env.VITE_QRVALUE;
-
   // Firebase
   static firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
   static firebaseAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;

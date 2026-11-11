@@ -95,7 +95,6 @@ Create `client/.env` (start from `client/.env.example`):
 ```env
 VITE_BASE_URL=http://localhost:3000/api
 VITE_SOCKET_URL=http://localhost:3000
-VITE_QRVALUE=your-qr-value
 VITE_FIREBASE_API_KEY=your-key
 VITE_FIREBASE_AUTH_DOMAIN=your-domain
 VITE_FIREBASE_PROJECT_ID=your-project-id

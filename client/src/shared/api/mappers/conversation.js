@@ -45,6 +45,7 @@ export function toConversation(raw) {
     message: lastMessage,
     time: formatChatTime(lastMessageAt),
     unreadCount: Number(raw.unreadCount ?? raw.unread_count ?? 0),
+    isArchived: Boolean(raw.isArchived ?? raw.is_archived ?? false),
     otherUserLastSeenAt:
       raw.otherUserLastSeenAt ?? raw.other_user_last_seen_at ?? null,
   };

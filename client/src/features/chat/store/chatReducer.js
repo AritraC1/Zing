@@ -4,6 +4,7 @@ import {
   fetchMessages,
   fetchMyChats,
   fetchCallHistory,
+  fetchStarredMessages,
 } from "../api/chatThunk";
 import { formatChatTime } from "../../../shared/utils/formatChatTime";
 import { statusesArrayToMap, upsertStatus } from "./statusUtils";
@@ -58,6 +59,13 @@ const initialState = {
   statuses: {},
   messagePagination: {},
   calls: [],
+  // conversationId -> { userId, isTyping } for the other participant.
+  typing: {},
+  // User IDs this user has blocked (delivery is enforced server-side).
+  blockedUserIds: [],
+  // Starred messages across all conversations (server-backed list,
+  // loaded when the starred tab opens).
+  starredMessages: [],
   presence: {
     online: {},
     lastSeenAt: {},
@@ -352,6 +360,150 @@ const chatSlice = createSlice({
         }
       }
     },
+
+    setTyping: (state, action) => {
+      const { conversationId, userId, isTyping } = action.payload;
+      if (!conversationId || !userId) return;
+
+      if (isTyping) {
+        state.typing[conversationId] = { userId, isTyping: true };
+      } else if (state.typing[conversationId]?.userId === userId) {
+        delete state.typing[conversationId];
+      }
+    },
+
+    // Server-confirmed edit: update the bubble in place and refresh the
+    // chat preview when the edited message is the latest one.
+    applyMessageEdit: (state, action) => {
+      const { conversationId, messageId, content, editedAt } = action.payload;
+      if (!conversationId || !messageId) return;
+
+      const messages = state.messages[conversationId];
+      if (!messages) return;
+
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index === -1) return;
+
+      messages[index] = {
+        ...messages[index],
+        content,
+        edited_at: editedAt || new Date().toISOString(),
+      };
+
+      if (index === messages.length - 1) {
+        bumpChatPreview(
+          state,
+          conversationId,
+          content,
+          messages[index].created_at,
+        );
+      }
+    },
+
+    // Server-confirmed delete: collapse the bubble to a placeholder and
+    // refresh the preview when the deleted message was the latest one.
+    applyMessageDelete: (state, action) => {
+      const { conversationId, messageId } = action.payload;
+      if (!conversationId || !messageId) return;
+
+      const messages = state.messages[conversationId];
+      if (!messages) return;
+
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index === -1) return;
+
+      messages[index] = {
+        ...messages[index],
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        content: null,
+        secure_url: null,
+      };
+
+      if (index === messages.length - 1) {
+        bumpChatPreview(
+          state,
+          conversationId,
+          "🚫 This message was deleted",
+          messages[index].created_at,
+        );
+      }
+    },
+
+    setBlockedUsers: (state, action) => {
+      state.blockedUserIds = action.payload || [];
+    },
+
+    // Server-confirmed reaction update: replace the message's reaction
+    // list wholesale (the server sends the complete, ordered list).
+    applyReaction: (state, action) => {
+      const { conversationId, messageId, reactions } = action.payload;
+      if (!conversationId || !messageId) return;
+
+      const messages = state.messages[conversationId];
+      if (!messages) return;
+
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index === -1) return;
+
+      messages[index] = { ...messages[index], reactions: reactions || [] };
+    },
+
+    // Star state is per-user: flip the flag on the bubble and keep the
+    // starred list (used by the starred tab) in step.
+    applyStar: (state, action) => {
+      const { conversationId, messageId, starred } = action.payload;
+      if (!conversationId || !messageId) return;
+
+      const messages = state.messages[conversationId];
+      if (messages) {
+        const index = messages.findIndex((m) => m.id === messageId);
+        if (index !== -1) {
+          messages[index] = {
+            ...messages[index],
+            starred_by_me: Boolean(starred),
+          };
+        }
+      }
+
+      if (starred) {
+        if (
+          !state.starredMessages.some(
+            (m) => m.id === messageId && m.conversation_id === conversationId,
+          )
+        ) {
+          const source = messages?.find((m) => m.id === messageId);
+          if (source) {
+            state.starredMessages.unshift({
+              ...source,
+              conversation_id: conversationId,
+              starred_at: new Date().toISOString(),
+            });
+          }
+        }
+      } else {
+        state.starredMessages = state.starredMessages.filter(
+          (m) => !(m.id === messageId && m.conversation_id === conversationId),
+        );
+      }
+    },
+
+    setStarredMessages: (state, action) => {
+      state.starredMessages = action.payload || [];
+    },
+
+    addBlockedUser: (state, action) => {
+      const userId = action.payload;
+      if (userId && !state.blockedUserIds.includes(userId)) {
+        state.blockedUserIds.push(userId);
+      }
+    },
+
+    removeBlockedUser: (state, action) => {
+      state.blockedUserIds = state.blockedUserIds.filter(
+        (id) => id !== action.payload,
+      );
+    },
   },
 
   extraReducers: (builder) => {
@@ -371,7 +523,21 @@ const chatSlice = createSlice({
         } else if (Array.isArray(action.payload)) {
           chatList = action.payload;
         }
+
+        // The server's per-user is_archived flag is the source of truth
+        // for archive state, so local-only archive state from previous
+        // sessions is reconciled here on every refresh.
+        const archived = [];
+        chatList = chatList.filter((chat) => {
+          if (chat.isArchived) {
+            archived.push(chat);
+            return false;
+          }
+          return true;
+        });
+
         state.chats = chatList;
+        state.archivedChats = archived;
         chatList.forEach((chat) => {
           if (chat.otherUserId && chat.otherUserLastSeenAt) {
             state.presence.lastSeenAt[chat.otherUserId] =
@@ -384,6 +550,20 @@ const chatSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createOrFindChat.fulfilled, () => {})
+      .addCase(fetchStarredMessages.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchStarredMessages.fulfilled, (state, action) => {
+        state.loading = false;
+        state.starredMessages = Array.isArray(action.payload)
+          ? action.payload
+          : [];
+      })
+      .addCase(fetchStarredMessages.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       .addCase(fetchCallHistory.fulfilled, (state, action) => {
         if (Array.isArray(action.payload)) {
           state.calls = action.payload;
@@ -469,6 +649,15 @@ export const {
   markMessagesRead,
   archiveChat,
   unarchiveChat,
+  setTyping,
+  applyMessageEdit,
+  applyMessageDelete,
+  setBlockedUsers,
+  addBlockedUser,
+  removeBlockedUser,
+  applyReaction,
+  applyStar,
+  setStarredMessages,
   setMessages,
   setLoadingOlderMessages,
   setPresence,

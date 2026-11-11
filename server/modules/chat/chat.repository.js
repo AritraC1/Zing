@@ -44,6 +44,7 @@ class ChatRepository {
       om.storage_key AS "otherUserAvatarKey",
       lm.content AS "lastMessageContent",
       lm.created_at AS "lastMessageCreatedAt",
+      cp.is_archived AS "isArchived",
       (
         SELECT COUNT(*)::int
         FROM message_status ms
@@ -86,6 +87,24 @@ class ChatRepository {
     WHERE id = $1;
   `;
     await db.query(query, [conversationId]);
+  }
+
+  // Set the per-user archive flag on a conversation participant row.
+  async setParticipantArchived(conversationId, userId, archived) {
+    const query = `
+    UPDATE conversation_participants
+    SET is_archived = $3
+    WHERE conversation_id = $1
+      AND user_id = $2
+    RETURNING is_archived;
+  `;
+
+    const result = await db.query(query, [
+      conversationId,
+      userId,
+      Boolean(archived),
+    ]);
+    return result.rows[0] || null;
   }
 
   // Get all participants in a conversation

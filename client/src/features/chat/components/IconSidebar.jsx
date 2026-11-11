@@ -1,4 +1,4 @@
-import { MessageCircle, Phone, Archive, Settings } from "lucide-react";
+import { MessageCircle, Phone, Archive, Star, Settings } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../hooks/useChat";
 import { useState } from "react";
@@ -26,6 +26,7 @@ const IconSidebar = () => {
     tabs.push({ id: "archive", icon: Archive });
   }
 
+  tabs.push({ id: "starred", icon: Star });
   tabs.push({ id: "calls", icon: Phone });
 
   return (

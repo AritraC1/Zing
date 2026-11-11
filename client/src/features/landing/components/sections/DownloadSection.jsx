@@ -85,7 +85,7 @@ const DownloadSection = () => {
 
         {/* QR hint */}
         <p className="mt-10 text-slate-400 text-sm">
-          Scan a QR code in the app to log in on desktop — no password needed.
+          Log in on desktop with your phone number — no password needed.
         </p>
       </div>
     </section>

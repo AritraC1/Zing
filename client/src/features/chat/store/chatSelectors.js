@@ -49,6 +49,19 @@ export const selectPresenceForUser = createSelector(
   },
 );
 
+// Who is currently typing in a conversation. Only meaningful for the
+// other participant in 1:1 chats.
+export const selectTypingForChat = createSelector(
+  [selectChatState, (_, conversationId) => conversationId],
+  (chat, conversationId) =>
+    conversationId ? chat.typing[conversationId] || null : null,
+);
+
+export const selectIsUserBlocked = createSelector(
+  [selectChatState, (_, userId) => userId],
+  (chat, userId) => (userId ? chat.blockedUserIds.includes(userId) : false),
+);
+
 export const makeSelectMessageStatus = (conversationId, messageId, userId) =>
   createSelector(
     [(state) => state.chat.statuses[conversationId]],

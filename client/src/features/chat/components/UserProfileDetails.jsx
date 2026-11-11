@@ -28,11 +28,18 @@ const UserProfileDetails = ({ chat, onClose }) => {
     tab,
     otherUserPresence,
     messages,
+    blockedUserIds,
+    blockUser,
+    unblockUser,
   } = useChat();
 
   const avatarUrl = chat?.profilePic || chat?.avatarUrl;
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [viewerItem, setViewerItem] = useState(null);
+
+  const isBlocked = Boolean(
+    chat?.otherUserId && blockedUserIds.includes(chat.otherUserId),
+  );
 
   // Reset transient state when switching to a different chat.
   useEffect(() => {
@@ -250,10 +257,19 @@ const UserProfileDetails = ({ chat, onClose }) => {
           <div className="space-y-1">
             <ActionItem
               icon={<Ban size={16} />}
-              label="Block Contact"
+              label={isBlocked ? "Unblock Contact" : "Block Contact"}
               iconBg="bg-red-100"
               iconColor="text-red-500"
               labelColor="text-red-500"
+              onClick={() => {
+                if (!chat?.otherUserId) return;
+                if (isBlocked) {
+                  unblockUser(chat.otherUserId);
+                } else {
+                  blockUser(chat.otherUserId);
+                  onClose();
+                }
+              }}
             />
             <ActionItem
               icon={<Trash2 size={16} />}

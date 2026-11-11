@@ -12,7 +12,7 @@ const connectionStatus = (isOnline) =>
     : { dot: "bg-red-400", label: "Offline", text: "text-red-500" };
 
 const ChatHeader = () => {
-  const { selectedChat, otherUserPresence } = useChat();
+  const { selectedChat, otherUserPresence, otherUserTyping } = useChat();
   const { isMobile, closeConversation } = useAppShell();
   const { startCall } = useCall();
   const [showProfile, setShowProfile] = useState(false);
@@ -20,7 +20,12 @@ const ChatHeader = () => {
   if (!selectedChat) return null;
 
   const avatarUrl = selectedChat.profilePic || selectedChat.avatarUrl;
-  const conn = connectionStatus(otherUserPresence?.online);
+  const isTyping =
+    otherUserTyping?.userId === selectedChat.otherUserId &&
+    otherUserTyping?.isTyping;
+  const conn = isTyping
+    ? { dot: "bg-emerald-500", label: "typing…", text: "text-emerald-600" }
+    : connectionStatus(otherUserPresence?.online);
 
   const startAudioCall = () =>
     startCall({
@@ -81,7 +86,7 @@ const ChatHeader = () => {
             </div>
 
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${conn.dot}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${conn.dot} ${isTyping ? "animate-pulse" : ""}`} />
               <span className={`text-[9px] font-medium tracking-wide ${conn.text}`}>
                 {conn.label}
               </span>

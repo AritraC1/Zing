@@ -6,3 +6,9 @@ CREATE INDEX IF NOT EXISTS idx_conversation_participants_user
 
 CREATE INDEX IF NOT EXISTS idx_message_status_message_user
   ON message_status (message_id, user_id);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker
+  ON blocked_users (blocker_id);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked
+  ON blocked_users (blocked_id);

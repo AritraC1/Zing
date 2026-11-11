@@ -18,6 +18,14 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
     (state) => Boolean(state.chat.presence.online[chat.otherUserId]),
   );
 
+  // "typing…" preview in the chat list, WhatsApp-style.
+  const typingEntry = useSelector(
+    (state) => state.chat.typing[chat.id] || null,
+  );
+  const isTyping = Boolean(
+    typingEntry?.isTyping && typingEntry?.userId === chat.otherUserId,
+  );
+
   const hasUnread = (chat.unreadCount ?? 0) > 0;
 
   return (
@@ -85,7 +93,13 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
         </div>
 
         <div className="text-xs text-gray-400 truncate pr-2">
-          {chat.message || chat.lastMessage || ""}
+          {isTyping ? (
+            <span className="text-emerald-500 font-medium italic">
+              typing…
+            </span>
+          ) : (
+            (chat.message || chat.lastMessage || "")
+          )}
         </div>
       </div>
 

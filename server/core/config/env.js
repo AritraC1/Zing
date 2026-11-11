@@ -23,6 +23,10 @@ class ENV {
 
   // DB & Redis
   static DB_URL = process.env.DATABASE_URL;
+  // Optional. When unset (or unreachable) the app degrades to the
+  // in-process presence registry and in-memory rate limiting so single
+  // instance deployments and tests keep working unchanged.
+  static REDIS_URL = process.env.REDIS_URL || null;
 
   // JWT
   static JWT_SECRET_KEY = process.env.JWT_SECRET;

@@ -4,6 +4,7 @@ const AppError = require("../../core/errors/AppError");
 
 jest.mock("./chat.repository");
 jest.mock("./participants.repository");
+jest.mock("../blocks/blocks.repository");
 jest.mock("../../utils/withTransaction");
 
 // Repositories are mocked; jest automock creates per-instance mocks

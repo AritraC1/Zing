@@ -19,12 +19,23 @@ const ENDPOINTS = {
     CREATE_FIND_CHAT: "/chats/create-find-conversation",
     GET_MESSAGES: "/chats/conversation/:conversationId/messages",
     SEND_MESSAGE: "/chats/conversation/:conversationId/messages",
+    EDIT_MESSAGE: "/chats/conversation/:conversationId/messages/:messageId",
+    DELETE_MESSAGE: "/chats/conversation/:conversationId/messages/:messageId",
+    REACTION: "/chats/conversation/:conversationId/messages/:messageId/reaction",
+    STAR: "/chats/conversation/:conversationId/messages/:messageId/star",
+    STARRED: "/chats/starred-messages",
+    ARCHIVE: "/chats/conversation/:conversationId/archive",
   },
   CALLS: {
     HISTORY: "/calls/history",
   },
   MEDIA: {
     UPLOAD_MEDIA: "/media/upload",
+  },
+  BLOCKS: {
+    BLOCK: "/blocks/block",
+    UNBLOCK: "/blocks/unblock",
+    LIST: "/blocks/blocked",
   },
 };
 

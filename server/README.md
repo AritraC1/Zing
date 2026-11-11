@@ -1,16 +1,17 @@
 # Zing Server
 
-Express 5 + Socket.IO backend for Zing: Firebase phone auth with JWT cookies, one-to-one chat with delivery/read receipts, media uploads, and Swagger docs.
+Express 5 + Socket.IO backend for Zing: Firebase phone auth with JWT cookies, one-to-one chat with delivery/read receipts, reactions/replies/starred messages, contact blocking, media uploads, and Swagger docs.
 
 ## Tech Stack
 
 - Node.js, Express 5, Socket.IO 4
 - PostgreSQL (raw SQL with a small repo/service pattern, no ORM)
+- Redis (optional) for the Socket.IO pub/sub adapter, presence with TTL, and distributed rate limiting — degrades to in-process behavior when `REDIS_URL` is unset
 - JWT access + refresh tokens (httpOnly cookies), DB-backed hashed refresh sessions
 - Firebase Admin SDK for verifying OTP id tokens
 - Cloudinary + Multer for media uploads
 - Zod for request validation, Swagger for API docs
-- express-rate-limit on auth endpoints
+- express-rate-limit on auth endpoints (Redis-backed store when available)
 
 ## Project Structure
 
@@ -65,12 +66,19 @@ npm install
 PORT=3000
 FRONTEND_URL=http://localhost:3000
 DATABASE_URL=postgresql://user:password@localhost:5432/zing
+REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-access-secret
 JWT_REFRESH_SECRET=your-refresh-secret
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 ```
+
+`REDIS_URL` is optional. When set, Socket.IO room fan-out is cluster-wide
+(via the Redis adapter), the presence registry lives in Redis with a TTL
+(so a crashed node's users go offline instead of ghost-online), and the
+auth rate limiter counts across all instances. When unset, everything
+falls back to the in-process implementations unchanged.
 
 3. Place your Firebase Admin service account key at `config/firebase/serviceAccountKey.json` (this folder is git-ignored). The app exits on startup if required env vars are missing.
 
@@ -87,10 +95,10 @@ When running through Docker, `DATABASE_URL` must point at the `postgres` contain
 
 ## Socket Events
 
-- Client → server: `fetch_messages`, `send_message`, `message_delivered`, `mark_read`
-- Server → client: `message_history`, `message_sent`, `new_message`, `message_delivered`, `messages_read`, `presence_update`, `error`
+- Client → server: `fetch_messages`, `send_message` (supports `replyToId` for replies/quoting), `react_to_message`, `star_message`, `edit_message`, `delete_message`, `typing`, `message_delivered`, `mark_read`, `presence_snapshot`
+- Server → client: `message_history`, `message_sent`, `new_message`, `message_delivered`, `messages_read`, `message_edited`, `message_deleted`, `message_reaction_updated`, `message_starred`, `message_unstarred`, `typing_update`, `presence_update`, `chat_archived`, `error`
 
-All events require an authenticated socket (JWT verified in the handshake middleware) and conversation-participant access checks.
+All events require an authenticated socket (JWT verified in the handshake middleware) and conversation-participant access checks. Blocks are enforced on messaging AND calls (`call:ring` rejects blocked pairs). Typing indicators are cleaned up server-side: an idle timer force-clears stale "typing…" and disconnects flush all of a user's typing sessions.
 
 ## Scripts
 

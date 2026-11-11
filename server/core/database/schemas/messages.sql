@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS messages (
     msg_type message_type,
     media_id UUID REFERENCES media(id),
     forwarded_from_id UUID REFERENCES messages(id),
+    reply_to_id UUID REFERENCES messages(id) ON DELETE SET NULL,
     content TEXT, -- nullable: media/voice messages may have no text
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ,
+    edited_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
 
     UNIQUE (client_msg_id, sender_id), -- scoped per sender

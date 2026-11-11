@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import { useChat } from "../hooks/useChat";
 import { useChatSocket } from "../context/ChatSocketContext";
 import useAuth from "../../auth/hooks/useAuth";
 import MessageBubble from "./MessageBubble";
+import ForwardMessageModal from "./ForwardMessageModal";
 import { groupMessagesByDate } from "../../../shared/utils/dateSeparators";
 
 const Messages = () => {
@@ -12,12 +14,23 @@ const Messages = () => {
     getStatusForMessage,
     messagePagination,
   } = useChat();
-  const { markAsRead, loadOlderMessages, retryMessage } = useChatSocket();
+  const {
+    markAsRead,
+    loadOlderMessages,
+    retryMessage,
+    startEdit,
+    deleteMessage,
+    forwardMessageTo,
+    startReply,
+    reactToMessage,
+    toggleStar,
+  } = useChatSocket();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
   const shouldStickToBottomRef = useRef(true);
+  const [forwardingMessage, setForwardingMessage] = useState(null);
 
   useEffect(() => {
     if (shouldStickToBottomRef.current) {
@@ -142,11 +155,29 @@ const Messages = () => {
                         )
                     : undefined
                 }
+                onEdit={startEdit}
+                onDelete={deleteMessage}
+                onForward={setForwardingMessage}
+                onReply={startReply}
+                onReact={reactToMessage}
+                onToggleStar={toggleStar}
+                currentUserId={user?.id}
               />
             );
           })}
           <div ref={messagesEndRef} />
         </>
+      )}
+
+      {forwardingMessage && (
+        <ForwardMessageModal
+          message={forwardingMessage}
+          onClose={() => setForwardingMessage(null)}
+          onForward={(targetChat) => {
+            forwardMessageTo(targetChat.id, forwardingMessage);
+            toast.success(`Forwarded to ${targetChat.name || "chat"}`);
+          }}
+        />
       )}
     </div>
   );

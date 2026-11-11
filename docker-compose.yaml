@@ -22,6 +22,27 @@ services:
     networks:
       - zing-network
 
+  # Redis backs the Socket.IO pub/sub adapter, the presence registry
+  # (keys with TTL) and distributed rate limiting. Single-instance
+  # deployments can still run without it — the server degrades to
+  # in-process behavior when REDIS_URL is unset.
+  redis:
+    image: redis:7-alpine
+    container_name: zing-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zing-network
+
   api:
     build:
       context: ./server
@@ -37,8 +58,12 @@ services:
       # Inside the compose network the DB is reachable as `postgres:5432`
       # (this overrides the localhost:5433 URL in server/.env)
       DATABASE_URL: postgresql://zing:zing%407111030@postgres:5432/zing_db
+      # Same for Redis: compose network name overrides the localhost URL
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - zing-network
@@ -67,7 +92,7 @@ services:
 
 volumes:
   postgres-data:
-  # redis-data:
+  redis-data:
 
 networks:
   zing-network:

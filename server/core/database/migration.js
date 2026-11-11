@@ -13,9 +13,12 @@ const BOOTSTRAP_SCHEMAS = [
   "media.sql",
   "messages.sql",
   "message_status.sql",
+  "message_reactions.sql",
+  "starred_messages.sql",
   "devices.sql",
   "device_prekeys.sql",
   "sessions.sql",
+  "blocked_users.sql",
   "foreign_keys.sql",
   "indexes.sql",
 ];
