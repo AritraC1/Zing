@@ -23,13 +23,16 @@ const messaging = firebase.messaging();
 // Data-only messages (no `notification` payload) land here. Messages
 // that carry a `notification` payload are displayed automatically by
 // the SDK and never reach this handler.
+//
+// Push payloads are content-free (no sender name, no message preview),
+// so the notification title/body are static. Rich details are fetched
+// by the app itself after the user taps through.
 messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
-  const senderName = data.senderName || "Zing";
-  const body = payload.notification?.body || "New message";
+  const body = payload.notification?.body || "You have a new message";
 
   // tag = one notification per conversation, replacing stale ones.
-  self.registration.showNotification(senderName, {
+  self.registration.showNotification("Zing", {
     body,
     tag: data.conversationId || "zing",
     renotify: true,

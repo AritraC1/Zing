@@ -19,7 +19,7 @@ The project is organized into two main parts:
 - Real-time one-to-one chat via Socket.IO with delivery and read-state updates
 - Message history with WhatsApp-style pagination (newest page first, scroll up for older), clientMsgId-based dedupe/idempotency, and an offline IndexedDB message cache that survives reloads
 - Media upload support via Multer and Cloudinary
-- Web Push (FCM) notifications: offline devices are woken for new messages, with per-conversation mute respected server-side
+- Web Push (FCM) notifications: offline devices are woken for new messages, with per-conversation mute respected server-side. Payloads are content-free — no sender name or message preview ever leaves the server to FCM
 - Per-user conversation actions: archive and mute notifications (synced across devices), block/unblock, voice/video call from the contact pane
 - Redux state persistence for a smoother session experience
 - Account deletion with full session revocation
@@ -36,8 +36,9 @@ The project is organized into two main parts:
 | Auth & Security | Firebase phone auth, JWT, bcrypt/httpOnly cookies, DB-backed sessions & devices |
 | Calling | WebRTC (P2P audio/video, STUN), Socket.IO signaling, call history |
 | Media & Utilities | Cloudinary, Multer, Axios, Zod |
+| Scaling (optional) | Redis — Socket.IO adapter, presence with TTL, distributed rate limiting (in-process fallback when unset) |
 
-> Redis appears in the development setup notes but is not currently used in the code — PostgreSQL handles persistence. It is planned for future features such as presence/rate-limiting stores.
+> Redis is used in the code when `REDIS_URL` is configured: it backs the Socket.IO pub/sub adapter (fan-out across multiple server instances), the presence registry (TTL-based online keys), and distributed rate limiting. When it is unset — or unreachable — every consumer degrades gracefully to in-process behavior, so single-instance deployments and tests run unchanged.
 
 ## Repository Structure
 
@@ -45,7 +46,7 @@ The project is organized into two main parts:
 /
   README.md
   dev.sh                      # one-command local startup helper
-  docker-compose.yaml         # postgres + api + frontend
+  docker-compose.yaml         # postgres + redis + api + frontend
   .github/workflows/ci.yml    # CI: install, build client, build docker images
   client/
     src/
@@ -86,6 +87,11 @@ JWT_REFRESH_SECRET=your-refresh-secret
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
+
+# Optional — enables the Redis layer (Socket.IO fan-out adapter,
+# presence with TTL, distributed rate limiting). Omit for
+# single-instance behavior with in-process fallbacks.
+REDIS_URL=redis://localhost:6379
 ```
 
 Also place your Firebase Admin service account key at `server/config/firebase/serviceAccountKey.json` — the Firebase admin SDK is initialized from it, and the `config/firebase` folder is git-ignored so credentials never land in Git.
@@ -113,7 +119,7 @@ VITE_FIREBASE_VAPID_KEY=your-web-push-certificate-key
 
 ### Option 1: Docker Compose
 
-This starts PostgreSQL, the backend, and the frontend together.
+This starts PostgreSQL, Redis, the backend, and the frontend together.
 
 ```bash
 docker compose -f docker-compose.yaml up --build

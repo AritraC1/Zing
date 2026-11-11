@@ -1,32 +1,10 @@
-// Push notification service (FCM via Firebase Admin).
-//
-// Wakes devices that are not currently connected over Socket.IO. Every
-// path here is best-effort: a push failure must never affect message
-// delivery, so all public methods swallow their own errors.
-//
-// Suppression rules (WhatsApp-style):
-//   - recipients with a connected socket are skipped (they will get the
-//     realtime event);
-//   - recipients who muted the conversation are skipped;
-//   - the sender's own devices are never notified about their own message.
-
 const { getFirebaseAdmin, isFirebaseAdminAvailable } = require("../../core/config/firebase.config");
 const PushRepository = require("./push.repository");
 const ChatRepository = require("../chat/chat.repository");
-const UserRepository = require("../users/users.repository");
 const { isUserOnline } = require("../../core/sockets/presence");
 
 const pushRepo = new PushRepository();
 const chatRepo = new ChatRepository();
-const userRepo = new UserRepository();
-
-// Trim the preview so notification payloads stay small.
-const previewText = (message) => {
-  if (!message) return "";
-  if (message.is_deleted) return "";
-  if (message.msg_type === "media") return "📷 Photo";
-  return (message.content || "").slice(0, 200);
-};
 
 async function registerToken({ userId, deviceId, token, platform }) {
   if (!isFirebaseAdminAvailable()) {
@@ -76,22 +54,20 @@ async function notifyNewMessage({ message, recipientIds, senderId }) {
         const devices = await pushRepo.getPushTargets(userId);
         if (!devices.length) continue;
 
-        const senderName =
-          message.sender_name || (await findSenderName(message)) || "New message";
-
+        // Content-free notification: FCM (a third party) must never see
+        // sender names or message content. Recipients get a generic
+        // wake-up and render details only from local data.
         const notification = {
-          title: senderName,
-          body: previewText(message) || "New message",
+          title: "Zing",
+          body: "You have a new message",
         };
 
-        // Data payload is intentionally minimal — no message content —
-        // so the notification can be rendered even by a background
-        // service worker without exposing plaintext to the OS.
+        // Data payload carries opaque routing IDs only — no sender
+        // name, no message preview, nothing user-authored.
         const data = {
           type: "new_message",
           conversationId: message.conversation_id,
           messageId: message.id,
-          senderName,
           senderId: String(message.sender_id),
         };
 
@@ -113,15 +89,6 @@ async function notifyNewMessage({ message, recipientIds, senderId }) {
     }
   } catch (err) {
     console.error("push notifyNewMessage error:", err.message);
-  }
-}
-
-async function findSenderName(message) {
-  try {
-    const user = await userRepo.findByIdWithAvatar(message.sender_id);
-    return user?.display_name || null;
-  } catch {
-    return null;
   }
 }
 
