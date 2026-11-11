@@ -55,6 +55,9 @@ const initialState = {
   archivedChats: [],
   selectedChat: null,
   tab: "chats",
+  // Current user's id — captured from the auth store when chats are
+  // fetched so group-chat unread logic can compare senders.
+  myUserId: null,
   messages: {},
   statuses: {},
   messagePagination: {},
@@ -133,8 +136,16 @@ const chatSlice = createSlice({
       bumpChatPreview(state, convId, previewText(message), message.created_at);
 
       const chat = state.chats.find((c) => c.id === convId);
-      if (chat && message.sender_id !== chat.otherUserId) {
-        chat.unreadCount = (chat.unreadCount || 0) + 1;
+      if (chat) {
+        // Direct: don't bump when the other party's message is our own
+        // echo (sender_id is us, otherUserId is them). Group: the
+        // mirror-image test — own messages never count as unread.
+        const isOwnMessage = state.myUserId
+          ? message.sender_id === state.myUserId
+          : message.sender_id !== chat.otherUserId;
+        if (!isOwnMessage) {
+          chat.unreadCount = (chat.unreadCount || 0) + 1;
+        }
       }
     },
 
@@ -414,6 +425,37 @@ const chatSlice = createSlice({
       }
     },
 
+    // Group rename (admin action): update the list and the open chat.
+    renameChat: (state, action) => {
+      const { conversationId, name } = action.payload;
+      if (!conversationId || !name) return;
+
+      const chat =
+        state.chats.find((c) => c.id === conversationId) ||
+        state.archivedChats.find((c) => c.id === conversationId);
+
+      if (chat) {
+        chat.name = name;
+        chat.groupName = name;
+      }
+      if (state.selectedChat?.id === conversationId) {
+        state.selectedChat = { ...state.selectedChat, name, groupName: name };
+      }
+    },
+
+    // Membership change: a group this user left / was removed from /
+    // that was deleted drops out of both lists.
+    removeChat: (state, action) => {
+      const conversationId = action.payload;
+      state.chats = state.chats.filter((c) => c.id !== conversationId);
+      state.archivedChats = state.archivedChats.filter(
+        (c) => c.id !== conversationId,
+      );
+      if (state.selectedChat?.id === conversationId) {
+        state.selectedChat = null;
+      }
+    },
+
     setTyping: (state, action) => {
       const { conversationId, userId, isTyping } = action.payload;
       if (!conversationId || !userId) return;
@@ -576,6 +618,9 @@ const chatSlice = createSlice({
       })
       .addCase(fetchMyChats.fulfilled, (state, action) => {
         state.loading = false;
+        if (action.payload?.myUserId) {
+          state.myUserId = action.payload.myUserId;
+        }
         let chatList = [];
         if (
           action.payload?.conversations &&
@@ -726,6 +771,8 @@ export const {
   archiveChat,
   unarchiveChat,
   setChatMuted,
+  renameChat,
+  removeChat,
   setTyping,
   applyMessageEdit,
   applyMessageDelete,

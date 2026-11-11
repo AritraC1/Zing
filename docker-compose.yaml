@@ -50,6 +50,9 @@ services:
     container_name: zing-backend
     ports:
       - "3000:3000"
+      # mediasoup SFU WebRTC media ports (RTC_MIN_PORT..RTC_MAX_PORT)
+      - "40000-40100:40000-40100/udp"
+      - "40000-40100:40000-40100/tcp"
     restart: unless-stopped
     env_file:
       - server/.env
@@ -60,6 +63,9 @@ services:
       DATABASE_URL: postgresql://zing:zing%407111030@postgres:5432/zing_db
       # Same for Redis: compose network name overrides the localhost URL
       REDIS_URL: redis://redis:6379
+      # SFU: advertise the Docker host IP so ICE candidates reach the
+      # browser through the mapped port range above.
+      SFU_ANNOUNCED_IP: ${SFU_ANNOUNCED_IP:-auto}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,31 +1,37 @@
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useSelector } from "react-redux";
-import { BellOff } from "lucide-react";
+import { BellOff, Users } from "lucide-react";
 
 const ChatListItem = ({ chat, isSelected, onSelect }) => {
+  // Presence straight from the Redux store so the list dot always
+  // matches what the profile pane shows (same source of truth).
+  // Hooks run unconditionally; the invalid-chat guard lives below them.
+  const isOnline = useSelector(
+    (state) => Boolean(state.chat.presence.online[chat?.otherUserId]),
+  );
+
+  // "typing…" preview in the chat list, WhatsApp-style.
+  const typingEntry = useSelector(
+    (state) => state.chat.typing[chat?.id] || null,
+  );
+
   if (!chat || !chat.id) {
     console.warn("Invalid chat object:", chat);
     return null;
   }
 
+  const isGroup = chat.chatType === "group";
+
   const name =
-    chat.name || chat.displayName || chat.phoneNumber || "Chat";
+    chat.name || chat.groupName || chat.displayName || chat.phoneNumber || "Chat";
 
   const avatarUrl = chat.profilePic || chat.avatarUrl;
 
-  // Presence straight from the Redux store so the list dot always
-  // matches what the profile pane shows (same source of truth).
-  const isOnline = useSelector(
-    (state) => Boolean(state.chat.presence.online[chat.otherUserId]),
-  );
-
-  // "typing…" preview in the chat list, WhatsApp-style.
-  const typingEntry = useSelector(
-    (state) => state.chat.typing[chat.id] || null,
-  );
-  const isTyping = Boolean(
-    typingEntry?.isTyping && typingEntry?.userId === chat.otherUserId,
-  );
+  const isTyping = isGroup
+    ? Boolean(typingEntry?.isTyping)
+    : Boolean(
+        typingEntry?.isTyping && typingEntry?.userId === chat.otherUserId,
+      );
 
   const hasUnread = (chat.unreadCount ?? 0) > 0;
   const isMuted = Boolean(chat.isMuted ?? chat.is_muted);
@@ -55,6 +61,8 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
               alt={name}
               className="w-full h-full object-cover"
             />
+          ) : isGroup ? (
+            <Users size={20} className="text-white" />
           ) : (
             String(name).charAt(0).toUpperCase()
           )}
@@ -77,8 +85,11 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
 
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-baseline mb-0.5">
-          <span className="font-semibold text-sm text-gray-900 truncate">
-            {name}
+          <span className="font-semibold text-sm text-gray-900 truncate flex items-center gap-1.5">
+            {isGroup && (
+              <Users size={13} className="text-gray-400 shrink-0" />
+            )}
+            <span className="truncate">{name}</span>
           </span>
 
           {/* Latest-message time: green when unread/selected, gray
@@ -100,7 +111,10 @@ const ChatListItem = ({ chat, isSelected, onSelect }) => {
               typing…
             </span>
           ) : (
-            (chat.message || chat.lastMessage || "")
+            (chat.message ||
+              chat.lastMessage ||
+              (isGroup && chat.memberCount ? `${chat.memberCount} members` : "") ||
+              "")
           )}
         </div>
       </div>

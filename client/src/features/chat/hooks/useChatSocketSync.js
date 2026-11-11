@@ -315,6 +315,10 @@ export const useChatSocketSync = ({
       dispatch(setChatMuted({ conversationId, muted }));
     };
 
+    // Group membership / metadata changes (`group:update`) are handled
+    // app-wide by ChatGlobalSync — this hook unmounts when the user
+    // navigates away from /chat, so listening here would miss events.
+
     // Reaction list broadcast: the server sends the message's complete,
     // ordered reaction list — replace wholesale.
     const handleMessageReactionUpdated = (data) => {

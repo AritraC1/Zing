@@ -3,6 +3,7 @@ import { useChat } from "../hooks/useChat";
 import ChatListItem from "./ChatListItem";
 import { MessageSquarePlus, Search } from "lucide-react";
 import AddNewChatPopup from "../../users/components/AddNewChatPopup";
+import CreateGroupModal from "./CreateGroupModal";
 import { useAppShell } from "../../../shared/layout/useAppShell";
 
 const ChatList = () => {
@@ -10,6 +11,7 @@ const ChatList = () => {
   const { openConversation } = useAppShell();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
 
   const handleSelect = (chat) => {
     selectChat(chat);
@@ -83,10 +85,21 @@ const ChatList = () => {
         )}
       </div>
 
-      {/* Popup */}
+      {/* Popup — and the group creation flow it can open. The modal
+          lives here (not inside the popup) so closing the popup can't
+          unmount it mid-flow. */}
       <AddNewChatPopup
         isOpen={open}
         onClose={() => setOpen(false)}
+        onNewGroup={() => {
+          setOpen(false);
+          setShowGroupModal(true);
+        }}
+      />
+
+      <CreateGroupModal
+        isOpen={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
       />
     </div>
   );

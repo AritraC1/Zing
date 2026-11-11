@@ -3,6 +3,8 @@ import "react-toastify/dist/ReactToastify.css";
 import AllRoutes from "./core/routes/AllRoutes";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
 import { CallProvider } from "./features/calls/CallProvider";
+import { GroupCallProvider } from "./features/calls/GroupCallProvider";
+import ChatGlobalSync from "./features/chat/ChatGlobalSync";
 
 function App() {
   return (
@@ -17,7 +19,10 @@ function App() {
 
       <ErrorBoundary>
         <CallProvider>
-          <AllRoutes />
+          <GroupCallProvider>
+            <ChatGlobalSync />
+            <AllRoutes />
+          </GroupCallProvider>
         </CallProvider>
       </ErrorBoundary>
     </>

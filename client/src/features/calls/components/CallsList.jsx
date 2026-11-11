@@ -5,6 +5,7 @@ import {
   PhoneMissed,
   PhoneIncoming,
   RotateCcw,
+  Users,
 } from "lucide-react";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -12,11 +13,13 @@ import { fetchCallHistory } from "../../chat/api/chatThunk";
 import { useChat } from "../../chat/hooks/useChat";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useCall } from "../hooks/useCall";
+import { useGroupCall } from "../hooks/useGroupCall";
 
 const CallsList = () => {
   const dispatch = useDispatch();
   const { calls = [], chats = [], clearCalls } = useChat();
   const { startCall } = useCall();
+  const { startGroupCall } = useGroupCall();
 
   // Refresh the persisted history whenever the calls screen is shown.
   useEffect(() => {
@@ -24,6 +27,15 @@ const CallsList = () => {
   }, [dispatch]);
 
   const startAudioCall = (call) => {
+    // Group call entries redial the whole group via the SFU.
+    if (call.isGroup) {
+      startGroupCall({
+        conversationId: call.conversationId,
+        name: call.name,
+        callType: call.callType || "audio",
+      });
+      return;
+    }
     startCall({
       conversationId: call.conversationId,
       peerId: call.peerId,
@@ -34,6 +46,14 @@ const CallsList = () => {
   };
 
   const startVideoCall = (call) => {
+    if (call.isGroup) {
+      startGroupCall({
+        conversationId: call.conversationId,
+        name: call.name,
+        callType: call.callType || "video",
+      });
+      return;
+    }
     startCall({
       conversationId: call.conversationId,
       peerId: call.peerId,
@@ -217,7 +237,11 @@ const CallsList = () => {
                         background: getAvatarGradient(String(call.id || name)),
                       }}
                     >
-                      {name.charAt(0).toUpperCase()}
+                      {call.isGroup ? (
+                        <Users size={20} />
+                      ) : (
+                        name.charAt(0).toUpperCase()
+                      )}
                     </div>
                   )}
                   <div
@@ -237,7 +261,12 @@ const CallsList = () => {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm">{name}</p>
+                  <p className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                    {call.isGroup && (
+                      <Users size={13} className="text-gray-400 shrink-0" />
+                    )}
+                    <span className="truncate">{name}</span>
+                  </p>
                   <p className="text-xs mt-0.5">
                     <span
                       className={
@@ -254,6 +283,12 @@ const CallsList = () => {
                           ? "Outgoing"
                           : "Incoming"}
                     </span>
+                    {call.isGroup && call.participantCount > 0 && (
+                      <span className="text-gray-400">
+                        {" "}
+                        • {call.participantCount} joined
+                      </span>
+                    )}
                     <span className="text-gray-400">
                       {" "}
                       • {call.time || call.date || ""}

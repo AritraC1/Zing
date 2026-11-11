@@ -12,6 +12,7 @@ import ChatPage from "../../features/chat/pages/ChatPage";
 import CallPage from "../../features/calls/pages/CallPage";
 import AudioCallPage from "../../features/calls/pages/AudioCallPage";
 import VideoCallPage from "../../features/calls/pages/VideoCallPage";
+import GroupCallScreen from "../../features/calls/pages/GroupCallScreen";
 
 const AllRoutes = () => {
   return (
@@ -33,6 +34,7 @@ const AllRoutes = () => {
         <Route path="/call" element={<CallPage />} />
         <Route path="/audio-call" element={<AudioCallPage />} />
         <Route path="/video-call" element={<VideoCallPage />} />
+        <Route path="/group-call" element={<GroupCallScreen />} />
       </Route>
     </Routes>
   );

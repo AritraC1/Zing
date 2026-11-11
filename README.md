@@ -21,11 +21,13 @@ The project is organized into two main parts:
 - Media upload support via Multer and Cloudinary
 - Web Push (FCM) notifications: offline devices are woken for new messages, with per-conversation mute respected server-side. Payloads are content-free — no sender name or message preview ever leaves the server to FCM
 - Per-user conversation actions: archive and mute notifications (synced across devices), block/unblock, voice/video call from the contact pane
+- Group chats (up to 10 members): create with picked contacts, rename, add/remove members (creator-managed), group unread counts, and per-member `admin`/`member` roles
+- Group audio/video calls (up to 5 participants) routed through a mediasoup SFU with simulcast, incoming-call ringing, participant tiles, and call history
 - Redux state persistence for a smoother session experience
 - Account deletion with full session revocation
 - Landing page, onboarding, profile setup, settings, and archived chats UI
 
-> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). End-to-end encryption for calls is on the roadmap; chat encryption via the Signal libraries is still a work in progress.
+> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). Group calls (up to 5 participants) use mediasoup as an SFU in-process (`server/sfu/`) with a `group_calls` history table; media is encrypted in transit via DTLS-SRTP. End-to-end encryption for calls is on the roadmap; chat encryption via the Signal libraries is still a work in progress.
 
 ## Tech Stack
 
@@ -34,7 +36,7 @@ The project is organized into two main parts:
 | Frontend | React 19, Vite, Tailwind CSS 4, Redux Toolkit, Redux Persist, Socket.IO Client |
 | Backend | Node.js, Express 5, Socket.IO, PostgreSQL, Swagger |
 | Auth & Security | Firebase phone auth, JWT, bcrypt/httpOnly cookies, DB-backed sessions & devices |
-| Calling | WebRTC (P2P audio/video, STUN), Socket.IO signaling, call history |
+| Calling | WebRTC (P2P audio/video, STUN), mediasoup SFU (group calls up to 5), Socket.IO signaling, call history |
 | Media & Utilities | Cloudinary, Multer, Axios, Zod |
 | Scaling (optional) | Redis — Socket.IO adapter, presence with TTL, distributed rate limiting (in-process fallback when unset) |
 
@@ -60,7 +62,8 @@ The project is organized into two main parts:
     config/                   # env, db, swagger, firebase admin
     routes/allRoutes.js       # mounts module routers under /api
     middlewares/              # auth, error, multer, rate limit, socket auth
-    modules/                  # auth, chat, messages, media, users, devices, sessions, calls
+    modules/                  # auth, chat, messages, media, users, devices, sessions, calls, groups
+    sfu/                      # mediasoup worker + per-room routers (group calls)
     shared/                   # db migrations + SQL schemas, validation, utils
 ```
 
@@ -87,6 +90,13 @@ JWT_REFRESH_SECRET=your-refresh-secret
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
+
+# Group calls (mediasoup SFU) — UDP/TCP media ports opened by the worker
+RTC_MIN_PORT=40000
+RTC_MAX_PORT=40100
+# Public IP advertised in ICE candidates; required when the API runs in
+# Docker or behind NAT (docker-compose sets it to the host machine).
+# SFU_ANNOUNCED_IP=192.168.1.10
 
 # Optional — enables the Redis layer (Socket.IO fan-out adapter,
 # presence with TTL, distributed rate limiting). Leave unset for
@@ -205,7 +215,7 @@ This workflow is a helpful reference for the expected validation steps before op
 
 ## API and Real-Time Notes
 
-- API routes are mounted under `/api` (auth, users, chats, media, calls, blocks, notifications).
+- API routes are mounted under `/api` (auth, users, chats, groups, media, calls, blocks, notifications).
 - Swagger docs are generated from JSDoc annotations in `server/docs/` and served at `/api-docs`.
 - Socket.IO is configured for real-time messaging and uses CORS settings that allow the Vite frontend and Docker origins.
 - Authentication tokens are attached through Axios interceptors and socket auth middleware; refresh tokens are verified against hashed DB sessions.

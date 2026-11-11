@@ -237,22 +237,29 @@ module.exports = (io) => {
 
           const participants = await chatRepo.getParticipants(conversationId);
 
-          // A block in either direction stops message delivery for the pair.
-          const otherIds = participants
-            .filter(({ user_id }) => String(user_id) !== String(userId))
-            .map(({ user_id }) => user_id);
-          const blocked = await blocksRepo.findBlockedBetween(userId, otherIds);
-          if (blocked) {
-            const youBlocked =
-              String(blocked.blocker_id) === String(userId);
-            socket.emit("error", {
-              message: youBlocked
-                ? "You blocked this contact. Unblock them to send messages."
-                : "You can't send messages to this contact.",
-              clientMsgId,
-              conversationId,
-            });
-            return;
+          // A block in either direction stops message delivery for the
+          // pair — direct chats only; group messaging ignores blocks.
+          const chatType = await chatRepo.getConversationType(conversationId);
+          if (chatType === "direct") {
+            const otherIds = participants
+              .filter(({ user_id }) => String(user_id) !== String(userId))
+              .map(({ user_id }) => user_id);
+            const blocked = await blocksRepo.findBlockedBetween(
+              userId,
+              otherIds,
+            );
+            if (blocked) {
+              const youBlocked =
+                String(blocked.blocker_id) === String(userId);
+              socket.emit("error", {
+                message: youBlocked
+                  ? "You blocked this contact. Unblock them to send messages."
+                  : "You can't send messages to this contact.",
+                clientMsgId,
+                conversationId,
+              });
+              return;
+            }
           }
 
           const message = await messageRepo.saveMessage({

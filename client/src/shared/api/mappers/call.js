@@ -71,6 +71,9 @@ export function toCall(raw) {
   return {
     id: raw.id,
     conversationId: raw.conversationId ?? null,
+    // Group calls (SFU): entries point at the group chat instead of a peer.
+    isGroup: Boolean(raw.isGroup),
+    participantCount: raw.participantCount ?? null,
     peerId: peer?.id ?? raw.peerId ?? null,
     name: peer?.name ?? "Unknown",
     avatarUrl: peer?.avatarUrl ?? null,

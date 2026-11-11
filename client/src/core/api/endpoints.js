@@ -29,6 +29,15 @@ const ENDPOINTS = {
   },
   CALLS: {
     HISTORY: "/calls/history",
+    GROUP_HISTORY: "/calls/group-history",
+  },
+  GROUPS: {
+    CREATE: "/groups",
+    INFO: "/groups/:conversationId",
+    RENAME: "/groups/:conversationId/name",
+    ADD_MEMBERS: "/groups/:conversationId/members",
+    REMOVE_MEMBER: "/groups/:conversationId/members/:userId",
+    LEAVE: "/groups/:conversationId/leave",
   },
   MEDIA: {
     UPLOAD_MEDIA: "/media/upload",

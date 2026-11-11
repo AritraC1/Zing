@@ -12,6 +12,7 @@ const BlocksRepository = require("../blocks/blocks.repository");
 const { isUserOnline, userRoom } = require("../../core/sockets/presence");
 const UserRepository = require("../users/users.repository");
 const { buildMediaUrl } = require("../../utils/mediaUrl");
+const callState = require("./callState");
 
 const RING_TIMEOUT_MS = 45 * 1000;
 
@@ -21,7 +22,7 @@ const userRepo = new UserRepository();
 const blocksRepo = new BlocksRepository();
 
 // callId -> { callerId, calleeId, conversationId, callType, status, timeout }
-const activeCalls = new Map();
+const { activeCalls } = callState;
 
 function emitToUser(io, userId, event, payload) {
   io.to(userRoom(userId)).emit(event, payload);
@@ -145,6 +146,12 @@ module.exports = (io) => {
         }
 
         if (findActiveCallForUser(calleeId)) {
+          respond({ error: "User is busy", reason: "busy" });
+          return;
+        }
+
+        // A user can be in exactly one call app-wide, across types.
+        if (callState.isUserInGroupCall(calleeId)) {
           respond({ error: "User is busy", reason: "busy" });
           return;
         }
