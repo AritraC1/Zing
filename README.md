@@ -89,9 +89,10 @@ CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 
 # Optional — enables the Redis layer (Socket.IO fan-out adapter,
-# presence with TTL, distributed rate limiting). Omit for
-# single-instance behavior with in-process fallbacks.
-REDIS_URL=redis://localhost:6379
+# presence with TTL, distributed rate limiting). Leave unset for
+# host-machine runs (Docker Compose injects the container-side URL);
+# single-instance deployments then use in-process fallbacks.
+# REDIS_URL=redis://localhost:6379
 ```
 
 Also place your Firebase Admin service account key at `server/config/firebase/serviceAccountKey.json` — the Firebase admin SDK is initialized from it, and the `config/firebase` folder is git-ignored so credentials never land in Git.
