@@ -8,7 +8,7 @@ import { searchUserThunk } from "../api/usersThunk";
 import { clearUser } from "../store/usersReducer";
 import { useAppShell } from "../../../shared/layout/useAppShell";
 
-const AddNewChatPopup = ({ isOpen, onClose }) => {
+const AddNewChatPopup = ({ isOpen, onClose, onNewGroup }) => {
   const dispatch = useDispatch();
   const { openConversation } = useAppShell();
   const [search, setSearch] = useState("");
@@ -60,9 +60,7 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
       handleClose();
     } catch (err) {
       toast.error(
-        typeof err === "string"
-          ? err
-          : err?.message || "Unable to open chat",
+        typeof err === "string" ? err : err?.message || "Unable to open chat",
       );
     } finally {
       setOpeningChat(false);
@@ -110,9 +108,13 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-6 max-w-3xl w-full mx-auto">
-          {/* New Group + New Community cards */}
+          {/* New Group card — opens the group creation flow */}
           <div className="grid grid-cols-1 gap-4 mb-8">
-            <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm cursor-pointer hover:shadow-md transition">
+            <button
+              type="button"
+              onClick={() => onNewGroup?.()}
+              className="bg-white rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm cursor-pointer hover:shadow-md transition text-left"
+            >
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "#e6f7f3" }}
@@ -130,11 +132,9 @@ const AddNewChatPopup = ({ isOpen, onClose }) => {
               </div>
               <div>
                 <p className="font-semibold text-gray-900 text-sm">New Group</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Create a space for your team
-                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Up to 10 members</p>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* States */}

@@ -8,13 +8,14 @@ const SCHEMAS_DIR = path.join(__dirname, "schemas");
 
 const BOOTSTRAP_SCHEMAS = [
   "users.sql",
+  "media.sql",
   "conversations.sql",
   "conversation_participants.sql",
-  "media.sql",
   "messages.sql",
   "message_status.sql",
   "message_reactions.sql",
   "starred_messages.sql",
+  "group_calls.sql",
   "devices.sql",
   "device_prekeys.sql",
   "sessions.sql",

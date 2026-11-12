@@ -37,6 +37,13 @@ class ChatRepository {
       c.chat_type AS "chatType",
       c.created_at AS "createdAt",
       c.last_message_at AS "lastMessageAt",
+      -- Group chats carry their own metadata...
+      c.name AS "groupName",
+      c.created_by AS "createdBy",
+      gav.storage_key AS "groupAvatarKey",
+      cp.role AS "myRole",
+      -- ...and NULL member columns (the lateral join below only
+      -- matches direct chats, so group rows stay single-valued).
       u.id AS "otherUserId",
       u.display_name AS "otherUserName",
       u.phone_number AS "otherUserPhone",
@@ -58,13 +65,19 @@ class ChatRepository {
     FROM conversations c
     JOIN conversation_participants cp
       ON c.id = cp.conversation_id
-    JOIN conversation_participants cp_other
+      AND cp.user_id = $1
+    -- Direct chats resolve their one "other user"; group chats skip
+    -- this join entirely (their members are fetched in bulk separately).
+    LEFT JOIN conversation_participants cp_other
       ON c.id = cp_other.conversation_id
+      AND c.chat_type = 'direct'
       AND cp_other.user_id != cp.user_id
-    JOIN users u
+    LEFT JOIN users u
       ON cp_other.user_id = u.id
     LEFT JOIN media om
       ON u.avatar_media_id = om.id
+    LEFT JOIN media gav
+      ON c.avatar_media_id = gav.id
     LEFT JOIN LATERAL (
       SELECT m.content, m.created_at
       FROM messages m
@@ -78,6 +91,60 @@ class ChatRepository {
 
     const result = await db.query(query, [userId]);
     return result.rows;
+  }
+
+  // Bulk-fetch the members of many group conversations at once. Used by
+  // getMyConversations to attach a members array to every group row.
+  async getGroupMembersForConversations(conversationIds) {
+    if (!conversationIds.length) return [];
+
+    const query = `
+      SELECT
+        cp.conversation_id AS "conversationId",
+        cp.user_id AS "userId",
+        cp.role,
+        cp.joined_at AS "joinedAt",
+        u.display_name AS "displayName",
+        u.phone_number AS "phoneNumber",
+        m.storage_key AS "avatarKey"
+      FROM conversation_participants cp
+      JOIN users u ON u.id = cp.user_id
+      LEFT JOIN media m ON m.id = u.avatar_media_id
+      WHERE cp.conversation_id = ANY($1::uuid[])
+      ORDER BY cp.joined_at;
+    `;
+
+    const result = await db.query(query, [conversationIds]);
+    return result.rows;
+  }
+
+  // Full member roster of one group conversation (group info pane).
+  async getGroupMembers(conversationId) {
+    const query = `
+      SELECT
+        cp.user_id AS "userId",
+        cp.role,
+        cp.joined_at AS "joinedAt",
+        u.display_name AS "displayName",
+        u.phone_number AS "phoneNumber",
+        m.storage_key AS "avatarKey"
+      FROM conversation_participants cp
+      JOIN users u ON u.id = cp.user_id
+      LEFT JOIN media m ON m.id = u.avatar_media_id
+      WHERE cp.conversation_id = $1
+      ORDER BY cp.joined_at;
+    `;
+
+    const result = await db.query(query, [conversationId]);
+    return result.rows;
+  }
+
+  async getConversationType(conversationId) {
+    const query = `
+      SELECT chat_type AS "chatType" FROM conversations WHERE id = $1;
+    `;
+    const result = await db.query(query, [conversationId]);
+    return result.rows[0]?.chatType ?? null;
   }
 
   // Update last mesage time stamp

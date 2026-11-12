@@ -13,6 +13,16 @@ const PAGE_SIZE = 50;
 // submit arbitrary strings; each is a single grapheme-ish token.
 const ALLOWED_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
+  // Shape a member row from the bulk roster query.
+  const shapeGroupMember = (row) => ({
+    userId: row.userId,
+    displayName: row.displayName || row.phoneNumber || "Member",
+    phoneNumber: row.phoneNumber,
+    role: row.role,
+    avatarUrl: row.avatarKey ? buildMediaUrl(row.avatarKey) : null,
+    joinedAt: row.joinedAt,
+  });
+
 class ChatService {
   constructor() {
     this.chatRepo = new ChatRepository();
@@ -25,12 +35,50 @@ class ChatService {
   async getMyConversations(userId) {
     const rows = await this.chatRepo.getUserConversations(userId);
 
-    return rows.map((row) => ({
-      ...row,
-      otherUserAvatarUrl: row.otherUserAvatarKey
-        ? buildMediaUrl(row.otherUserAvatarKey)
-        : null,
-    }));
+    // Group conversations: attach the full member roster in one extra
+    // bulk query instead of a lateral join per row.
+    const groupIds = rows
+      .filter((row) => row.chatType === "group")
+      .map((row) => row.id);
+
+    const memberRows = await this.chatRepo.getGroupMembersForConversations(
+      groupIds,
+    );
+
+    const membersByConversation = new Map();
+    memberRows.forEach((row) => {
+      if (!membersByConversation.has(row.conversationId)) {
+        membersByConversation.set(row.conversationId, []);
+      }
+      membersByConversation
+        .get(row.conversationId)
+        .push(shapeGroupMember(row));
+    });
+
+    return rows.map((row) => {
+      if (row.chatType === "group") {
+        return {
+          ...row,
+          groupName: row.groupName || "Group",
+          groupAvatarUrl: row.groupAvatarKey
+            ? buildMediaUrl(row.groupAvatarKey)
+            : null,
+          members: membersByConversation.get(row.id) || [],
+          otherUserId: null,
+          otherUserName: null,
+          otherUserPhone: null,
+          otherUserLastSeenAt: null,
+          otherUserAvatarUrl: null,
+        };
+      }
+
+      return {
+        ...row,
+        otherUserAvatarUrl: row.otherUserAvatarKey
+          ? buildMediaUrl(row.otherUserAvatarKey)
+          : null,
+      };
+    });
   }
 
   // Create a direct 1:1 conversation or return the existing one
@@ -127,20 +175,24 @@ class ChatService {
     const participants = await this.chatRepo.getParticipants(conversationId);
 
     // A block in either direction stops message delivery for the pair.
-    const blocked = await this.blocksRepo.findBlockedBetween(
-      userId,
-      participants
-        .filter(({ user_id }) => String(user_id) !== String(userId))
-        .map(({ user_id }) => user_id),
-    );
-    if (blocked) {
-      const youBlocked = String(blocked.blocker_id) === String(userId);
-      throw new AppError(
-        youBlocked
-          ? "You blocked this contact. Unblock them to send messages."
-          : "You can't send messages to this contact.",
-        403,
+    // In group chats messaging is unaffected by blocks between members.
+    const chatType = await this.chatRepo.getConversationType(conversationId);
+    if (chatType === "direct") {
+      const blocked = await this.blocksRepo.findBlockedBetween(
+        userId,
+        participants
+          .filter(({ user_id }) => String(user_id) !== String(userId))
+          .map(({ user_id }) => user_id),
       );
+      if (blocked) {
+        const youBlocked = String(blocked.blocker_id) === String(userId);
+        throw new AppError(
+          youBlocked
+            ? "You blocked this contact. Unblock them to send messages."
+            : "You can't send messages to this contact.",
+          403,
+        );
+      }
     }
 
     const message = await this.messageRepo.saveMessage({
@@ -286,14 +338,18 @@ class ChatService {
     }
 
     // Reactions are interactions between the pair — keep them under
-    // the same block rules as messaging.
-    const participants = await this.chatRepo.getParticipants(conversationId);
-    const otherIds = participants
-      .filter(({ user_id }) => String(user_id) !== String(userId))
-      .map(({ user_id }) => user_id);
-    const blocked = await this.blocksRepo.findBlockedBetween(userId, otherIds);
-    if (blocked) {
-      throw new AppError("You can't react to messages in this chat.", 403);
+    // the same block rules as messaging (direct chats only; group
+    // members can always react).
+    const chatType = await this.chatRepo.getConversationType(conversationId);
+    if (chatType === "direct") {
+      const participants = await this.chatRepo.getParticipants(conversationId);
+      const otherIds = participants
+        .filter(({ user_id }) => String(user_id) !== String(userId))
+        .map(({ user_id }) => user_id);
+      const blocked = await this.blocksRepo.findBlockedBetween(userId, otherIds);
+      if (blocked) {
+        throw new AppError("You can't react to messages in this chat.", 403);
+      }
     }
 
     const reactions =

@@ -27,6 +27,7 @@
     "firebase-admin": "^10.3.0",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
+    "mediasoup": "^3.32.2",
     "multer": "^2.0.2",
     "pg": "^8.19.0",
     "rate-limit-redis": "^6.0.2",

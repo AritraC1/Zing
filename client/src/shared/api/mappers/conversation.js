@@ -19,27 +19,39 @@ export function toConversation(raw) {
     raw.message ??
     "";
 
-  const name =
-    raw.otherUserName ??
-    raw.name ??
-    raw.otherUserPhone ??
-    raw.phoneNumber ??
-    "Chat";
+  const isGroup = (raw.chatType ?? raw.chat_type) === "group";
 
-  const profilePic =
-    raw.otherUserAvatarUrl ??
-    raw.profilePic ??
-    raw.avatarUrl ??
-    null;
+  const name = isGroup
+    ? raw.groupName ?? raw.group_name ?? raw.name ?? "Group"
+    : raw.otherUserName ??
+      raw.name ??
+      raw.otherUserPhone ??
+      raw.phoneNumber ??
+      "Chat";
+
+  const profilePic = isGroup
+    ? raw.groupAvatarUrl ?? raw.group_avatar_url ?? raw.profilePic ?? raw.avatarUrl ?? null
+    : raw.otherUserAvatarUrl ??
+      raw.profilePic ??
+      raw.avatarUrl ??
+      null;
 
   return {
     id: raw.id,
     chatType: raw.chatType ?? raw.chat_type,
-    otherUserId: raw.otherUserId ?? raw.otheruserid,
+    otherUserId: raw.otherUserId ?? raw.otheruserid ?? null,
     name,
     phoneNumber: raw.otherUserPhone ?? raw.phoneNumber ?? raw.phone_number,
     profilePic,
     avatarUrl: profilePic,
+    // Group-only fields
+    groupName: name,
+    myRole: raw.myRole ?? raw.my_role ?? null,
+    createdBy: raw.createdBy ?? raw.created_by ?? null,
+    memberCount: Array.isArray(raw.members)
+      ? raw.members.length
+      : raw.memberCount ?? null,
+    members: Array.isArray(raw.members) ? raw.members : undefined,
     lastMessage,
     lastMessageAt,
     message: lastMessage,

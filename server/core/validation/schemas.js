@@ -70,6 +70,38 @@ const registerTokenSchema = z.object({
   platform: z.enum(["fcm", "webpush"]).optional(),
 });
 
+// ---------------------------------------------------------------
+// Groups (group chats, max 10 members)
+// ---------------------------------------------------------------
+const MAX_GROUP_MEMBERS = 10;
+
+const createGroupSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "name is required")
+    .max(100, "name must be at most 100 characters"),
+  memberIds: z
+    .array(z.string().uuid("memberIds must be valid UUIDs"))
+    .max(MAX_GROUP_MEMBERS - 1, `at most ${MAX_GROUP_MEMBERS - 1} members besides you`)
+    .default([]),
+});
+
+const renameGroupSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "name is required")
+    .max(100, "name must be at most 100 characters"),
+});
+
+const addGroupMembersSchema = z.object({
+  memberIds: z
+    .array(z.string().uuid("memberIds must be valid UUIDs"))
+    .min(1, "memberIds must contain at least one id")
+    .max(MAX_GROUP_MEMBERS - 1),
+});
+
 module.exports = {
   verifyOtpSchema,
   onboardSchema,
@@ -82,4 +114,7 @@ module.exports = {
   reactionSchema,
   starSchema,
   registerTokenSchema,
+  createGroupSchema,
+  renameGroupSchema,
+  addGroupMembersSchema,
 };

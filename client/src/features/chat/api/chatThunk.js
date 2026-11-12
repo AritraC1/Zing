@@ -12,7 +12,11 @@ export const fetchMyChats = createAsyncThunk(
       const res = await axiosInstance.get(ENDPOINTS.CHAT.MY_CHATS);
       const list = res.data.conversations ?? [];
 
-      return { conversations: list.map(toConversation) };
+      // Include the caller's own id so the reducer can compute
+      // group-chat unread counts correctly (sender vs me).
+      const myUserId = thunkAPI.getState()?.auth?.user?.id ?? null;
+
+      return { myUserId, conversations: list.map(toConversation) };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);
     }
@@ -283,8 +287,22 @@ export const fetchCallHistory = createAsyncThunk(
   "chat/fetchCallHistory",
   async (_, thunkAPI) => {
     try {
-      const res = await axiosInstance.get(ENDPOINTS.CALLS.HISTORY);
-      const list = res.data.calls ?? [];
+      const [directRes, groupRes] = await Promise.allSettled([
+        axiosInstance.get(ENDPOINTS.CALLS.HISTORY),
+        axiosInstance.get(ENDPOINTS.CALLS.GROUP_HISTORY),
+      ]);
+
+      const list = [
+        ...(directRes.status === "fulfilled" ? directRes.value.data.calls ?? [] : []),
+        ...(groupRes.status === "fulfilled" ? groupRes.value.data.calls ?? [] : []),
+      ];
+
+      // Newest first across both call kinds.
+      list.sort(
+        (a, b) =>
+          new Date(b.startedAt ?? b.started_at ?? 0) -
+          new Date(a.startedAt ?? a.started_at ?? 0),
+      );
 
       return list.map(toCall);
     } catch (err) {

@@ -37,6 +37,9 @@ const socketHandler = require("./core/config/socket");
 const checkSocketForJwt = require("./modules/auth/socketAuth.middleware");
 const redisConfig = require("./core/config/redis.config");
 
+// SFU worker teardown (resolves immediately if no worker was created)
+const { closeSfu } = require("./sfu/worker");
+
 // Declarations
 const app = express();
 const server = http.createServer(app);
@@ -104,6 +107,9 @@ async function shutdown(signal) {
       await redisConfig.close();
       // Close pg pool
       await dbPool.end();
+      // Close the mediasoup SFU worker (no-op when group calls were
+      // never used this process lifetime)
+      await closeSfu();
       console.log("Database pool closed");
       process.exit(0);
     } catch (err) {

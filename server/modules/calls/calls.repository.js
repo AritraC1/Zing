@@ -167,6 +167,170 @@ class CallsRepository {
     const result = await db.query(query, [userId, limit]);
     return result.rows;
   }
+
+  // ---------------------------------------------------------------
+  // Group calls (SFU-backed)
+  // ---------------------------------------------------------------
+
+  async createGroupCall({ conversationId, initiatorId, callType }) {
+    const query = `
+      INSERT INTO group_calls (conversation_id, initiator_id, call_type, status)
+      VALUES ($1, $2, $3, 'active')
+      RETURNING
+        id,
+        conversation_id,
+        initiator_id,
+        call_type AS "callType",
+        status,
+        started_at AS "startedAt";
+    `;
+
+    const result = await db.query(query, [
+      conversationId,
+      initiatorId,
+      callType,
+    ]);
+    return result.rows[0];
+  }
+
+  async getGroupCallById(callId) {
+    const query = `
+      SELECT
+        id,
+        conversation_id AS "conversationId",
+        initiator_id AS "initiatorId",
+        call_type AS "callType",
+        status,
+        started_at AS "startedAt",
+        ended_at AS "endedAt",
+        duration_seconds AS "durationSeconds"
+      FROM group_calls
+      WHERE id = $1;
+    `;
+    const result = await db.query(query, [callId]);
+    return result.rows[0];
+  }
+
+  async addGroupCallParticipant(callId, userId) {
+    const query = `
+      INSERT INTO group_call_participants (call_id, user_id, joined_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT DO NOTHING
+      RETURNING id;
+    `;
+    await db.query(query, [callId, userId]);
+  }
+
+  async markGroupCallParticipantLeft(callId, userId) {
+    const query = `
+      UPDATE group_call_participants
+      SET left_at = NOW()
+      WHERE call_id = $1 AND user_id = $2 AND left_at IS NULL;
+    `;
+    await db.query(query, [callId, userId]);
+  }
+
+  async getGroupCallParticipantIds(callId) {
+    const query = `
+      SELECT DISTINCT user_id FROM group_call_participants WHERE call_id = $1;
+    `;
+    const result = await db.query(query, [callId]);
+    return result.rows.map((row) => String(row.user_id));
+  }
+
+  // Close a group call. `status` becomes 'missed' when no one besides
+  // the initiator ever joined, 'ended' otherwise.
+  async markGroupCallEnded(callId, status, durationSeconds = null) {
+    const query = `
+      UPDATE group_calls
+      SET status = $2,
+          ended_at = NOW(),
+          duration_seconds = COALESCE(
+            $3::int,
+            GREATEST(0, EXTRACT(EPOCH FROM (NOW() - started_at))::int)
+          ),
+          updated_at = NOW()
+      WHERE id = $1 AND ended_at IS NULL
+      RETURNING id, status;
+    `;
+
+    const result = await db.query(query, [
+      callId,
+      status,
+      durationSeconds === null || Number.isNaN(durationSeconds)
+        ? null
+        : Math.max(0, Math.round(durationSeconds)),
+    ]);
+    return result.rows[0] || null;
+  }
+
+  // Sweep group calls whose sockets never delivered a clean hangup
+  // (server restart mid-call). Mirrors endOrphanedCalls for 1:1.
+  async endOrphanedGroupCalls() {
+    const query = `
+      WITH orphans AS (
+        UPDATE group_calls
+        SET status = CASE WHEN status = 'active' THEN 'ended' ELSE status END,
+            duration_seconds = COALESCE(
+              duration_seconds,
+              GREATEST(0, EXTRACT(EPOCH FROM (NOW() - started_at))::int)
+            ),
+            ended_at = NOW(),
+            updated_at = NOW()
+        WHERE ended_at IS NULL
+          AND updated_at < NOW() - INTERVAL '5 minutes'
+        RETURNING id
+      )
+      UPDATE group_call_participants p
+      SET left_at = NOW()
+      FROM orphans o
+      WHERE p.call_id = o.id AND p.left_at IS NULL;
+    `;
+    await db.query(query);
+  }
+
+  // Call history for the current user across all their groups: every
+  // call row for a conversation they are a member of, joined with the
+  // group name + member count for display.
+  async getGroupCallHistory(userId, limit = 100) {
+    const query = `
+      SELECT
+        gc.id,
+        gc.conversation_id,
+        gc.initiator_id,
+        gc.call_type AS "callType",
+        gc.status,
+        gc.started_at AS "startedAt",
+        gc.ended_at AS "endedAt",
+        gc.duration_seconds AS "durationSeconds",
+        c.name AS "groupName",
+        (
+          SELECT COUNT(*)::int FROM conversation_participants cp
+          WHERE cp.conversation_id = gc.conversation_id
+        ) AS "memberCount",
+        (
+          SELECT COUNT(DISTINCT pcp.user_id)::int
+          FROM group_call_participants pcp
+          WHERE pcp.call_id = gc.id
+        ) AS "participantCount",
+        iu.display_name AS "initiatorName",
+        (
+          SELECT m.storage_key FROM media m
+          WHERE m.id = c.avatar_media_id
+        ) AS "groupAvatarKey",
+        gc.initiator_id = $1 AS "isInitiator"
+      FROM group_calls gc
+      JOIN conversations c ON c.id = gc.conversation_id
+      JOIN users iu ON iu.id = gc.initiator_id
+      WHERE gc.conversation_id IN (
+        SELECT conversation_id FROM conversation_participants WHERE user_id = $1
+      )
+      ORDER BY gc.started_at DESC
+      LIMIT $2;
+    `;
+    const result = await db.query(query, [userId, limit]);
+    return result.rows;
+  }
 }
 
 module.exports = CallsRepository;
