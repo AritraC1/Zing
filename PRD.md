@@ -6,10 +6,10 @@ This document describes the target architecture for Zing, extending today's 1:1 
 
 - 1:1 chat, audio and video
 - Group chat, audio and video
-- End-to-end encryption (E2EE) for messages, media and calls, modelled on WhatsApp's approach (the Signal protocol)
+- End-to-end encryption (E2EE) for messages, media and calls, modelled on WhatsApp's approach (the Signal protocol) — **deferred, out of scope for the current version (see README Future Work)**
 - Group calls built on an SFU (Selective Forwarding Unit) for efficiency
 
-Out of scope for this version: stories or status, channels, bots, payments, and server-side search.
+Out of scope for this version: end-to-end encryption (E2EE), stories or status, channels, bots, payments, and server-side search.
 
 ## 2. Current state (from the repository)
 
@@ -90,6 +90,8 @@ API service      Realtime gateway          TURN (coturn)   SFU cluster
 
 ## 5. End-to-end encryption design
 
+> **Status: out of scope for the current version.** E2EE is not implemented in the codebase — messages, media and call signaling are plaintext, with transport security only (HTTPS, DTLS-SRTP). This section is kept as a design reference for future work; see the Future Work section of the README ("Implement end-to-end encryption (E2EE) for 1:1 and group chats").
+
 ### 5.1 Principles
 
 - Private keys are generated on the device and never uploaded.
@@ -99,7 +101,7 @@ API service      Realtime gateway          TURN (coturn)   SFU cluster
 
 ### 5.2 Protocol
 
-Use the **Signal protocol**, which is what WhatsApp uses: an X3DH-style asynchronous handshake (or its post-quantum successor PQXDH) followed by the **Double Ratchet** for forward secrecy and post-compromise security. The README notes this is already in progress. Before committing to a library, verify it runs well in the browser (WASM or a maintained JS build); official libsignal bindings are Node and native focused, so a Rust-to-WASM build may be required. Never implement the cryptographic primitives yourself.
+Use the **Signal protocol**, which is what WhatsApp uses: an X3DH-style asynchronous handshake (or its post-quantum successor PQXDH) followed by the **Double Ratchet** for forward secrecy and post-compromise security. Before committing to a library, verify it runs well in the browser (WASM or a maintained JS build); official libsignal bindings are Node and native focused, so a Rust-to-WASM build may be required. Never implement the cryptographic primitives yourself.
 
 ### 5.3 Key inventory
 

@@ -320,7 +320,7 @@ const ProfileSetupPage = () => {
           {/* Privacy & Trust Badge */}
           <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>End-to-end encrypted messaging</span>
+            <span>Private & secure messaging</span>
           </div>
         </div>
       </main>

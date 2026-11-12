@@ -8,9 +8,9 @@ const features = [
     desc: "Sub-100ms delivery powered by WebSockets. Your words arrive before you even finish typing.",
   },
   {
-    icon: "🔐",
-    title: "End-to-End Encrypted",
-    desc: "Military-grade encryption on every message, call, and file. Only you and your recipient can read it.",
+    icon: "🔒",
+    title: "Private & Secure",
+    desc: "Encrypted transport for messages and calls, Firebase-verified phone login, and no ads or data selling. Ever.",
   },
   {
     icon: "📞",

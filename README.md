@@ -27,14 +27,13 @@ The project is organized into two main parts:
 - Account deletion with full session revocation
 - Landing page, onboarding, profile setup, settings, and archived chats UI
 
-> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). Group calls (up to 5 participants) use mediasoup as an SFU in-process (`server/sfu/`) with a `group_calls` history table; media is encrypted in transit via DTLS-SRTP. End-to-end encryption for calls is on the roadmap; chat encryption via the Signal libraries is still a work in progress.
+> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). Group calls (up to 5 participants) use mediasoup as an SFU in-process (`server/sfu/`) with a `group_calls` history table; media is encrypted in transit via DTLS-SRTP.
 
 ## Future Work
+- [ ] Implement end-to-end encryption (E2EE) for 1:1 and group chats
 - [ ] Voice messages (enum value exists, no recording UI), message search
-- [ ] Safety numbers / key-change warnings
-- [ ] Sender Keys / group rekeying / membership versions — group names & messages are plaintext
 - [ ] Multi-device QR linking (VITE_QRVALUE env var exists but unused), no history sync
-- [ ] SFU join tokens (membership checked directly on socket), call-key rotation / SFrame call E2EE, screen share, 1:1→group call upgrade
+- [ ] SFU join tokens (membership checked directly on socket), screen share, 1:1→group call upgrade
 - [ ] Envelope queue (no envelopes table, no msg:send/ack events) — offline delivery replays plaintext rows instead
 - [ ] TURN — STUN-only; no /ice-servers endpoint, no coturn in compose
 

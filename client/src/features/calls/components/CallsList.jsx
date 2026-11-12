@@ -325,7 +325,7 @@ const CallsList = () => {
             End of recent history
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            All calls are secured with end-to-end encryption
+            All calls are secured with encrypted transport (DTLS-SRTP)
           </p>
         </div>
       )}

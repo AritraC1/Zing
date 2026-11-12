@@ -15,7 +15,7 @@ const SecuritySection = () => {
             </div>
             
             {/* Orbiting badges */}
-            {["AES-256", "Zero-knowledge", "Open source", "SOC 2"].map(
+            {["HTTPS / TLS", "DTLS-SRTP", "Firebase auth", "No ads"].map(
               (label, i) => {
                 const angle = (i * 360) / 4;
                 const rad = (angle * Math.PI) / 180;
@@ -50,14 +50,14 @@ const SecuritySection = () => {
             <span className="text-emerald-500">foundation</span>
           </h2>
           <p className="mt-5 text-slate-500 text-lg leading-relaxed">
-            Every message is protected with AES-256 end-to-end encryption. We
-            use a zero-knowledge architecture — meaning even Zing's own servers
-            cannot read your conversations.
+            All traffic travels over encrypted connections — HTTPS for the
+            API, DTLS-SRTP for calls. Push notifications are content-free, so
+            no message previews ever leave our servers.
           </p>
           <ul className="mt-8 space-y-4">
             {[
-              "End-to-end encryption on all messages & calls",
-              "Messages auto-delete on schedule",
+              "Encrypted transport on all messages & calls (TLS, DTLS-SRTP)",
+              "Content-free push notifications (no previews)",
               "Two-factor authentication built in",
               "No ads. No data selling. Ever.",
             ].map((item) => (
