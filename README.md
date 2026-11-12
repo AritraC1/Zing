@@ -158,7 +158,7 @@ VITE_FIREBASE_VAPID_KEY=your-web-push-certificate-key
 
 `VITE_FIREBASE_VAPID_KEY` enables Web Push notifications — generate it in the Firebase console under Project settings → Cloud Messaging → Web Push certificates. Without it the app works normally but never registers for push. The Firebase Messaging service worker (`client/public/firebase-messaging-sw.js`) is generated automatically before `npm run dev` / `npm run build` (via the `predev`/`prebuild` hooks in `client/scripts/`).
 
-> Note: the Docker frontend build currently receives only the Firebase config vars above (no VAPID key or measurement ID build args), so push registration is effectively a local-development feature for now.
+> Note: the Docker frontend build receives all Firebase env vars (including the VAPID key) from your root `.env` as build args, so push notifications work in Docker too. The Firebase Admin service account key is never baked into the API image — docker-compose mounts `server/core/config/firebase/` from the host at runtime.
 
 ## Running the Project
 
@@ -177,7 +177,7 @@ docker compose -f docker-compose.yaml up --build
 - Host ports: Postgres is exposed on **5433** and Redis on **6380** (to avoid clashing with local installs); containers reach each other on the compose network as `postgres:5432` / `redis:6379`
 - The mediasoup SFU media port range `40000-40100` (UDP + TCP) is mapped on the host
 
-> The backend container overrides `DATABASE_URL`/`REDIS_URL`/`FRONTEND_URL`/`SFU_ANNOUNCED_IP` for the compose network (see `docker-compose.yaml`).
+> The backend container overrides `DATABASE_URL` (from `DATABASE_URL_DOCKER` in your root `.env`), `REDIS_URL`, `FRONTEND_URL`, and `SFU_ANNOUNCED_IP` for the compose network (see `docker-compose.yaml`).
 
 ### Option 2: Local Development
 
