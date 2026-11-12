@@ -5,6 +5,12 @@ const ENDPOINTS = {
     REFRESH_TOKEN: "/auth/refresh",
     LOGOUT: "/auth/logout",
   },
+  KEYS: {
+    // Signal protocol prekey directory (E2EE)
+    REGISTER: "/auth/keys/register",
+    BUNDLE: "/auth/keys/:userId",
+    PREKEY_COUNT: "/auth/keys/prekeys/count/:deviceId",
+  },
   ME: {
     CHECK_ME: "/users/me",
     UPDATE_PROFILE: "/users/update-profile",

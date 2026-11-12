@@ -3,6 +3,10 @@ import axiosInstance from "../../../core/api/axiosInstance";
 import ENDPOINTS from "../../../core/api/endpoints";
 import { toConversation } from "../../../shared/api/mappers/conversation";
 import { toCall } from "../../../shared/api/mappers/call";
+import {
+  decryptMessages,
+  previewForContent,
+} from "../utils/e2ee";
 
 // Fetch all my chats
 export const fetchMyChats = createAsyncThunk(
@@ -16,7 +20,19 @@ export const fetchMyChats = createAsyncThunk(
       // group-chat unread counts correctly (sender vs me).
       const myUserId = thunkAPI.getState()?.auth?.user?.id ?? null;
 
-      return { myUserId, conversations: list.map(toConversation) };
+      return {
+        myUserId,
+        conversations: list.map((raw) => {
+          const conversation = toConversation(raw);
+          // Last message previews for 1:1 chats are E2EE envelopes on
+          // the wire — show a locked placeholder instead of ciphertext.
+          return {
+            ...conversation,
+            lastMessage: previewForContent(conversation.lastMessage),
+            message: previewForContent(conversation.message),
+          };
+        }),
+      };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);
     }
@@ -47,12 +63,19 @@ export const fetchMessages = createAsyncThunk(
         ENDPOINTS.CHAT.GET_MESSAGES.replace(":conversationId", conversationId),
         { params: { offset } },
       );
+
+      // 1:1 chat messages arrive as E2EE envelopes; decrypt them (and
+      // show the locked placeholder for anything undecryptable) before
+      // they hit Redux or the local IndexedDB store.
+      const decryptedMessages = await decryptMessages(res.data.messages);
+
       return {
         conversationId,
-        messages: res.data.messages,
+        messages: decryptedMessages,
         statuses: res.data.statuses,
         offset,
-        hasMore: res.data.hasMore ?? res.data.messages?.length === 50,
+        hasMore:
+          res.data.hasMore ?? decryptedMessages?.length === 50,
       };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data || err.message);

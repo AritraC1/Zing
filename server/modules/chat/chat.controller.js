@@ -145,6 +145,9 @@ class ChatController {
         {
           messageId,
           conversationId,
+          // senderId lets receivers pick the right E2EE session to
+          // decrypt the (envelope-encoded) edited content with.
+          senderId: userId,
           content: updated.content,
           editedAt: updated.edited_at,
         },

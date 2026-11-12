@@ -1,11 +1,22 @@
 const { z } = require("zod");
 
+// Base64-encoded public key material (identity / signed prekey /
+// one-time prekeys). Only public keys are ever uploaded.
+const base64Key = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[A-Za-z0-9+/]+={0,2}$/, "must be base64");
+
 const verifyOtpSchema = z.object({
   idToken: z.string().min(1, "idToken is required"),
   deviceId: z.string().uuid("deviceId must be a valid UUID"),
   deviceType: z.enum(["web", "ios", "android", "desktop"], {
     errorMap: () => ({ message: "deviceType must be web, ios, android, or desktop" }),
   }),
+  // Optional Signal identity key uploaded at first login on the device;
+  // the full prekey bundle follows via POST /auth/keys/register.
+  identityPublicKey: base64Key.optional(),
 });
 
 const onboardSchema = z.object({
@@ -14,6 +25,7 @@ const onboardSchema = z.object({
   deviceType: z.enum(["web", "ios", "android", "desktop"], {
     errorMap: () => ({ message: "deviceType must be web, ios, android, or desktop" }),
   }),
+  identityPublicKey: base64Key.optional(),
 });
 
 const createConversationSchema = z.object({
@@ -71,6 +83,26 @@ const registerTokenSchema = z.object({
 });
 
 // ---------------------------------------------------------------
+// E2EE (Signal protocol) key registration
+// ---------------------------------------------------------------
+const registerKeysSchema = z.object({
+  deviceId: z.string().uuid("deviceId must be a valid UUID"),
+  identityPublicKey: base64Key,
+  signedPreKeyId: z.number().int().min(1),
+  signedPreKeyPublic: base64Key,
+  signedPreKeySignature: base64Key,
+  preKeys: z
+    .array(
+      z.object({
+        keyId: z.number().int().min(1),
+        publicKey: base64Key,
+      }),
+    )
+    .min(1, "at least one one-time prekey is required")
+    .max(200),
+});
+
+// ---------------------------------------------------------------
 // Groups (group chats, max 10 members)
 // ---------------------------------------------------------------
 const MAX_GROUP_MEMBERS = 10;
@@ -114,6 +146,7 @@ module.exports = {
   reactionSchema,
   starSchema,
   registerTokenSchema,
+  registerKeysSchema,
   createGroupSchema,
   renameGroupSchema,
   addGroupMembersSchema,

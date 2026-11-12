@@ -27,15 +27,15 @@ The project is organized into two main parts:
 - Account deletion with full session revocation
 - Landing page, onboarding, profile setup, settings, and archived chats UI
 
-> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). Group calls (up to 5 participants) use mediasoup as an SFU in-process (`server/sfu/`) with a `group_calls` history table; media is encrypted in transit via DTLS-SRTP. End-to-end encryption for calls is on the roadmap; chat encryption via the Signal libraries is still a work in progress.
+> 1:1 audio and video calling is available via WebRTC (peer-to-peer media with Socket.IO signaling, call history persisted in the `calls` table). Group calls (up to 5 participants) use mediasoup as an SFU in-process (`server/sfu/`) with a `group_calls` history table; media is encrypted in transit via DTLS-SRTP. End-to-end encryption for calls is on the roadmap. 1:1 chat messages are end-to-end encrypted with the Signal protocol (X3DH key agreement + Double Ratchet) — each device registers an identity key, signed prekey, and a batch of one-time prekeys with the server, which stores them opaquely and hands out prekey bundles on request without ever seeing private key material. Group chat messages and group-shared media are still plaintext pending Sender Keys.
 
 ## Future Work
 - [ ] Voice messages (enum value exists, no recording UI), message search
 - [ ] Safety numbers / key-change warnings
-- [ ] Sender Keys / group rekeying / membership versions — group names & messages are plaintext
+- [ ] Sender Keys / group rekeying / membership versions — group messages & names are plaintext (1:1 messages are E2EE via the Signal protocol)
 - [ ] Multi-device QR linking (VITE_QRVALUE env var exists but unused), no history sync
 - [ ] SFU join tokens (membership checked directly on socket), call-key rotation / SFrame call E2EE, screen share, 1:1→group call upgrade
-- [ ] Envelope queue (no envelopes table, no msg:send/ack events) — offline delivery replays plaintext rows instead
+- [ ] Envelope queue (no envelopes table, no msg:send/ack events) — offline delivery replays stored ciphertext rows instead of a live ack
 - [ ] TURN — STUN-only; no /ice-servers endpoint, no coturn in compose
 
 

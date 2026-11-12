@@ -34,7 +34,7 @@ class UserService {
 
   // Complete onboarding: set display name, register the device,
   // revoke old sessions, and issue a new refresh token
-  async onboardUser({ phoneNumber, displayName, deviceId, deviceType }) {
+  async onboardUser({ phoneNumber, displayName, deviceId, deviceType, identityPublicKey = null }) {
     const user = await this.userRepo.findByPhone(phoneNumber);
 
     if (!user) {
@@ -60,7 +60,7 @@ class UserService {
             id: deviceId,
             userId: user.id,
             deviceType,
-            identityPublicKey: "TEST_PUBLIC_KEY",
+            identityPublicKey: identityPublicKey || null,
           },
           client,
         );

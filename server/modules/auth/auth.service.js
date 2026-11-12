@@ -20,7 +20,7 @@ class AuthService {
   }
 
   // Verify the Firebase OTP token, create the user if new, and issue tokens
-  async verifyOtp({ idToken, deviceId, deviceType }) {
+  async verifyOtp({ idToken, deviceId, deviceType, identityPublicKey = null }) {
     const admin = getFirebaseAdmin();
 
     if (!admin) {
@@ -81,7 +81,9 @@ class AuthService {
         id: deviceId,
         userId: user.id,
         deviceType,
-        identityPublicKey: "TEST_PUBLIC_KEY",
+        // Stored when the client generated its Signal identity key
+        // during login; otherwise null until /auth/keys/register.
+        identityPublicKey: identityPublicKey || null,
       });
     }
 

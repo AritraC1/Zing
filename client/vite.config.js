@@ -40,7 +40,18 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
+      // `@signalapp/libsignal-client` ships Node-native bindings that
+      // cannot run in a browser bundle. The adapter bridges its import
+      // path to the browser-safe `libsignal-protocol` build.
       '@signalapp/libsignal-client': path.resolve(__dirname, 'src/shims/signal-adapter.js'),
+      // libsignal-protocol 1.3.15 requires a non-existent package
+      // ("mocha-bytebuffer", a typo for bytebuffer) and its bundled
+      // protobufjs 5 pins bytebuffer ~5 while the package pins ^3.5.5
+      // — two incompatible copies cause "Illegal buffer" at runtime.
+      // Pinning every bytebuffer import onto the protobufjs copy
+      // (the version protobufjs is actually built against) fixes it.
+      'mocha-bytebuffer': path.resolve(__dirname, 'node_modules/libsignal-protocol/node_modules/protobufjs/node_modules/bytebuffer/dist/bytebuffer.js'),
+      bytebuffer: path.resolve(__dirname, 'node_modules/libsignal-protocol/node_modules/protobufjs/node_modules/bytebuffer/dist/bytebuffer.js'),
     },
   },
   // Local dev: proxy API + Socket.IO requests to the local server
@@ -61,5 +72,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    // Runs before test files import modules: the libsignal adapter
+    // needs window/global shims under Node.
+    setupFiles: ['src/testSetup.js'],
   },
 })

@@ -38,6 +38,13 @@ import useAuth from "../../auth/hooks/useAuth";
 import * as messageDb from "../local/messageDb";
 import { LOCAL_PAGE_SIZE } from "../local/messageDb";
 import { statusesArrayToMap } from "../store/statusUtils";
+import {
+  encryptDirectContent,
+  decryptDirectContent,
+  decryptMessages,
+  UNDECRYPTABLE_PLACEHOLDER,
+} from "../utils/e2ee";
+import { replenishCurrent } from "../../../core/crypto/keyManager";
 
 const PAGE_SIZE = 50;
 
@@ -73,6 +80,11 @@ export const useChatSocketSync = ({
   const chatsRef = useRef(chats);
   const wasConnectedRef = useRef(isConnected);
 
+  // Latest messages snapshot for the socket handlers below — the
+  // effect intentionally doesn't depend on allMessages (it would
+  // re-subscribe on every message); a ref keeps the handler current.
+  const allMessagesRef = useRef(allMessages);
+
   // In-progress message edit (shown as a banner in the composer).
   const [editingMessage, setEditingMessage] = useState(null);
 
@@ -84,6 +96,49 @@ export const useChatSocketSync = ({
   }, [chats]);
 
   useEffect(() => {
+    allMessagesRef.current = allMessages;
+  }, [allMessages]);
+
+  // E2EE (1:1 chats): conversation metadata for the encryption path.
+  const getEncryptionContext = useCallback(
+    (conversationId) => {
+      const chat = (chatsRef.current || []).find(
+        (c) => c.id === conversationId,
+      );
+      // Group chats are passed through unencrypted until Sender Keys;
+      // unknown conversations fall through the same way.
+      if (!chat || chat.chatType !== "direct" || !chat.otherUserId) {
+        return null;
+      }
+      return { peerUserId: chat.otherUserId };
+    },
+    [],
+  );
+
+  // Turn a plaintext payload into its wire form: E2EE envelope for
+  // direct chats, plaintext for groups. Returns null when the
+  // conversation cannot be encrypted and the caller should fail the
+  // message rather than silently downgrade.
+  const buildOutgoingContent = useCallback(
+    async (conversationId, content) => {
+      const encContext = getEncryptionContext(conversationId);
+      if (!encContext) return { content, encrypted: false };
+
+      try {
+        const encryptedContent = await encryptDirectContent(
+          encContext.peerUserId,
+          content,
+        );
+        return { content: encryptedContent, encrypted: true };
+      } catch (error) {
+        console.error("[chat] E2EE encryption failed:", error);
+        return { error };
+      }
+    },
+    [getEncryptionContext],
+  );
+
+  useEffect(() => {
     if (isAuthenticated) {
       dispatch(fetchMyChats());
       // Mirror the server's block list so sending UI can be disabled
@@ -93,11 +148,23 @@ export const useChatSocketSync = ({
   }, [dispatch, isAuthenticated]);
 
   const emitSendPayload = useCallback(
-    (msg, clientMsgId) => {
+    async (msg, clientMsgId) => {
+      const conversationId = msg.conversation_id || msg.conversationId;
+      const wire = await buildOutgoingContent(
+        conversationId,
+        msg.content?.trim() || "",
+      );
+
+      if (wire.error) {
+        dispatch(markMessageFailed({ clientMsgId, conversationId }));
+        toast.error("Could not encrypt this message.");
+        return;
+      }
+
       emit("send_message", {
-        conversationId: msg.conversation_id || msg.conversationId,
+        conversationId,
         clientMsgId,
-        content: msg.content?.trim() || "",
+        content: wire.content,
         mediaId: msg.media_id || msg.mediaId || null,
         msgType: msg.msg_type || msg.msgType || "text",
         forwardedFromId:
@@ -105,7 +172,7 @@ export const useChatSocketSync = ({
         replyToId: msg.reply_to_id || msg.replyToId || null,
       });
     },
-    [emit],
+    [emit, buildOutgoingContent, dispatch],
   );
 
   // HTTP fallback so messages still send when the socket is down.
@@ -116,11 +183,19 @@ export const useChatSocketSync = ({
     (conversationId, clientMsgId, msg) => {
       const run = async () => {
         try {
+          const wire = await buildOutgoingContent(
+            conversationId,
+            msg.content?.trim() || "",
+          );
+          if (wire.error) {
+            throw wire.error;
+          }
+
           const result = await dispatch(
             sendMessageRest({
               conversationId,
               clientMsgId,
-              content: msg.content?.trim() || "",
+              content: wire.content,
               mediaId: msg.media_id || msg.mediaId || null,
               msgType: msg.msg_type || msg.msgType || "text",
               forwardedFromId:
@@ -130,10 +205,23 @@ export const useChatSocketSync = ({
           ).unwrap();
 
           if (result?.message) {
+            // The REST echo carries our own ciphertext back; decrypt
+            // via the self-device envelope entry before reconciling.
+            const serverMessage = result.message;
+            const plaintext = serverMessage?.content
+              ? await decryptDirectContent(
+                  serverMessage.sender_id,
+                  serverMessage.content,
+                )
+              : null;
+
             dispatch(
               reconcileMessage({
                 clientMsgId,
-                serverMessage: result.message,
+                serverMessage:
+                  plaintext === null || plaintext === undefined
+                    ? serverMessage
+                    : { ...serverMessage, content: plaintext },
               }),
             );
           }
@@ -143,14 +231,20 @@ export const useChatSocketSync = ({
           );
           // Surface the server's reason (e.g. "You blocked this
           // contact.") instead of a generic retry prompt when we have it.
-          toast.error(
-            errPayload?.message || "Message not delivered yet. Tap to retry.",
-          );
+          const reason =
+            typeof errPayload === "string"
+              ? errPayload
+              : errPayload?.message ||
+                (errPayload?.error
+                  ? "Could not encrypt this message."
+                  : null) ||
+                "Message not delivered yet. Tap to retry.";
+          toast.error(reason);
         }
       };
       run();
     },
-    [dispatch],
+    [dispatch, buildOutgoingContent],
   );
 
   const retryMessage = useCallback(
@@ -184,10 +278,28 @@ export const useChatSocketSync = ({
   useEffect(() => {
     if (!socket) return;
 
-    const handleNewMessage = (message) => {
+    // E2EE: incoming content in 1:1 chats is an envelope; group chats
+    // pass through unchanged. Undecryptable messages show a locked
+    // placeholder instead of ciphertext.
+    const decryptIncoming = async (message) => {
+      if (!message?.content) return message;
+      try {
+        const plaintext = await decryptDirectContent(
+          message.sender_id,
+          message.content,
+        );
+        return plaintext === message.content ? message : { ...message, content: plaintext };
+      } catch {
+        return message;
+      }
+    };
+
+    const handleNewMessage = async (message) => {
       if (!message?.id) return;
-      dispatch(addMessage(message));
-      messageDb.saveMessages(message.conversation_id, [message]);
+
+      const decrypted = await decryptIncoming(message);
+      dispatch(addMessage(decrypted));
+      messageDb.saveMessages(message.conversation_id, [decrypted]);
 
       const chatExists = chatsRef.current.some(
         (c) => c.id === message.conversation_id,
@@ -202,25 +314,30 @@ export const useChatSocketSync = ({
       });
     };
 
-    const handleMessageSent = (message) => {
+    const handleMessageSent = async (message) => {
       if (!message?.id || !message.client_msg_id) return;
+
+      // The echo carries our own ciphertext back; the self-device
+      // envelope entry decrypts it so the UI keeps showing plaintext.
+      const decrypted = await decryptIncoming(message);
       dispatch(
         reconcileMessage({
           clientMsgId: message.client_msg_id,
-          serverMessage: message,
+          serverMessage: decrypted,
         }),
       );
-      messageDb.saveMessages(message.conversation_id, [message]);
+      messageDb.saveMessages(message.conversation_id, [decrypted]);
     };
 
-    const handleMessageHistory = (data) => {
+    const handleMessageHistory = async (data) => {
       if (!data?.conversationId) return;
       const historyMessages = Array.isArray(data.messages) ? data.messages : [];
       const historyStatuses = Array.isArray(data.statuses) ? data.statuses : [];
+      const decrypted = await decryptMessages(historyMessages);
       dispatch(
         setMessages({
           conversationId: data.conversationId,
-          messages: historyMessages,
+          messages: decrypted,
           statuses: historyStatuses,
           offset: data.offset || 0,
           hasMore: data.hasMore ?? historyMessages.length === PAGE_SIZE,
@@ -228,7 +345,7 @@ export const useChatSocketSync = ({
       );
 
       // Persist the fresh server page into local history.
-      messageDb.saveMessages(data.conversationId, historyMessages);
+      messageDb.saveMessages(data.conversationId, decrypted);
       if (historyStatuses.length) {
         messageDb.saveStatuses(
           data.conversationId,
@@ -276,11 +393,30 @@ export const useChatSocketSync = ({
       dispatch(setTyping({ conversationId, userId: typingUserId, isTyping }));
     };
 
-    const handleMessageEdited = (data) => {
+    const handleMessageEdited = async (data) => {
       if (!data?.messageId || !data?.conversationId) return;
-      dispatch(applyMessageEdit(data));
+
+      // Edited content in 1:1 chats is encrypted like the original.
+      let content = data.content;
+      if (content) {
+        try {
+          // Only the sender may edit; the server includes their id so
+          // receivers can pick the right E2EE session.
+          const senderId =
+            data.senderId ??
+            (allMessagesRef.current[data.conversationId] || []).find(
+              (m) => m.id === data.messageId,
+            )?.sender_id;
+
+          content = await decryptDirectContent(senderId, content);
+        } catch {
+          content = UNDECRYPTABLE_PLACEHOLDER;
+        }
+      }
+
+      dispatch(applyMessageEdit({ ...data, content }));
       messageDb.patchMessage(data.conversationId, data.messageId, {
-        content: data.content,
+        content,
         edited_at: data.editedAt || new Date().toISOString(),
       });
     };
@@ -378,6 +514,14 @@ export const useChatSocketSync = ({
       toast.error(message);
     };
 
+    // Server says one of this user's devices is low on one-time
+    // prekeys (probably this one): upload a fresh batch.
+    const handleKeysLow = () => {
+      replenishCurrent().catch((error) =>
+        console.error("[chat] prekey replenish failed:", error),
+      );
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_sent", handleMessageSent);
     socket.on("message_history", handleMessageHistory);
@@ -392,6 +536,7 @@ export const useChatSocketSync = ({
     socket.on("message_unstarred", handleMessageUnstarred);
     socket.on("chat_archived", handleChatArchived);
     socket.on("chat_muted", handleChatMuted);
+    socket.on("keys:low", handleKeysLow);
     socket.on("error", handleSocketError);
 
     // Ask the server who is already online right now — otherwise users
@@ -414,6 +559,7 @@ export const useChatSocketSync = ({
       socket.off("message_unstarred", handleMessageUnstarred);
       socket.off("chat_archived", handleChatArchived);
       socket.off("chat_muted", handleChatMuted);
+      socket.off("keys:low", handleKeysLow);
       socket.off("error", handleSocketError);
     };
   }, [socket, dispatch, emit]);
@@ -522,7 +668,7 @@ export const useChatSocketSync = ({
   }, [isConnected, user?.id, allMessages, dispatch, emitSendPayload, emit]);
 
   const sendMessage = useCallback(
-    (payload) => {
+    async (payload) => {
       if (!selectedChat || !user?.id) return;
 
       const content = typeof payload === "string" ? payload : payload?.content;
@@ -566,10 +712,22 @@ export const useChatSocketSync = ({
       );
 
       if (isConnected) {
+        // E2EE: the socket payload carries an encrypted envelope for
+        // direct chats (plaintext for groups). buildOutgoingContent
+        // marks the message failed instead of downgrading to plaintext.
+        const wire = await buildOutgoingContent(selectedChat.id, trimmedContent);
+        if (wire.error) {
+          dispatch(
+            markMessageFailed({ clientMsgId, conversationId: selectedChat.id }),
+          );
+          toast.error("Could not encrypt this message.");
+          return;
+        }
+
         emit("send_message", {
           conversationId: selectedChat.id,
           clientMsgId,
-          content: trimmedContent,
+          content: wire.content,
           mediaId,
           msgType,
           forwardedFromId,
@@ -599,6 +757,7 @@ export const useChatSocketSync = ({
       dispatch,
       emit,
       sendViaRest,
+      buildOutgoingContent,
       replyingMessage,
     ],
   );
@@ -751,40 +910,63 @@ export const useChatSocketSync = ({
     [isConnected, dispatch, emit],
   );
 
-  const submitEdit = useCallback(
-    (newContent) => {
+    const submitEdit = useCallback(
+    async (newContent) => {
       if (!editingMessage?.id || !newContent?.trim()) return;
       const conversationId = editingMessage.conversation_id;
       const messageId = editingMessage.id;
 
       setEditingMessage(null);
 
+      const applyLocal = (plaintext) =>
+        dispatch(
+          applyMessageEdit({
+            conversationId,
+            messageId,
+            content: plaintext,
+            editedAt: new Date().toISOString(),
+          }),
+        );
+
       if (isConnected) {
+        // 1:1 chats: edits are encrypted with the same per-device
+        // envelope scheme; the echo is decrypted by the handler below.
+        const wire = await buildOutgoingContent(conversationId, newContent.trim());
+        if (wire.error) {
+          toast.error("Could not encrypt this edit.");
+          return;
+        }
+        applyLocal(newContent.trim());
         emit("edit_message", {
           conversationId,
           messageId,
-          content: newContent.trim(),
+          content: wire.content,
         });
         return;
       }
 
+      const wire = await buildOutgoingContent(conversationId, newContent.trim());
+      if (wire.error) {
+        toast.error("Could not encrypt this edit.");
+        return;
+      }
+
       dispatch(
-        editMessageRest({ conversationId, messageId, content: newContent }),
+        editMessageRest({ conversationId, messageId, content: wire.content }),
       )
         .unwrap()
-        .then((res) => {
-          dispatch(
-            applyMessageEdit({
-              conversationId,
-              messageId,
-              content: res?.content ?? newContent.trim(),
-              editedAt: res?.editedAt,
-            }),
-          );
+        .then(() => {
+          applyLocal(newContent.trim());
         })
         .catch(() => toast.error("Could not edit message. Try again."));
     },
-    [editingMessage, isConnected, emit, dispatch],
+    [
+      editingMessage,
+      isConnected,
+      emit,
+      dispatch,
+      buildOutgoingContent,
+    ],
   );
 
   // Soft-delete for everyone in the conversation.
@@ -844,19 +1026,38 @@ export const useChatSocketSync = ({
       };
 
       if (isConnected) {
-        emit("send_message", {
-          conversationId: targetConversationId,
-          clientMsgId,
-          content,
-          mediaId,
-          msgType,
-          forwardedFromId: message.id,
-        });
+        (async () => {
+          // Same encryption path as normal sends: forwarded plaintext
+          // is re-encrypted for the target conversation's devices.
+          const wire = await buildOutgoingContent(
+            targetConversationId,
+            content,
+          );
+          if (wire.error) {
+            dispatch(
+              markMessageFailed({
+                clientMsgId,
+                conversationId: targetConversationId,
+              }),
+            );
+            toast.error("Could not encrypt this message.");
+            return;
+          }
+
+          emit("send_message", {
+            conversationId: targetConversationId,
+            clientMsgId,
+            content: wire.content,
+            mediaId,
+            msgType,
+            forwardedFromId: message.id,
+          });
+        })();
       } else {
         sendViaRest(targetConversationId, clientMsgId, restPayload);
       }
     },
-    [user, isConnected, emit, dispatch, sendViaRest],
+    [user, isConnected, emit, dispatch, sendViaRest, buildOutgoingContent],
   );
 
   const markAsRead = useCallback(() => {
