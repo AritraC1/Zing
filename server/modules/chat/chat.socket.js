@@ -280,6 +280,12 @@ module.exports = (io) => {
           await messageRepo.initializeMessageStatuses(message.id, recipientIds);
           await chatRepo.updateLastMessage(conversationId);
 
+          // New activity un-deletes the chat for anyone who had hidden
+          // it ("delete for me"), mirroring the REST send path.
+          await chatRepo.clearParticipantDeletedForConversation(
+            conversationId,
+          );
+
           // Fan out to every device/tab of every participant — including
           // the sender's other devices — so all sessions stay in sync.
           // The message is always persisted first, so an offline recipient

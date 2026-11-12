@@ -163,6 +163,25 @@ export const setMuteApi = createAsyncThunk(
   },
 );
 
+// Delete the chat for me: the server hides the conversation from this
+// user's list only (the other participant keeps it).
+export const deleteChatApi = createAsyncThunk(
+  "chat/deleteChatApi",
+  async (conversationId, thunkAPI) => {
+    try {
+      await axiosInstance.delete(
+        ENDPOINTS.CHAT.DELETE_CHAT.replace(
+          ":conversationId",
+          conversationId,
+        ),
+      );
+      return conversationId;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data || err.message);
+    }
+  },
+);
+
 // Set or remove an emoji reaction over HTTP (socket fallback). The
 // server returns the message's full reaction list.
 export const setReactionRest = createAsyncThunk(

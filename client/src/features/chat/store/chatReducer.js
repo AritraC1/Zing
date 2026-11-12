@@ -456,6 +456,25 @@ const chatSlice = createSlice({
       }
     },
 
+    // "Delete chat for me": drop the chat from both lists and clear
+    // this session's in-memory message cache for it (the persisted
+    // IndexedDB history is wiped by the caller).
+    deleteChat: (state, action) => {
+      const conversationId = action.payload;
+      if (!conversationId) return;
+
+      state.chats = state.chats.filter((c) => c.id !== conversationId);
+      state.archivedChats = state.archivedChats.filter(
+        (c) => c.id !== conversationId,
+      );
+      delete state.messages[conversationId];
+      delete state.statuses[conversationId];
+      delete state.messagePagination[conversationId];
+      if (state.selectedChat?.id === conversationId) {
+        state.selectedChat = null;
+      }
+    },
+
     setTyping: (state, action) => {
       const { conversationId, userId, isTyping } = action.payload;
       if (!conversationId || !userId) return;
@@ -773,6 +792,7 @@ export const {
   setChatMuted,
   renameChat,
   removeChat,
+  deleteChat,
   setTyping,
   applyMessageEdit,
   applyMessageDelete,

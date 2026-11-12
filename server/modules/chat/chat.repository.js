@@ -86,6 +86,10 @@ class ChatRepository {
       LIMIT 1
     ) lm ON true
     WHERE cp.user_id = $1
+      -- "Delete chat for me": a participant row with deleted_at hides
+      -- the conversation from this user's list (other participants and
+      -- the message history are untouched).
+      AND cp.deleted_at IS NULL
     ORDER BY COALESCE(lm.created_at, c.last_message_at, c.created_at) DESC;
   `;
 
@@ -214,6 +218,39 @@ class ChatRepository {
 
     const result = await db.query(query, [conversationId, userId]);
     return Boolean(result.rows[0]?.is_muted);
+  }
+
+  // Mark (or unmark) the conversation as deleted for this user only.
+  // Passing deleted=false clears the flag (undoes the deletion).
+  async setParticipantDeleted(conversationId, userId, deleted) {
+    const query = `
+    UPDATE conversation_participants
+    SET deleted_at = CASE WHEN $3 THEN NOW() ELSE NULL END
+    WHERE conversation_id = $1
+      AND user_id = $2
+    RETURNING deleted_at;
+  `;
+
+    const result = await db.query(query, [
+      conversationId,
+      userId,
+      Boolean(deleted),
+    ]);
+    return result.rows[0] || null;
+  }
+
+  // Clear every participant's delete-for-me flag on a conversation.
+  // A newly arrived message re-shows the chat for anyone who had
+  // deleted it (WhatsApp behavior) so they never lose incoming traffic.
+  async clearParticipantDeletedForConversation(conversationId) {
+    const query = `
+    UPDATE conversation_participants
+    SET deleted_at = NULL
+    WHERE conversation_id = $1
+      AND deleted_at IS NOT NULL;
+  `;
+
+    await db.query(query, [conversationId]);
   }
 }
 

@@ -21,6 +21,7 @@ import {
   archiveChat,
   unarchiveChat,
   setChatMuted,
+  deleteChat,
   setConversationStatuses,
 } from "../store/chatReducer";
 import {
@@ -315,6 +316,15 @@ export const useChatSocketSync = ({
       dispatch(setChatMuted({ conversationId, muted }));
     };
 
+    // Another device deleted this chat ("delete for me"): drop it from
+    // this session's lists and wipe the local history for it too.
+    const handleChatDeleted = (data) => {
+      const { conversationId } = data;
+      if (!conversationId) return;
+      dispatch(deleteChat(conversationId));
+      messageDb.deleteConversation(conversationId);
+    };
+
     // Group membership / metadata changes (`group:update`) are handled
     // app-wide by ChatGlobalSync — this hook unmounts when the user
     // navigates away from /chat, so listening here would miss events.
@@ -392,6 +402,7 @@ export const useChatSocketSync = ({
     socket.on("message_unstarred", handleMessageUnstarred);
     socket.on("chat_archived", handleChatArchived);
     socket.on("chat_muted", handleChatMuted);
+    socket.on("chat_deleted", handleChatDeleted);
     socket.on("error", handleSocketError);
 
     // Ask the server who is already online right now — otherwise users
@@ -414,6 +425,7 @@ export const useChatSocketSync = ({
       socket.off("message_unstarred", handleMessageUnstarred);
       socket.off("chat_archived", handleChatArchived);
       socket.off("chat_muted", handleChatMuted);
+      socket.off("chat_deleted", handleChatDeleted);
       socket.off("error", handleSocketError);
     };
   }, [socket, dispatch, emit]);

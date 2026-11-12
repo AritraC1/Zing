@@ -328,3 +328,47 @@ export async function clearAll() {
     console.error("[messageDb] clearAll:", err);
   }
 }
+
+// Delete one conversation's local history (messages + status map).
+// Used by "delete chat for me" so reopening the chat later starts
+// from a clean slate instead of resurrecting the deleted history.
+export async function deleteConversation(conversationId) {
+  const db = await openDb();
+  if (!db || !conversationId) return;
+
+  try {
+    const transaction = db.transaction(
+      [MESSAGES_STORE, STATUSES_STORE],
+      "readwrite",
+    );
+
+    const messagesStore = transaction.objectStore(MESSAGES_STORE);
+    const index = messagesStore.index("by_conv_seq");
+    const range = IDBKeyRange.bound(
+      [conversationId, -Infinity],
+      [conversationId, Infinity],
+    );
+
+    // IDB cursors over a readwrite transaction can delete in place.
+    index.openCursor(range).onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+
+    transaction.objectStore(STATUSES_STORE).delete(conversationId);
+
+    await new Promise((resolve) => {
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => {
+        console.error("[messageDb] deleteConversation:", transaction.error);
+        resolve();
+      };
+      transaction.onabort = () => resolve();
+    });
+  } catch (err) {
+    console.error("[messageDb] deleteConversation:", err);
+  }
+}

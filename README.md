@@ -1,4 +1,4 @@
-# Zing
+# Zing: Real-Time Communication App
 
 Zing is a real-time communication app with a React/Vite frontend and an Express-based backend. It supports Firebase phone authentication, chat with delivery and read receipts, profile management, media sharing, and live socket-based updates.
 

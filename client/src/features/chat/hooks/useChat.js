@@ -13,6 +13,7 @@ import {
   setLoadingOlderMessages,
   addBlockedUser,
   removeBlockedUser,
+  deleteChat,
 } from "../store/chatReducer";
 import {
   selectSortedChats,
@@ -24,11 +25,14 @@ import {
   selectIsUserBlocked,
 } from "../store/chatSelectors";
 import { getMessageStatus } from "../store/statusUtils";
+import * as messageDb from "../local/messageDb";
 import {
   archiveChatApi,
   setMuteApi,
   blockUserApi,
   unblockUserApi,
+  deleteChatApi,
+  fetchMyChats,
 } from "../api/chatThunk";
 
 export const useChat = () => {
@@ -139,6 +143,25 @@ export const useChat = () => {
     [dispatch],
   );
 
+  // "Delete chat for me": optimistic — the chat vanishes from both
+  // lists immediately, the local (IndexedDB) history is wiped, then
+  // the server marks the participant row deleted. If the server call
+  // fails, refetch the chats to restore the pre-delete state.
+  const deleteChatWithApi = useCallback(
+    (id) => {
+      if (!id) return;
+      dispatch(deleteChat(id));
+      messageDb.deleteConversation(id);
+      dispatch(deleteChatApi(id))
+        .unwrap()
+        .catch(() => {
+          toast.error("Could not delete chat. Try again.");
+          dispatch(fetchMyChats());
+        });
+    },
+    [dispatch],
+  );
+
   return {
     chats,
     archivedChats,
@@ -160,6 +183,7 @@ export const useChat = () => {
     setMuted: setChatMutedWithApi,
     blockUser: blockUserWithApi,
     unblockUser: unblockUserWithApi,
+    deleteChat: deleteChatWithApi,
     markAsRead: () => {
       if (selectedChat) {
         dispatch(markMessagesRead({ conversationId: selectedChat.id }));

@@ -27,6 +27,7 @@ const ENDPOINTS = {
     STARRED: "/chats/starred-messages",
     ARCHIVE: "/chats/conversation/:conversationId/archive",
     MUTE: "/chats/conversation/:conversationId/mute",
+    DELETE_CHAT: "/chats/conversation/:conversationId",
   },
   CALLS: {
     HISTORY: "/calls/history",

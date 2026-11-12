@@ -82,5 +82,10 @@ router.post(
   validateBody(muteSchema),
   chatController.setMute,
 );
+router.delete(
+  "/conversation/:conversationId",
+  checkForJwt(),
+  chatController.deleteChat,
+);
 
 module.exports = router;

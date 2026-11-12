@@ -256,6 +256,32 @@ class ChatController {
     }
   };
 
+  // DELETE /api/chats/conversation/:conversationId
+  // "Delete chat for me": hides the conversation for the caller only;
+  // the other participant keeps the chat. Confirmation is emitted to
+  // this user's devices so every tab drops the chat in step.
+  deleteChat = async (req, res, next) => {
+    try {
+      const { conversationId } = req.params;
+      const userId = req.user.id;
+
+      if (!uuidValidate(conversationId)) {
+        return res.status(400).json({ message: "Invalid delete request" });
+      }
+
+      const result = await this.chatService.deleteForMe(
+        conversationId,
+        userId,
+      );
+
+      notifyEvent("chat_deleted", { conversationId }, [userId]);
+
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // PUT/DELETE /api/chats/conversation/:conversationId/messages/:messageId/reaction
   setReaction = async (req, res, next) => {
     try {

@@ -213,6 +213,10 @@ class ChatService {
     await this.messageRepo.initializeMessageStatuses(message.id, recipientIds);
     await this.chatRepo.updateLastMessage(conversationId);
 
+    // New activity un-deletes the conversation for anyone who had
+    // hidden it ("delete for me"), so they never miss incoming traffic.
+    await this.chatRepo.clearParticipantDeletedForConversation(conversationId);
+
     return { message, created: true, participants };
   }
 
@@ -306,6 +310,25 @@ class ChatService {
     }
 
     return { conversationId, muted: updated.is_muted };
+  }
+
+  // "Delete chat for me": hides the conversation from this user's chat
+  // list only. The conversation, its messages and the other
+  // participants are untouched — deleting again later is also fine.
+  async deleteForMe(conversationId, userId) {
+    await assertConversationParticipant(conversationId, userId);
+
+    const updated = await this.chatRepo.setParticipantDeleted(
+      conversationId,
+      userId,
+      true,
+    );
+
+    if (!updated) {
+      throw new AppError("Conversation not found", 404);
+    }
+
+    return { conversationId, deleted: true };
   }
 
   // -------------------------------------------------------------

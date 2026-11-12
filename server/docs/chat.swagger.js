@@ -617,3 +617,41 @@
  *       404:
  *         description: Conversation not found
  */
+
+/**
+ * @swagger
+ * /chats/conversation/{conversationId}:
+ *   delete:
+ *     summary: Delete a chat for me (per-user flag)
+ *     tags: [Chat]
+ *     description: Hides the conversation from the caller's chat list only. The other participant and the message history are untouched. Emits `chat_deleted` to the acting user's devices only. If a new message later arrives in the conversation, the chat reappears.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Chat deleted for the current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 conversationId:
+ *                   type: string
+ *                   format: uuid
+ *                 deleted:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid conversationId
+ *       403:
+ *         description: Not a participant
+ *       404:
+ *         description: Conversation not found
+ */

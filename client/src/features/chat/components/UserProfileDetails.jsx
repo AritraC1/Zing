@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { getAvatarGradient } from "../../../shared/utils/avatarGradient";
 import { useChat } from "../hooks/useChat";
@@ -36,12 +37,14 @@ const UserProfileDetails = ({ chat, onClose }) => {
     blockUser,
     unblockUser,
     isChatBlocked,
+    deleteChat,
   } = useChat();
   const { callState, startCall } = useCall();
 
   const avatarUrl = chat?.profilePic || chat?.avatarUrl;
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [viewerItem, setViewerItem] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isBlocked = Boolean(
     chat?.otherUserId && blockedUserIds.includes(chat.otherUserId),
@@ -82,10 +85,30 @@ const UserProfileDetails = ({ chat, onClose }) => {
   };
 
   // Reset transient state when switching to a different chat.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setAvatarFailed(false);
     setViewerItem(null);
+    setShowDeleteConfirm(false);
   }, [chat?.id]);
+
+  // Dismiss confirmation popup on Escape key
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setShowDeleteConfirm(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showDeleteConfirm]);
+
+  const handleConfirmDelete = () => {
+    if (!chat?.id) return;
+    deleteChat(chat.id);
+    toast.success("Chat deleted.");
+    setShowDeleteConfirm(false);
+    onClose();
+  };
 
   // Shared media from this conversation — most recent first, capped at
   // MAX_SHARED_MEDIA thumbnails. `total` keeps the full count so the
@@ -320,6 +343,10 @@ const UserProfileDetails = ({ chat, onClose }) => {
               iconBg="bg-red-100"
               iconColor="text-red-500"
               labelColor="text-red-500"
+              onClick={() => {
+                if (!chat?.id) return;
+                setShowDeleteConfirm(true);
+              }}
             />
           </div>
         </div>
@@ -332,6 +359,52 @@ const UserProfileDetails = ({ chat, onClose }) => {
           onClose={() => setViewerItem(null)}
         />
       )}
+
+      {/* Delete Chat Confirmation Modal */}
+      {showDeleteConfirm &&
+        (typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                <div
+                  className="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl flex flex-col gap-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-11 h-11 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
+                    <Trash2 size={22} />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-bold text-gray-900 text-base">
+                      Delete Chat?
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                      Delete this chat from your chat list? Only you will lose it
+                      — the other person keeps their copy.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 py-2.5 px-3 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmDelete}
+                      className="flex-1 py-2.5 px-3 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-xs cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null)}
     </div>
   );
 };
